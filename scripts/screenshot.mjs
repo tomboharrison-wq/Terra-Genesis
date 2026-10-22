@@ -231,6 +231,18 @@ const co = await eng(() => {
 check('sea-level rise floods more cells', co.s1 > co.s0, `${co.s0} → ${co.s1} sea cells`);
 check('waves erode the headlands coast', co.waves && co.cliff > 1000, `cliff erosion ${co.cliff.toFixed(0)} m³`);
 
+// --- Arch lab (M05-C05): guided cave → arch → stack → stump voxel model ---
+await page.click('.rail-btn:has-text("Coast")');
+await page.click('text=Open cave, arch, stack and stump lab');
+await page.waitForSelector('.arch-view canvas');
+await page.click('.dialog button.primary:has-text("Play")');
+await page.waitForFunction(() => document.querySelector('.arch-stages li.now')?.getAttribute('data-stage') === 'stack', null, { timeout: 240000 }).catch(() => {});
+await page.click('.dialog button.primary:has-text("Pause")').catch(() => {});
+await shot('23-arch-lab-stack');
+const archSeen = await page.$$eval('.arch-stages li', (els) => els.map((e) => e.getAttribute('data-stage') + ':' + e.querySelector('span').textContent));
+check('arch lab reaches the stack stage via cave and arch', archSeen.slice(1, 4).every((s) => /step \d+/.test(s)), archSeen.join(' '));
+await page.click('.dialog [aria-label="Close"]');
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

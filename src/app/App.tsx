@@ -10,6 +10,7 @@ import { HelpDialog } from './HelpDialog';
 import { Toasts } from './Toasts';
 import { TimeBar } from './TimeBar';
 import { SlumpLab } from './SlumpLab';
+import { ArchLab } from './ArchLab';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
@@ -38,6 +39,7 @@ export function App() {
       {dialog === 'load' && <LoadDialog />}
       {dialog === 'help' && <HelpDialog />}
       {dialog === 'slump' && <SlumpLab />}
+      {dialog === 'arch' && <ArchLab />}
     </div>
   );
 }

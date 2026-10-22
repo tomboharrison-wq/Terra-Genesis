@@ -17,6 +17,9 @@ Verified working:
 - M05-C04 (partial): ray-fan wave field (diffraction/shelter proxy), onshore shelf transport (shore ahead),
   surf-zone smoothing. Tombolo/salient emerges in an island's lee (test). Beach-face drift (swash zone mobile, never into
   open water, straight-ahead tip rule) grows emergent attached spits from coast ends (test).
+- M05-C05 cave→arch→stack→stump lab (src/local/arch/model.ts, src/app/ArchLab.tsx, Coast panel button): 48×40×30 m
+  voxel chalk headland with a joint; wave BFS energy (caves attenuate, surge rises inside, bays ×0.15), weathering,
+  unsupported rock falls; stages detected from topology (monotone). Default run: cave 6 → arch 45 → stack 87 → stump 388.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 - Headlands preset: straight coast across chalk/clay bands, waves from S, ×1000: clay bays retreat 2–3 cells
   vs chalk headlands in 4 accelerated days (96² CPU run).
@@ -26,10 +29,10 @@ Known failures / gaps:
 - Bay-mouth bars enclosing lagoons and clean recurves NOT reliable with grid drift (spits angle offshore under
   high-angle waves); a one-line shoreline model is the planned fix (backlog M05-C04b).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
-- Caves/arches/stacks need the local 3D model (M05-C05). Inland cells below sea level count as sea.
+- Arch lab is not yet driven by the world's wave climate/lithology (M05-C06). Inland cells below sea level count as sea.
 
 Relevant paths: src/sim/coast/{coastSim,params}.ts, src/engine/engine.ts (setSeaLevel, coastHook),
 src/app/CoastPanel.tsx, src/terrain/{settle,generate}.ts, src/renderer/TerrainScene.ts ('waves' overlay)
-Last checks: typecheck PASS · npm test PASS (110) · build PASS · e2e PASS 22/22 · gpu-check 7/7 (M04)
+Last checks: typecheck PASS · npm test PASS (116) · build PASS · e2e PASS 23/23 · gpu-check 7/7 (M04)
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

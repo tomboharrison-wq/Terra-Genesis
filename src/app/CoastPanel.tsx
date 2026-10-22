@@ -73,6 +73,11 @@ export function CoastPanel() {
         <dd>{fmtVol(c.drifted)}</dd>
       </dl>
       <p className="hint small">Coastal changes run every 10 simulated minutes and use the Erosion panel's geomorphic acceleration.</p>
+      <h3>Headland landforms</h3>
+      <button className="small" onClick={() => set({ dialog: 'arch' })}>
+        Open cave, arch, stack and stump lab (3D)
+      </button>
+      <p className="hint small">Caves, arches and stacks are overhanging 3D shapes a height map cannot hold, so they are shown in their own guided voxel model.</p>
     </section>
   );
 }

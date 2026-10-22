@@ -50,3 +50,8 @@
 ## M05-C04a — Spits
 - Beach sand now keeps moving in the swash zone even after it emerges, and drift cannot turn sharp corners: at the end of a coast it builds an emergent sand spit attached to the land.
 - Not yet: bars closing bays into lagoons, cleanly recurved spit tips.
+
+## M05-C05 — Cave, arch, stack and stump lab
+- New guided 3D model (Coast panel → "Open cave, arch, stack and stump lab"): a 1 m voxel chalk headland with a joint is attacked by waves at sea level and weathered above it; rock left unsupported falls.
+- Stages are detected from the rock's shape (sea passing through = arch, rock cut off from the mainland above high water = stack), shown as a labelled stage strip with the step each was reached.
+- Orbitable 3D view, play/pause/step/reset, speed and joint-weakness controls, eroded/fallen volume readouts.

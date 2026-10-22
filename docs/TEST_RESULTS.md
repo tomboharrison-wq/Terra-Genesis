@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C05
+- npm test PASS 116 (+ arch: stages in order headland→cave→arch→stack→stump; at arch a water path crosses the headland while all rock above high water is still joined to the mainland; at stack >20 voxels above high water are cut off; stump ≤ high water; voxel ledger initial − now = eroded + fallen every step; deterministic; seed 11 gives the same sequence; reset)
+- e2e PASS 23/23 (+ arch lab reaches stack via cave and arch in the browser)
+- Tuning found: weathering 0.004 let the seaward block hang from the roof until its foot was cut, so it fell whole (no stack); 0.01 breaks the roof first. Bay shores ×0.15 stop the mainland being undercut into a floating slab.
+
 ## 2026-10-22 M05-C04a
 - npm test PASS 110 (spit test now asserts an emergent spit ≥4 land cells beyond the coast end, land-connected, sand conserved 1e-5; tombolo still passes)
 - Explored: bay-mouth bar (spit reaches ~65% across a 12-cell mouth, then angles offshore; lagoon not enclosed), recurve (inconclusive). Logged as M05-C04b.
