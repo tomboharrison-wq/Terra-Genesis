@@ -20,3 +20,4 @@
 - 2026-10-22 — Stratigraphy by absolute elevation per cell (3 boundaries / 4 layers), not by thickness: erosion can never make a layer negative and exposure is a pure lookup (CPU + GPU). materialId kept as derived exposed lithology for compatibility.
 - 2026-10-22 — Weathering demand accumulates in a pending store (CPU array / GPU bed.a) because per-step production is below float32 resolution at high elevations.
 - 2026-10-22 — Slope stability uses a saturation proxy (surface water depth or rain intensity) until a soil-moisture field exists (M06).
+- 2026-10-22 — Rotational slumping is a separate guided 2D model (Fellenius method of slices + rigid rotation about the critical circle + equal-area toe lobe), labelled as such and not coupled to the heightfield; the map uses generalised mass movement.

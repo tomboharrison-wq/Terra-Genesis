@@ -119,6 +119,10 @@ export function ToolPanel() {
         <>
           <LogSlider label="Zone radius" unit="m" value={s.radiusM} min={cs * 1.5} max={extent / 3} onChange={(v) => s.set({ radiusM: v })} />
           <p className="hint small">Saturation lowers the stable angle of debris to half its dry value and weakens rock in the zone. Where nothing is steep enough, nothing moves.</p>
+          <button className="small" onClick={() => s.set({ dialog: 'slump' })}>
+            Open rotational slump lab (cross-section)
+          </button>
+          <p className="hint small">The map shows generalised mass movement; curved-slip rotational slumping is shown in its own guided cross-section model.</p>
         </>
       )}
       {(measure || s.profile) && <ProfilePanel />}

@@ -99,7 +99,7 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help';
+  dialog: null | 'new' | 'load' | 'help' | 'slump';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;

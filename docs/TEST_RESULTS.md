@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M04-C04
+- npm test PASS 97 (+ slump: FoS falls with saturation, dry gentle stable / wet steep fails, slip surface below ground, area conserved block+lobe, scarp + back-tilt, base stays on circle, stable doesn't move)
+- FoS table (teaching strengths): 15 m @30° clay dry 1.43 → saturated 0.95; 25 m @45° dry 0.86; 30 m @60° dry 0.61.
+- Browser: slump lab renders, dry 18 m/35° FoS 1.20 stands; saturated 0.78 fails (crown drop 3.4 m, tilt 8°). docs/reference/m04-slump-lab.png
+
 ## 2026-10-22 M04-C01..C03
 - typecheck PASS · npm test PASS 91 (strata: layer lookup, brush exposure + undo, paint layer, cap-rock 1.38× erosion, plateau, format v4; weathering; avalanche to repose; clay cliff fails / granite stands; wet pile flatter; landslide conserve + undo; gentle ground stable)
 - gpu-check PASS 7/7 (caprock 0 lithology mismatches; cliff-failure rockfall CPU=GPU 65,999.2 m³)

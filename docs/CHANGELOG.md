@@ -31,3 +31,6 @@
 - Rock now has layers: cut through a hard cap and the weaker rock beneath is exposed and erodes faster; cliffs show their layers.
 - Bare rock weathers into soil (weak rock and wet ground faster). Steep debris avalanches, over-steep cliffs collapse into rubble — both easier when saturated.
 - Landslide tool (Events): click a slope to saturate it and watch it fail; undoable.
+
+## M04-C04 — Rotational slump lab
+- A cross-section "lab" (Landslide panel → Open rotational slump lab): choose material, cliff height, face angle and saturation; it finds the critical curved slip surface and its factor of safety, and when it drops below 1 animates the block rotating back, exposing a back scarp and building a toe. Labelled as a guided model.

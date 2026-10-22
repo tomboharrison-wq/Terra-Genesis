@@ -1,11 +1,11 @@
 # One next executable task
-ID: M04-C04
-Goal: Guided local model of a rotational slump: a small high-resolution 2D cross-section (or 3D local mesh) of a saturated cohesive cliff where a circular slip surface is found by minimum factor of safety (simplified Bishop/Fellenius), the detached block rotates backward along the arc, exposing a back scarp and building a toe; rendered as real geometry in an inset/local view, clearly labelled "guided model".
-Why now: E4 requires it; it is also the core of the coastal slumping lesson (M10). C01–C03 global slope physics is done.
-Read only: spec E4 (`sed -n 417,424p docs/MASTER_SPEC.md`), src/sim/slopes/landslide.ts, src/renderer/TerrainScene.ts.
-Change only: new src/local/slump/{model,render}.ts, a tool/panel to open it, tests/slump.test.ts.
-Acceptance: factor of safety decreases with saturation; failure only below FoS 1; block area conserved (no hovering geometry); scarp + toe present; tests pass.
-Do not touch: global solvers.
-Done when: tests/typecheck/build/e2e pass, committed + pushed.
-If interrupted: check model.ts tests first, then rendering.
-Next candidate: M05-C01 shoreline + controllable sea level.
+ID: M05-C01
+Goal: Sea level becomes a live control (slider in a Coast panel) that re-derives the coastline (sea mask) for water + sediment on CPU and GPU, with the shoreline drawn crisply; ocean shading improved (depth colour already from heightmap). Sea-level change ledgers water exchange correctly.
+Why now: M04 done; coasts (spec E6, `sed -n 431,446p docs/MASTER_SPEC.md`) start from a controllable shoreline.
+Read only: src/engine/engine.ts, src/sim/water/{waterSim,gpuWater}.ts (sea = z < seaLevel), src/renderer/{TerrainScene,shaders,waterLayer}.ts.
+Change only: engine (setSeaLevel), renderer sea plane update, new src/app/CoastPanel.tsx, tests.
+Acceptance: raising sea level floods low land (sea mask grows), lowering exposes shelf; water/sediment ledgers still close; GPU and CPU agree; e2e check.
+Do not touch: erosion numerics.
+Done when: tests/typecheck/build/e2e/gpu-check pass, committed + pushed.
+If interrupted: engine setter + tests first, then renderer, then UI.
+Next candidate: M05-C02 wave energy/incidence and lithology-dependent cliff retreat.

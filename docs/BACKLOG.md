@@ -2,7 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M04-C04 | Local curved-slip rotational slump prototype | READY |
+| M05-C01 | Shoreline + controllable sea level + ocean visuals | READY |
+| M05-C02 | Wave energy/incidence, geology-dependent coastal retreat | TODO |
+| M05-C03 | Alongshore drift, beach/spit growth | TODO |
+| M04-C04 | Rotational slump lab (guided 2D model) | DONE |
 | M04-C03 | Avalanching, rockfall, saturation proxy, Landslide tool | DONE |
 | M04-C02 | Weathering with pending store | DONE |
 | M04-C01 | Layered stratigraphy, exposure by erosion, strata on cliffs | DONE |
