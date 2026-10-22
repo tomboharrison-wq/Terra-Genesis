@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C06a
+- npm test PASS 120 (+ coastal slump: apron raises FoS monotonically and is real ground; ≥2 slumps in 160 yr, each repeat only after debris removed, ledger slumped − removed = debris, crest retreat = Σ events; no waves ⇒ ≤1 slump and apron kept; stronger waves ⇒ more slumps, more retreat)
+- e2e PASS 24/24 (+ coastal cycle: 2 slumps, 35.9 m retreat in 150 yr in the browser)
+
 ## 2026-10-22 M05-C05
 - npm test PASS 116 (+ arch: stages in order headland→cave→arch→stack→stump; at arch a water path crosses the headland while all rock above high water is still joined to the mainland; at stack >20 voxels above high water are cut off; stump ≤ high water; voxel ledger initial − now = eroded + fallen every step; deterministic; seed 11 gives the same sequence; reset)
 - e2e PASS 23/23 (+ arch lab reaches stack via cave and arch in the browser)

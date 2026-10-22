@@ -1,5 +1,5 @@
 # One next executable task
-ID: M05-C06
+ID: M05-C06b (C06a coastal slump DONE)
 Goal: Finish spec E6 local models. (a) Coastal slump: slump lab gets a "coastal" mode in which the toe lobe sits
 at the cliff foot and waves remove it over time (protective temporary toe debris), so the FoS drops again and a
 second slump follows. (b) Arch lab "Use this world's coast": seed waveRate from the Coast panel wave power and

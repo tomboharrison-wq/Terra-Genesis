@@ -253,3 +253,7 @@ table.values th:first-child, table.values td:first-child { text-align: left; }
 .arch-text { margin: 0 0 8px; font-size: 13px; min-height: 2.6em; }
 .arch-view { height: min(380px, 48vh); border-radius: 10px; overflow: hidden; border: 1px solid var(--panel-border); }
 @media (max-width: 600px) { .arch-stages { grid-template-columns: repeat(3, 1fr); } }
+.slump-mode { margin-bottom: 10px; }
+.fos-chart { margin-top: 8px; cursor: crosshair; }
+.chart-label { font-size: 11px; fill: #4a463f; }
+.chart-tip { font-size: 12px; font-weight: 700; fill: #1d1a16; paint-order: stroke; stroke: #f4f1ea; stroke-width: 3px; }

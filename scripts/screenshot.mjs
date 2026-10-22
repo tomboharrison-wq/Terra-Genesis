@@ -243,6 +243,16 @@ const archSeen = await page.$$eval('.arch-stages li', (els) => els.map((e) => e.
 check('arch lab reaches the stack stage via cave and arch', archSeen.slice(1, 4).every((s) => /step \d+/.test(s)), archSeen.join(' '));
 await page.click('.dialog [aria-label="Close"]');
 
+// --- Coastal slump cycle (M05-C06) in the slump lab ---
+await page.click('.rail-btn:has-text("Landslide")');
+await page.click('text=Open rotational slump lab');
+await page.click('text=Coastal cycle');
+for (let k = 0; k < 15; k++) await page.click('.dialog button:has-text("+10 years")');
+const cs = await page.textContent('.slump-readout');
+await shot('24-coastal-slump');
+check('coastal slump cycle: repeated slumps and cliff retreat', /Year 150/.test(cs) && +(cs.match(/Slumps (\d+)/)?.[1] ?? 0) >= 2, cs);
+await page.click('.dialog [aria-label="Close"]');
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

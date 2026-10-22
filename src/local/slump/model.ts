@@ -25,6 +25,8 @@ export interface SlumpParams {
   unitWeightKNm3: number;
   /** 0 = dry, 1 = fully saturated. */
   saturation: number;
+  /** Cross-sectional area of slumped debris resting against the toe (m² per metre of cliff). */
+  toeDebrisM2?: number;
 }
 
 export interface Circle {
@@ -56,11 +58,33 @@ export const SOIL_PRESETS: Record<string, Omit<SlumpParams, 'heightM' | 'faceDeg
   sand: { label: 'Weak sandstone / sand', cohesionKPa: 6, frictionDeg: 34, unitWeightKNm3: 19 },
 };
 
+/**
+ * Toe debris apron: flat-topped at height h against the face, then sloping seaward at
+ * tan(φ/2) to the ground. Area h²/2 · (1/tan β + 1/s) = toeDebrisM2.
+ */
+export function debrisWedge(p: SlumpParams): { h: number; x0: number; xt: number; x1: number } | null {
+  const A = p.toeDebrisM2 ?? 0;
+  if (A <= 0) return null;
+  const tb = Math.tan((p.faceDeg * Math.PI) / 180);
+  const s = Math.tan(((p.frictionDeg / 2) * Math.PI) / 180);
+  const h = Math.min(p.heightM, Math.sqrt((2 * A) / (1 / tb + 1 / s)));
+  const xt = p.heightM / tb;
+  return { h, x0: xt - h / tb, xt, x1: xt + h / s };
+}
+
 export function ground(p: SlumpParams, x: number): number {
   const xt = p.heightM / Math.tan((p.faceDeg * Math.PI) / 180);
-  if (x <= 0) return p.heightM;
-  if (x >= xt) return 0;
-  return p.heightM * (1 - x / xt);
+  const face = x <= 0 ? p.heightM : x >= xt ? 0 : p.heightM * (1 - x / xt);
+  const w = debrisWedge(p);
+  if (!w) return face;
+  const apron = x <= w.xt ? w.h : x < w.x1 ? w.h * (1 - (x - w.xt) / (w.x1 - w.xt)) : 0;
+  return Math.max(face, apron);
+}
+
+/** Profile breakpoints (where ground() has kinks). */
+function breakpoints(p: SlumpParams): number[] {
+  const w = debrisWedge(p);
+  return w ? [0, w.x0, w.xt, w.x1] : [0, toeX(p)];
 }
 
 export function toeX(p: SlumpParams): number {
@@ -127,6 +151,8 @@ export function circleThrough(p: SlumpParams, xIn: number, xOut: number, r: numb
 export function criticalCircle(p: SlumpParams): { circle: Circle | null; fos: number } {
   const H = p.heightM;
   const xt = toeX(p);
+  const apron = debrisWedge(p);
+  const reach = xt + 0.6 * H + (apron ? apron.x1 - apron.xt : 0);
   let best: Circle | null = null;
   let bestF = Infinity;
   const NI = 30;
@@ -135,7 +161,7 @@ export function criticalCircle(p: SlumpParams): { circle: Circle | null; fos: nu
   for (let a = 0; a < NI; a++) {
     const xIn = -1.5 * H + (a / (NI - 1)) * (1.5 * H + 0.8 * xt);
     for (let o = 0; o < NO; o++) {
-      const xOut = Math.max(xIn + 0.2 * H, xt * 0.3) + (o / (NO - 1)) * (xt + 0.6 * H);
+      const xOut = Math.max(xIn + 0.2 * H, xt * 0.3) + (o / (NO - 1)) * reach;
       if (xOut <= xIn) continue;
       const chord = Math.hypot(xOut - xIn, ground(p, xOut) - ground(p, xIn));
       for (let k = 0; k < NR; k++) {
@@ -164,8 +190,7 @@ export function rotate(pt: Pt, c: Circle, theta: number): Pt {
 /** Block polygon: ground surface from entry to exit, then the arc back to the entry. */
 export function blockPolygon(p: SlumpParams, c: Circle, n = 60): Pt[] {
   const pts: Pt[] = [];
-  const xt = toeX(p);
-  const xs = [c.xIn, ...[0, xt].filter((x) => x > c.xIn && x < c.xOut), c.xOut];
+  const xs = [c.xIn, ...breakpoints(p).filter((x) => x > c.xIn && x < c.xOut).sort((a, b) => a - b), c.xOut];
   for (let k = 0; k < xs.length; k++) pts.push({ x: xs[k], z: ground(p, xs[k]) });
   for (let k = n - 1; k >= 1; k--) {
     const x = c.xIn + (k / n) * (c.xOut - c.xIn);

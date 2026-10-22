@@ -55,3 +55,7 @@
 - New guided 3D model (Coast panel → "Open cave, arch, stack and stump lab"): a 1 m voxel chalk headland with a joint is attacked by waves at sea level and weathered above it; rock left unsupported falls.
 - Stages are detected from the rock's shape (sea passing through = arch, rock cut off from the mainland above high water = stack), shown as a labelled stage strip with the step each was reached.
 - Orbitable 3D view, play/pause/step/reset, speed and joint-weakness controls, eroded/fallen volume readouts.
+
+## M05-C06a — Coastal slumping cycle
+- Slump lab gains a "Coastal cycle" mode: slumped material rests at the cliff foot and props the cliff up until waves carry it away; then waves cut the toe, the face steepens and the next slump follows.
+- Year-by-year factor-of-safety chart with slump markers, toe-debris and cliff-retreat readouts; material, height, saturation and wave-energy controls.
