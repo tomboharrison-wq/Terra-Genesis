@@ -5,6 +5,7 @@ import { useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
 import { materialById } from '../terrain/materials';
+import { MM_PER_H } from '../engine/world';
 
 function currentBrush(): BrushParams | null {
   const s = useUi.getState();
@@ -37,6 +38,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     materialName: materialById(w.materialId[i]).name,
     waterDepthM: w.waterDepthM[i],
     waterSpeedMS: Math.hypot(engine.water.vx[i], engine.water.vy[i]),
+    ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
   };
 }

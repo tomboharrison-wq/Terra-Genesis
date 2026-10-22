@@ -263,3 +263,9 @@ table.values th:first-child, table.values td:first-child { text-align: left; }
 .shore-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
 .shore-legend i.dash { background: none; border-top: 2px dashed currentColor; height: 0; width: 16px; vertical-align: 3px; }
 .coast-panel > button + button { margin-top: 6px; }
+.legend .ramp.temperature { background: linear-gradient(90deg, #2a5fa8, #dedbd2 40%, #c8402a); } /* 0 °C sits 40 % along (−20 … +30) */
+.legend .ramp.rainfall { background: linear-gradient(90deg, #b4c6d3, #0a3a6b); }
+.compass-row { display: flex; align-items: center; gap: 10px; }
+.compass { width: 54px; height: 54px; flex: none; }
+fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
+fieldset.plain:disabled { opacity: 0.45; }

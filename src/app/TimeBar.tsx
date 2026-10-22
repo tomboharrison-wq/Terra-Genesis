@@ -96,6 +96,22 @@ export function TimeBar() {
           <span>+10 m</span>
         </div>
       )}
+      {terrainOverlay === 'temperature' && (
+        <div className="legend" aria-label="Temperature legend">
+          <i className="ramp temperature" />
+          <span>−20 °C</span>
+          <span>0</span>
+          <span>+30 °C</span>
+        </div>
+      )}
+      {terrainOverlay === 'rainfall' && (
+        <div className="legend" aria-label="Rainfall legend">
+          <i className="ramp rainfall" />
+          <span>none</span>
+          <span>1.5× mean</span>
+          <span>3× mean</span>
+        </div>
+      )}
       {terrainOverlay === 'waves' && (
         <div className="legend" aria-label="Wave attack legend">
           <i className="ramp waves" />

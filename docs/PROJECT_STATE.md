@@ -27,6 +27,9 @@ Verified working:
 - M05-C04b beaches/spits/bars lab (src/local/shoreline/model.ts, ShorelineLab.tsx): CEM-style one-line model, traced
   shoreline, CERC flux, shadowing, corner diffraction; bay-mouth bar closes lagoon ~yr 21; mixed waves → recurve. Not
   yet coupled to the world map (M05-C04c).
+- M06-C01 climate (src/sim/climate/climate.ts, Engine.setClimateParams, ClimatePanel, temperature/rainfall overlays):
+  T = T0 + season − lapse·z; rain factor = saturating windward uplift × upwind-barrier shadow, mean 1 over land;
+  evap ∝ exp(0.065ΔT), 0 below 0 °C. CPU + GPU (climate texture; GPU evaporation counted in state.a). Format v5.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 - Headlands preset: straight coast across chalk/clay bands, waves from S, ×1000: clay bays retreat 2–3 cells
   vs chalk headlands in 4 accelerated days (96² CPU run).
@@ -39,6 +42,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/coast/{coastSim,params}.ts, src/engine/engine.ts (setSeaLevel, coastHook),
 src/app/CoastPanel.tsx, src/terrain/{settle,generate}.ts, src/renderer/TerrainScene.ts ('waves' overlay)
-Last checks: typecheck PASS · npm test PASS (130) · build PASS · e2e PASS 26/26 · gpu-check 7/7 (M04)
+Last checks: typecheck PASS · npm test PASS (138) · build PASS · e2e PASS 28/28 · gpu-check 8/8 · gpu-check 7/7 (M04)
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

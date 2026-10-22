@@ -1,7 +1,8 @@
 import type { CellRect } from '../utils/rect';
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
+import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 
-export const WORLD_FORMAT_VERSION = 4;
+export const WORLD_FORMAT_VERSION = 5;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -117,6 +118,8 @@ export interface WorldState {
   erosion: ErosionParams;
   /** Wave climate and coastal process parameters (spec E6). */
   coast: CoastParams;
+  /** Climate: temperature, season, wind, orographic rain (spec E7). */
+  climate: ClimateParams;
   meta: WorldMeta;
 }
 
@@ -155,6 +158,7 @@ export function createWorld(init: WorldInit): WorldState {
     sedimentSuspendedM: new Float32Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
+    climate: defaultClimateParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -251,6 +255,7 @@ export function cloneWorld(w: WorldState): WorldState {
     sedimentSuspendedM: w.sedimentSuspendedM.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
+    climate: { ...w.climate },
     meta: { ...w.meta },
   };
 }

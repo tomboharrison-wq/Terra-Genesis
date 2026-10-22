@@ -32,7 +32,7 @@ export function WaterPanel() {
   return (
     <section className="water-panel">
       <h3>Water &amp; weather</h3>
-      <MmSlider label="Rainfall (whole map)" value={sim.rainMmH} max={300} onChange={(v) => engine.setWaterParams({ rainMPerS: v * MM_PER_H })} title="Rain adds real water volume to every land cell each step." />
+      <MmSlider label={sim.climate.enabled ? 'Rainfall (map average)' : 'Rainfall (whole map)'} value={sim.rainMmH} max={300} onChange={(v) => engine.setWaterParams({ rainMPerS: v * MM_PER_H })} title="Rain adds real water volume to every land cell each step." />
       <p className="hint small tight">{rainNote}. UK heavy storms ≈ 20–50 mm/h; higher values speed up river formation.</p>
       <MmSlider label="Infiltration" value={sim.infMmH} max={50} onChange={(v) => engine.setWaterParams({ infiltrationMPerS: v * MM_PER_H })} title="Water soaking into the ground (removed and ledgered; groundwater arrives later)." />
       <MmSlider label="Evaporation" value={sim.evapMmH} max={10} onChange={(v) => engine.setWaterParams({ evaporationMPerS: v * MM_PER_H })} />

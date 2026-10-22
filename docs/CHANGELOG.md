@@ -69,3 +69,9 @@
 - New guided plan-view model (Coast panel → "Open beaches, spits and bars lab"): a one-line shoreline model in which waves drawn from a climate drift sand along the coast.
 - A spit grows across a bay mouth until it closes as a bar, leaving a lagoon; at a coast end the spit grows into open water, and mixed wave directions curl its tip into a recurve.
 - Controls for coast shape, share of waves from each side, high-angle waves and updrift sand supply; lagoon area, spit length and sand in/out readouts.
+
+## M06-C01 — Climate
+- New Climate tool (K): temperature falls with height (adjustable lapse rate), a time-of-year slider or seasons that follow simulated time, and a prevailing wind.
+- Rain is heavier on slopes the wind blows up and lighter in the rain shadow behind high ground; the rainfall setting is the map average, so total rain is unchanged.
+- Evaporation rises with temperature and stops below freezing. Temperature and rainfall map colours with legends; the inspector shows local temperature and rain.
+- Runs on both the GPU and CPU water solvers with exact water budgets; climate settings are saved (older saves load with climate off).

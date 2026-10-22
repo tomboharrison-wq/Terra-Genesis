@@ -1,12 +1,11 @@
 # One next executable task
-ID: M06-C01
-Goal: Climate layer (spec E7): world climate params (mean sea-level temperature, lapse rate °C/km, seasonal
-amplitude + season phase, prevailing wind direction, moisture). Derived per-cell fields: temperature
-T = T0 − lapse·z + seasonal term; rainfall = base × (1 + orographic uplift on windward slopes) with leeward
-rain-shadow decay along the wind; evaporation scales with temperature. Rain/evap feed the existing water
-forcing + ledger (replace the uniform rate when "climate" is on). Climate panel + temperature/rainfall overlays.
-Read only: spec E7 (`sed -n '/^## E7/,/^## E8/p' docs/MASTER_SPEC.md`), src/sim/water/waterSim.ts forcing,
-src/engine/world.ts params, src/app/WaterPanel.tsx.
-Acceptance: windward > leeward rainfall over a ridge; T falls with height at the lapse rate; water ledger closes
-with spatial rain; uniform mode unchanged; season changes T; save format bump with migration.
-Done when: tests/typecheck/build/e2e pass, committed + pushed.
+ID: M06-C02
+Goal: Snow (spec E8 first part). Per-cell snow water equivalent field (m, SI) in WorldState (format v6):
+precipitation falls as snow where climate temperature < 0 °C (rain factor still applies), melts by a degree-day
+law M = DDF·max(0, T)·dt (DDF ≈ 4 mm/°C/day) into surface water; snow ledger (fallen, melted, stored) tied to the
+water ledger (snow is water in storage). CPU reference + GPU pass (snow in a texture channel). Snow cover rendered
+white on terrain from real SWE; inspector shows SWE; Climate panel shows snow volume + snowline.
+Read only: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater}.ts forcing, src/renderer/TerrainScene.ts colours.
+Acceptance: cold cells accumulate, warm cells rain; melt returns exactly the stored SWE; combined water+snow ledger
+closes CPU and GPU (gpu-check case); seasonal cycle builds then melts a snowpack; old files load with no snow.
+Done when: tests/typecheck/build/e2e/gpu-check pass, committed + pushed.

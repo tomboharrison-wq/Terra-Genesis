@@ -26,8 +26,9 @@ import { MATERIALS } from '../../terrain/materials';
  *           erosion through a hard cap immediately meets the weaker rock below.
  *   state:  r = water depth d, g = vx, b = vy (m/s)
  *   flux:   outflow discharge west, east, south, north (m³/s)
- *   acc:    water depth-equivalents since last sync: lost (infiltration+evaporation, split by
- *           their rate ratio on sync), rain added, into sea, off edges
+ *   state.a: evaporated depth since last sync (climate makes evaporation vary per cell)
+ *   acc:    water depth-equivalents since last sync: infiltrated, rain added, into sea, off edges
+ *   climate: r = rain factor, g = evaporation factor (static; re-uploaded when the climate changes)
  *   sedA:   sediment since last sync (m): eroded loose, eroded bedrock, deposited on land, exported
  *   sedB:   r = deposited on the sea floor, g = weathered, b = rockfall (m)
  * Accumulators are folded into the CPU ledgers (× cell area) on sync and cleared. Rain is
@@ -62,6 +63,7 @@ uniform sampler2D uAcc;
 uniform float uRain;
 uniform float uInf;
 uniform float uEvap;
+uniform sampler2D uClimate; // r = rain factor, g = evaporation factor (climate; 1 = uniform)
 uniform vec4 uSrc[${MAX_SOURCES}];
 uniform int uNSrc;
 layout(location = 0) out vec4 oState;
@@ -73,23 +75,27 @@ void main() {
   float d = s.r;
   if (seaAt(c)) {
     acc.b += d; // water on a cell that became sea joins the sea (ledgered)
-    oState = vec4(0.0);
+    oState = vec4(0.0, 0.0, 0.0, s.a);
     oAcc = acc;
     return;
   }
-  d += uRain * uDt;
-  acc.g += uRain * uDt;
+  vec4 clim = texelFetch(uClimate, c, 0);
+  d += uRain * clim.r * uDt;
+  acc.g += uRain * clim.r * uDt;
   for (int k = 0; k < ${MAX_SOURCES}; k++) {
     if (k >= uNSrc) break;
     if (ivec2(uSrc[k].xy) == c) d += uSrc[k].z * uDt;
   }
-  float lossRate = uInf + uEvap;
+  float ev = uEvap * clim.g;
+  float lossRate = uInf + ev;
+  float evapAcc = s.a;
   if (lossRate > 0.0 && d > 0.0) {
     float l = min(d, lossRate * uDt);
     d -= l;
-    acc.r += l;
+    acc.r += l * (uInf / lossRate);   // infiltrated
+    evapAcc += l * (ev / lossRate);   // evaporated (state.a, folded on sync)
   }
-  oState = vec4(d, s.g, s.b, 0.0);
+  oState = vec4(d, s.g, s.b, evapAcc);
   oAcc = acc;
 }`;
 
@@ -152,9 +158,10 @@ void main() {
   float inS = c.y > 0 ? texelFetch(uFlux, c + ivec2(0, -1), 0).w : 0.0;
   float inN = c.y < uSize.y - 1 ? texelFetch(uFlux, c + ivec2(0, 1), 0).z : 0.0;
   float inflow = inW + inE + inS + inN;
+  float evapAcc = texelFetch(uState, c, 0).a;
   if (seaAt(c)) {
     acc.b += inflow * uDt / A;
-    oState = vec4(0.0);
+    oState = vec4(0.0, 0.0, 0.0, evapAcc);
     oAcc = acc;
     return;
   }
@@ -173,7 +180,7 @@ void main() {
     float s = length(v);
     if (s > 20.0) v *= 20.0 / s;
   }
-  oState = vec4(dNew, v, 0.0);
+  oState = vec4(dNew, v, evapAcc);
   oAcc = acc;
 }`;
 
@@ -190,6 +197,7 @@ uniform float uRockF;
 uniform float uKappa;      // creep coefficient (see SedimentSim.creepKappa)
 uniform sampler2D uStrataB; // boundaries (descending), unused = -1e9
 uniform sampler2D uStrataM; // lithology id per layer (as float)
+uniform sampler2D uClimate; // r = rain factor
 uniform float uErod[16];   // erodibility by lithology id
 uniform float uTanCliff[16]; // tan(critical cliff angle) by lithology id
 uniform int uSlopeFail;
@@ -223,7 +231,7 @@ float exposedErodibility(ivec2 c, float bedrockZ) { return uErod[exposedMat(c, b
 // Saturation proxy (see SedimentSim): standing water or rain intensity; sea = saturated.
 float wetAt(ivec2 j) {
   if (seaAt(j)) return 1.0;
-  return min(1.0, max(texelFetch(uPrev, j, 0).r / ${SATURATION_DEPTH.toExponential()}, uRainWet));
+  return min(1.0, max(texelFetch(uPrev, j, 0).r / ${SATURATION_DEPTH.toExponential()}, uRainWet * texelFetch(uClimate, j, 0).r));
 }
 
 // Loose sediment moved from donor across a face with drop dz > 0 (creep + avalanche).
@@ -374,6 +382,7 @@ export class GpuWater implements Stepper {
   private sedB: Pair;
   private strataB: WebGLTexture;
   private strataM: WebGLTexture;
+  private climateTex: WebGLTexture;
   private erodTable = new Float32Array(16);
   private tanCliffTable = new Float32Array(16);
   private fbStateAcc: [WebGLFramebuffer, WebGLFramebuffer];
@@ -417,6 +426,7 @@ export class GpuWater implements Stepper {
     this.sedB = pair();
     this.strataB = this.tex();
     this.strataM = this.tex();
+    this.climateTex = this.tex();
     for (const m of MATERIALS)
       if (m.id < 16) {
         this.erodTable[m.id] = m.erodibility;
@@ -432,6 +442,7 @@ export class GpuWater implements Stepper {
     this.sediment = this.program(SEDIMENT_FS);
     this.uploadGround();
     this.uploadWater();
+    this.uploadClimate();
   }
 
   // ---------- GL helpers ----------
@@ -532,6 +543,18 @@ export class GpuWater implements Stepper {
     this.write(this.sedB[this.b], zero);
   }
 
+  /** Upload the climate rain / evaporation factors (all 1 without a climate field). */
+  uploadClimate(): void {
+    const n = this.W * this.H;
+    const c = new Float32Array(n * 4);
+    const cl = this.sim.climate;
+    for (let i = 0; i < n; i++) {
+      c[i * 4] = cl ? cl.rainFactor[i] : 1;
+      c[i * 4 + 1] = cl ? cl.evapFactor[i] : 1;
+    }
+    this.write(this.climateTex, c);
+  }
+
   /** Upload the CPU water mirror (depth, velocity, flux) and clear accumulators. */
   uploadWater(): void {
     const n = this.W * this.H;
@@ -562,6 +585,7 @@ export class GpuWater implements Stepper {
     this.read(this.fbFlux[this.f], 0, w.waterFluxM3PerS);
     const d = w.waterDepthM;
     let lost = 0;
+    let evap = 0;
     let rain = 0;
     let sea = 0;
     let edge = 0;
@@ -571,15 +595,16 @@ export class GpuWater implements Stepper {
       this.sim.vx[i] = st[o + 1];
       this.sim.vy[i] = st[o + 2];
       lost += ac[o];
+      evap += st[o + 3];
+      st[o + 3] = 0;
       rain += ac[o + 1];
       sea += ac[o + 2];
       edge += ac[o + 3];
     }
     const L = this.sim.ledger;
-    const lossRate = w.water.infiltrationMPerS + w.water.evaporationMPerS;
-    const fInf = lossRate > 0 ? w.water.infiltrationMPerS / lossRate : 1;
-    L.infiltrated += lost * A * fInf;
-    L.evaporated += lost * A * (1 - fInf);
+    L.infiltrated += lost * A;
+    L.evaporated += evap * A;
+    if (evap > 0) this.write(this.state[this.s], st); // clear the evaporation accumulators
     L.rainIn += rain * A;
     L.seaOut += sea * A;
     L.edgeOut += edge * A;
@@ -695,6 +720,7 @@ export class GpuWater implements Stepper {
     common(this.forcing);
     this.bindTex(this.forcing, 'uState', 1, this.state[s0]);
     this.bindTex(this.forcing, 'uAcc', 2, this.acc[s0]);
+    this.bindTex(this.forcing, 'uClimate', 3, this.climateTex);
     gl.uniform1f(this.uni(this.forcing, 'uRain'), p.rainMPerS);
     gl.uniform1f(this.uni(this.forcing, 'uInf'), p.infiltrationMPerS);
     gl.uniform1f(this.uni(this.forcing, 'uEvap'), p.evaporationMPerS);
@@ -741,6 +767,7 @@ export class GpuWater implements Stepper {
       gl.uniform1f(this.uni(this.sediment, 'uKappa'), SedimentSim.creepKappa(w, dt));
       this.bindTex(this.sediment, 'uStrataB', 6, this.strataB);
       this.bindTex(this.sediment, 'uStrataM', 7, this.strataM);
+      this.bindTex(this.sediment, 'uClimate', 8, this.climateTex);
       gl.uniform1fv(this.uni(this.sediment, 'uErod[0]'), this.erodTable);
       gl.uniform1fv(this.uni(this.sediment, 'uTanCliff[0]'), this.tanCliffTable);
       gl.uniform1i(this.uni(this.sediment, 'uSlopeFail'), e.slopeFailure ? 1 : 0);
@@ -760,7 +787,7 @@ export class GpuWater implements Stepper {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.sedA, ...this.sedB, this.strataB, this.strataM]) gl.deleteTexture(t);
+    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.sedA, ...this.sedB, this.strataB, this.strataM, this.climateTex]) gl.deleteTexture(t);
     for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed]) gl.deleteFramebuffer(fb);
     for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment]) gl.deleteProgram(pr.p);
     gl.deleteVertexArray(this.vao);

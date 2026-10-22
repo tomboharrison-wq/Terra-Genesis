@@ -23,6 +23,7 @@ export const TOOLS: ToolDef[] = [
   { group: 'water', id: 'water-add', label: 'Add water', key: '9', hint: 'Pours water onto the land under the brush (ledgered as a tool input).', rateLabel: 'Pour rate (m/s)', rateMin: 0.01, rateMax: 20 },
   { group: 'water', id: 'water-drain', label: 'Drain', key: '0', hint: 'Removes surface water under the brush (ledgered as a tool output).', rateLabel: 'Drain rate (m/s)', rateMin: 0.01, rateMax: 20 },
   { group: 'measure', id: 'profile', label: 'Profile', key: '=', hint: 'Click two points to draw a cross-section: today’s surface, the change-map reference and water level.' },
+  { group: 'water', id: 'climate', label: 'Climate', key: 'K', hint: 'Temperature, seasons, prevailing wind, wetter windward slopes and rain shadows. Drives where rain falls and how fast water evaporates.' },
   { group: 'coast', id: 'coast', label: 'Coast', key: 'C', hint: 'Sea level and wave climate. Waves erode cliffs (weak rock fastest, sheltered bays least) and drift sand along the shore.' },
   { group: 'events', id: 'landslide', label: 'Landslide', key: 'L', hint: 'Click a slope to saturate it: steep rock breaks up and debris slides downhill (radius = brush radius). Undoable.' },
   { group: 'water', id: 'spring', label: 'Spring', key: '-', hint: 'Click to place a constant inflow (spring or river inlet). Remove springs in the list below.' },

@@ -1,6 +1,7 @@
 import type { WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import { emptyLedger, type WaterLedger } from './ledger';
+import type { ClimateField } from '../climate/climate';
 
 const G = 9.81;
 
@@ -21,6 +22,8 @@ const G = 9.81;
  */
 export class WaterSim implements Stepper {
   ledger: WaterLedger;
+  /** Spatial rain / evaporation factors (climate); null = uniform forcing. */
+  climate: ClimateField | null = null;
   /** Cell-centred velocity components (m/s), x east, y north. Derived, not saved. */
   vx: Float32Array;
   vy: Float32Array;
@@ -113,15 +116,18 @@ export class WaterSim implements Stepper {
     const A = this.cellArea;
     const n = d.length;
     const sea = this.sea;
+    const rf = this.climate?.rainFactor;
+    const ef = this.climate?.evapFactor;
     if (p.rainMPerS > 0) {
       const add = p.rainMPerS * dt;
-      let cells = 0;
+      let total = 0;
       for (let i = 0; i < n; i++) {
         if (sea[i]) continue;
-        d[i] += add;
-        cells++;
+        const a = rf ? add * rf[i] : add;
+        d[i] += a;
+        total += a;
       }
-      this.ledger.rainIn += cells * add * A;
+      this.ledger.rainIn += total * A;
     }
     for (const s of p.sources) {
       if (s.x < 0 || s.y < 0 || s.x >= w.width || s.y >= w.height || s.rateM3PerS <= 0) continue;
@@ -131,19 +137,22 @@ export class WaterSim implements Stepper {
       if (sea[i]) this.ledger.seaOut += vol;
       else d[i] += vol / A;
     }
-    const lossRate = p.infiltrationMPerS + p.evaporationMPerS;
-    if (lossRate > 0) {
-      const fInf = p.infiltrationMPerS / lossRate;
-      let lost = 0;
+    if (p.infiltrationMPerS + p.evaporationMPerS > 0) {
+      let inf = 0;
+      let evap = 0;
       for (let i = 0; i < n; i++) {
         const di = d[i];
         if (di <= 0) continue;
-        const l = Math.min(di, lossRate * dt);
+        const ev = ef ? p.evaporationMPerS * ef[i] : p.evaporationMPerS;
+        const rate = p.infiltrationMPerS + ev;
+        if (rate <= 0) continue;
+        const l = Math.min(di, rate * dt);
         d[i] = di - l;
-        lost += l;
+        inf += l * (p.infiltrationMPerS / rate);
+        evap += l * (ev / rate);
       }
-      this.ledger.infiltrated += lost * A * fInf;
-      this.ledger.evaporated += lost * A * (1 - fInf);
+      this.ledger.infiltrated += inf * A;
+      this.ledger.evaporated += evap * A;
     }
   }
 

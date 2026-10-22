@@ -1,4 +1,5 @@
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
+import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
@@ -11,6 +12,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
+ * v5 adds header.climate. Older files migrate with climate off (uniform rain, as they ran).
  */
 const MAGIC = 'TGW1';
 
@@ -40,6 +42,7 @@ export interface FileHeader {
   water?: WaterParams;
   erosion?: ErosionParams;
   coast?: CoastParams;
+  climate?: ClimateParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -70,6 +73,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     water: w.water,
     erosion: w.erosion,
     coast: w.coast,
+    climate: w.climate,
     fields,
     extras,
   };
@@ -132,6 +136,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
     coast: { ...defaultCoastParams(), ...h.coast },
+    climate: { ...defaultClimateParams(), ...h.climate },
     meta: h.meta,
   };
   if (!has('strataMaterial')) setUniformStrata(world); // v1–v3: one layer = the stored lithology

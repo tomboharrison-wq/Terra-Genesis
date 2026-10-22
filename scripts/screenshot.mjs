@@ -271,6 +271,36 @@ await shot('24-coastal-slump');
 check('coastal slump cycle: repeated slumps and cliff retreat', /Year 150/.test(cs) && +(cs.match(/Slumps (\d+)/)?.[1] ?? 0) >= 2, cs);
 await page.click('.dialog [aria-label="Close"]');
 
+// --- Climate (M06-C01): orographic rain + rain shadow on a mountain world, GPU ledger ---
+await page.click('text=New');
+await page.click('.preset:has-text("Mountain range")');
+await page.selectOption('.dialog select >> nth=0', '128');
+await page.click('label.check:has-text("Start simulation") input');
+await page.click('text=Generate world');
+await page.waitForTimeout(1200);
+await page.click('.rail-btn:has-text("Climate")');
+await page.click('.climate-panel label.check:has-text("Climate on") input');
+await page.click('.climate-panel button:has-text("Rainfall")');
+await page.waitForTimeout(800);
+await shot('26-climate-rainfall');
+const climText = await page.textContent('.climate-panel');
+const rx = climText.match(/from ([\d.]+)× to ([\d.]+)×/);
+await page.click('.climate-panel button:has-text("Temperature")');
+await page.waitForTimeout(800);
+await shot('27-climate-temperature');
+const cl = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  e.setWaterParams({ rainMPerS: 20 / 3.6e6, evaporationMPerS: 2 / 3.6e6 });
+  e.advance(1800);
+  const L = e.water.ledger;
+  const stored = e.water.storedVolume();
+  const inn = L.initialStored + L.rainIn + L.sourceIn + L.toolIn;
+  const out = L.infiltrated + L.evaporated + L.seaOut + L.edgeOut + L.toolOut;
+  return { backend: e.backend, closure: Math.abs(inn - out - stored) / inn, evap: L.evaporated, rain: L.rainIn };
+});
+check('climate: wetter windward slopes and drier rain shadow', !!rx && +rx[2] > 1.5 && +rx[1] < 0.7, rx ? rx[0] : climText.slice(0, 80));
+check('climate: water budget closes with spatial rain on ' + cl.backend, cl.closure < 1e-4 && cl.evap > 0, `closure=${cl.closure.toExponential(2)} rain=${cl.rain.toFixed(0)} evap=${cl.evap.toFixed(0)} m³`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

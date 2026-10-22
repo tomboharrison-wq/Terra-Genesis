@@ -39,10 +39,16 @@ import { WaterLayer, type WaterView } from './waterLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change' | 'waves';
+export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall';
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
+// Temperature (diverging about 0 °C, −20 … +30) and rainfall (sequential blue, 0 … 3× map mean).
+const TEMP_COLD = new Color(0x2a5fa8);
+const TEMP_ZERO = new Color(0xdedbd2);
+const TEMP_WARM = new Color(0xc8402a);
+const RAIN_LO = new Color(0xb4c6d3);
+const RAIN_HI = new Color(0x0a3a6b);
 const WAVE_LO = new Color(0xffe627);
 const WAVE_MID = new Color(0xff912a);
 const WAVE_HI = new Color(0xed3f23);
@@ -165,6 +171,10 @@ export class TerrainScene {
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') this.buildWorld(true);
       if (e.type === 'sea-level-changed') this.applySeaLevel();
+      if (e.type === 'climate-changed' && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall')) {
+        const w = engine.world;
+        this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
+      }
     });
     // GPU water solver shares this WebGL2 context; falls back to CPU if float targets are missing.
     engine.attachGpu(this.renderer.getContext() as WebGL2RenderingContext);
@@ -418,6 +428,10 @@ export class TerrainScene {
     const relief = this.reliefM;
     const overlay = this.terrainOverlay === 'change';
     const wavesOverlay = this.terrainOverlay === 'waves';
+    const tempOverlay = this.terrainOverlay === 'temperature';
+    const rainOverlay = this.terrainOverlay === 'rainfall';
+    const clim = this.engine.climate;
+    const tmp = new Color();
     const expo = this.engine.coast.exposure;
     const ref = this.engine.referenceSurface;
     for (let y = r.y0; y < r.y1; y++) {
@@ -449,7 +463,21 @@ export class TerrainScene {
           this.col,
           o,
         );
-        if (wavesOverlay) {
+        if (tempOverlay) {
+          const t = clim.temperatureC[i];
+          if (t < 0) tmp.copy(TEMP_ZERO).lerp(TEMP_COLD, Math.min(1, -t / 20));
+          else tmp.copy(TEMP_ZERO).lerp(TEMP_WARM, Math.min(1, t / 30));
+          const shade = 0.75 + 0.25 * inv; // keep relief readable
+          this.col[o] = tmp.r * shade;
+          this.col[o + 1] = tmp.g * shade;
+          this.col[o + 2] = tmp.b * shade;
+        } else if (rainOverlay) {
+          tmp.copy(RAIN_LO).lerp(RAIN_HI, Math.min(1, clim.rainFactor[i] / 3));
+          const shade = 0.75 + 0.25 * inv;
+          this.col[o] = tmp.r * shade;
+          this.col[o + 1] = tmp.g * shade;
+          this.col[o + 2] = tmp.b * shade;
+        } else if (wavesOverlay) {
           // Sequential: grey land, coastal cells yellow → orange → red by wave power (0 … 30 kW/m).
           const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
           const pw = expo[i];

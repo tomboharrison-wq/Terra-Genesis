@@ -10,6 +10,7 @@ import { SedimentSim } from '../sim/sediment/sedimentSim';
 import { triggerLandslide, type LandslideResult } from '../sim/slopes/landslide';
 import { CoastSim, type CoastParams } from '../sim/coast/coastSim';
 import { SimClock, type Stepper } from './clock';
+import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -18,7 +19,8 @@ export type EngineEvent =
   | { type: 'history-changed' }
   | { type: 'water-params-changed' }
   | { type: 'sim-state-changed' }
-  | { type: 'sea-level-changed' };
+  | { type: 'sea-level-changed' }
+  | { type: 'climate-changed' };
 
 /**
  * Owns the authoritative WorldState, its derived surface cache, edit history and dirty
@@ -37,6 +39,11 @@ export class Engine {
   sediment!: SedimentSim;
   /** Coastal processes (slow cadence, CPU). */
   coast!: CoastSim;
+  /** Climate fields (temperature, rain / evaporation factors) derived from world.climate. */
+  climate!: ClimateField;
+  private climateDirty = false;
+  private climateClock = 0;
+  private seasonDay = -1;
   /** Surface at the last "set reference" (for the erosion/deposition change map). */
   referenceSurface!: Float32Array;
   private cpuStepper!: Stepper;
@@ -63,6 +70,11 @@ export class Engine {
     this.water = new WaterSim(world, this.surface);
     this.sediment = new SedimentSim(world, this.surface, this.water);
     this.coast = new CoastSim(world, this.surface);
+    this.climate = new ClimateField(world.width * world.height);
+    this.climate.compute(world, this.surface);
+    this.water.climate = this.climate;
+    this.climateDirty = false;
+    this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
     this.referenceSurface = this.surface.slice();
     const water = this.water;
     const sediment = this.sediment;
@@ -129,6 +141,7 @@ export class Engine {
 
   /** Terrain changed by the simulation: renderer must rebuild; GPU already has it. */
   private markRenderDirtyAll() {
+    this.climateDirty = true;
     const r = { x0: 0, y0: 0, x1: this.world.width, y1: this.world.height };
     this.dirty = unionRect(this.dirty, r);
     this.emit({ type: 'terrain-changed', rect: r });
@@ -138,9 +151,12 @@ export class Engine {
   tick(realDt: number): number {
     this.flushGround();
     const done = this.clock.tick(this.stepper, realDt);
+    this.climateClock += realDt;
+    if (this.climateDirty && this.world.climate.enabled && this.climateClock >= 3) this.refreshClimate(true);
     if (done > 0) {
       this.world.simTimeSeconds += done;
       this.waterRevision++;
+      this.advanceSeason(done);
       this.coastHook(done);
       if (this.gpu) {
         this.syncTimer += realDt;
@@ -165,6 +181,7 @@ export class Engine {
       const seg = this.gpu ? Math.min(left, 600) : left;
       const d = this.clock.advanceExactly(this.stepper, seg);
       done += d;
+      this.advanceSeason(d);
       this.coastHook(d);
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
@@ -186,6 +203,43 @@ export class Engine {
       this.water.refreshSea();
       this.groundDirty = true;
       this.markRenderDirtyAll();
+    }
+  }
+
+  /**
+   * Change climate parameters. Season-only changes refresh temperature/evaporation; anything else
+   * (wind, orographic, enabling) recomputes the rain pattern too.
+   */
+  setClimateParams(p: Partial<ClimateParams>): void {
+    const seasonal = Object.keys(p).every((k) => k === 'seasonPhase' || k === 'seasonsRun' || k === 'seaLevelTempC' || k === 'seasonalAmpC' || k === 'lapseRateCPerKm');
+    this.syncWater(); // fold GPU evaporation/rain accumulated under the old factors first
+    Object.assign(this.world.climate, p);
+    this.seasonDay = Math.floor(this.world.climate.seasonPhase * 365);
+    this.refreshClimate(!seasonal);
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Recompute climate fields (rain pattern when `rain`) and push them to the GPU. */
+  private refreshClimate(rain: boolean) {
+    if (rain) this.climate.compute(this.world, this.surface);
+    else this.climate.computeTemperature(this.world, this.surface);
+    if (rain) {
+      this.climateDirty = false;
+      this.climateClock = 0;
+    }
+    this.gpu?.uploadClimate();
+    this.emit({ type: 'climate-changed' });
+  }
+
+  /** Seasons follow simulated (not geomorphic) time; fields refresh once per simulated day. */
+  private advanceSeason(simSeconds: number) {
+    const c = this.world.climate;
+    if (!c.seasonsRun || simSeconds <= 0) return;
+    c.seasonPhase = (c.seasonPhase + simSeconds / YEAR_S) % 1;
+    const day = Math.floor(c.seasonPhase * 365);
+    if (day !== this.seasonDay) {
+      this.seasonDay = day;
+      if (c.enabled) this.refreshClimate(false);
     }
   }
 
@@ -385,6 +439,7 @@ export class Engine {
   }
 
   markDirty(rect: CellRect): void {
+    this.climateDirty = true;
     this.dirty = unionRect(this.dirty, rect);
     this.groundDirty = true;
     this.emit({ type: 'terrain-changed', rect });

@@ -4,6 +4,7 @@ import { SedimentSim, sedimentClosure } from '../sediment/sedimentSim';
 import { GpuWater } from './gpuWater';
 import { closureError } from './ledger';
 import { generateWorld, defaultOptions } from '../../terrain/generate';
+import { ClimateField } from '../climate/climate';
 
 export interface SelfTestCase {
   name: string;
@@ -13,6 +14,11 @@ export interface SelfTestCase {
   gpuStoredM3: number;
   gpuClosure: number;
   cpuClosure: number;
+  /** Evaporated and rained volumes (climate case: spatial factors). */
+  cpuEvapM3: number;
+  gpuEvapM3: number;
+  cpuRainM3: number;
+  gpuRainM3: number;
   steps: number;
   gpuMsPerStep: number;
   /** Erosion cases: max |Δ surface| CPU vs GPU (m), sediment ledger closures, eroded volumes. */
@@ -83,6 +89,16 @@ function fixture(name: string): WorldState {
       w.water.sources.push({ id: 1, x: 44, y: 24, rateM3PerS: 6 });
       return w;
     }
+    case 'climate-ridge': {
+      // Orographic rain + rain shadow over a ridge, warm-season evaporation, closed edges.
+      const w = mk(48, 50, (x) => 50 + 600 * Math.max(0, 1 - Math.abs(x - 24) / 8), 0);
+      w.water.boundary = 'closed';
+      w.water.rainMPerS = 40 * MM_PER_H;
+      w.water.evaporationMPerS = 4 * MM_PER_H;
+      w.water.infiltrationMPerS = 1 * MM_PER_H;
+      w.climate = { ...w.climate, enabled: true, windFromDeg: 270, seaLevelTempC: 18 };
+      return w;
+    }
     case 'bowl-overflow': {
       const w = mk(33, 10, (x, y) => {
         const rim = y === 0 || y === 32 || x === 0 || x === 32 ? 8 : 0;
@@ -107,7 +123,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -117,6 +133,14 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
     const cpu = new WaterSim(wc, sc);
     const cpuSed = new SedimentSim(wc, sc, cpu);
     const gsim = new WaterSim(wg, sg);
+    if (wc.climate.enabled) {
+      const fc = new ClimateField(wc.width * wc.height);
+      fc.compute(wc, sc);
+      cpu.climate = fc;
+      const fg = new ClimateField(wg.width * wg.height);
+      fg.compute(wg, sg);
+      gsim.climate = fg;
+    }
     const gSed = new SedimentSim(wg, sg, gsim);
     const gpu = new GpuWater(ctx, wg, sg, gsim, gSed);
     let t = 0;
@@ -167,6 +191,10 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
       gpuStoredM3: gsim.storedVolume(),
       cpuClosure: closureError(cpu.ledger, cpu.storedVolume()),
       gpuClosure: closureError(gsim.ledger, gsim.storedVolume()),
+      cpuEvapM3: cpu.ledger.evaporated,
+      gpuEvapM3: gsim.ledger.evaporated,
+      cpuRainM3: cpu.ledger.rainIn,
+      gpuRainM3: gsim.ledger.rainIn,
       steps,
       gpuMsPerStep: gpuMs / steps,
     });

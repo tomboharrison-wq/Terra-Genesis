@@ -1,5 +1,11 @@
 # Test results (latest first)
 
+## 2026-10-22 M06-C01
+- npm test PASS 138 (+ climate: lapse 6.5 °C/km exact; season ±amp; ridge with W wind: windward > plain, > 2× lee, lee < plain, mean 1, reversing wind swaps sides; climate off bit-identical to old forcing; ledger closes <1e-5 with spatial rain + evaporation, total rain unchanged; no evaporation below 0 °C; seasons advance 0.25 in a quarter year; save/load + migration)
+- gpu-check 8/8 (+ climate-ridge: rain cpu 115200.0 gpu 115200.2 m³, evaporated cpu 13000.0 gpu 12977.6 m³)
+- e2e 28/28 (+ mountain world: rain 0.03×–2.24× of average; GPU water budget closure 2.5e-7 with spatial rain/evaporation)
+- Fixed during the chunk: linear windward uplift gave 22× on steep generated peaks → saturating tanh, max (1+k)×.
+
 ## 2026-10-22 M05-C04b
 - npm test PASS 130 (+ shoreline: sand ledger exact (<1e-3 m³) and f ≥ 0; zero energy → no change; bay-mouth bar: lagoon >600 cells by yr 26 and sand across the whole mouth; spit tip >20 cells out along the coast line; no supply → updrift beach erodes; A=0.8 straight (hook ≤3) vs A=0.65 recurved (hook ≥4, shorter); deterministic)
 - e2e PASS 26/26 (+ bay closes: lagoon 2.38 km² at year 24 in the browser)

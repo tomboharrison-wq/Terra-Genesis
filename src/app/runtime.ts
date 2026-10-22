@@ -82,6 +82,21 @@ export function syncSim() {
         return { zMin, zMax };
       })(),
       coast: { ...w.coast, ...engine.coast.ledger },
+      climate: (() => {
+        let tMin = Infinity;
+        let tMax = -Infinity;
+        let rMin = Infinity;
+        let rMax = -Infinity;
+        const c = engine.climate;
+        for (let i = 0; i < engine.surface.length; i++) {
+          if (engine.surface[i] < w.seaLevelM) continue;
+          tMin = Math.min(tMin, c.temperatureC[i]);
+          tMax = Math.max(tMax, c.temperatureC[i]);
+          rMin = Math.min(rMin, c.rainFactor[i]);
+          rMax = Math.max(rMax, c.rainFactor[i]);
+        }
+        return { ...w.climate, landTempMinC: tMin, landTempMaxC: tMax, rainMinX: rMin, rainMaxX: rMax };
+      })(),
       sed: (() => {
         const S = engine.sediment.ledger;
         const susp = engine.sediment.suspendedVolume();
@@ -115,7 +130,7 @@ engine.on((e) => {
     syncSim();
     scheduleAutosave();
   }
-  if (e.type === 'sim-state-changed' || e.type === 'water-params-changed') {
+  if (e.type === 'sim-state-changed' || e.type === 'water-params-changed' || e.type === 'climate-changed') {
     syncSim();
     if (!engine.clock.playing) scheduleAutosave();
   }

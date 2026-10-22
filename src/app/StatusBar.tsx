@@ -29,6 +29,11 @@ export function StatusBar() {
             <span>
               <b>Rock</b> {hover.materialName}
             </span>
+            {hover.temperatureC !== undefined && (
+              <span title="Climate: temperature and rainfall at this point">
+                <b>Climate</b> {f1(hover.temperatureC)} °C · rain {f1(hover.rainHereMmH ?? 0)} mm/h
+              </span>
+            )}
             {hover.isSea ? (
               <span>
                 <b>Sea</b> below sea level

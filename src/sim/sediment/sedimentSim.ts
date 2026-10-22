@@ -117,7 +117,8 @@ export class SedimentSim {
     const d0 = this.water.prevDepth;
     const sea = this.water.sea;
     const rainWet = this.world.water.rainMPerS / SATURATION_RAIN;
-    for (let i = 0; i < this.wet.length; i++) this.wet[i] = sea[i] ? 1 : Math.min(1, Math.max(d0[i] / SATURATION_DEPTH, rainWet));
+    const rf = this.water.climate?.rainFactor;
+    for (let i = 0; i < this.wet.length; i++) this.wet[i] = sea[i] ? 1 : Math.min(1, Math.max(d0[i] / SATURATION_DEPTH, rf ? rainWet * rf[i] : rainWet));
     this.creep(dt);
     this.rockfallAndWeathering(dt);
     this.advect(dt);
