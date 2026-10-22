@@ -5,6 +5,7 @@ import type { TerrainScene, CameraPose } from '../renderer/TerrainScene';
 import { useUi } from '../state/uiStore';
 import { AUTOSAVE_ID, loadSlot, saveSlot } from '../persistence/idb';
 import { worldFromFileBytes, worldToFileBytes } from '../persistence/format';
+import { runGpuSelfTest } from '../sim/water/gpuSelfTest';
 
 /**
  * Process-wide runtime: the single Engine (world owner) and the active TerrainScene.
@@ -143,6 +144,7 @@ export { syncHistory };
 /** Read-only debug/testing handle (used by scripts/screenshot.mjs browser checks). */
 (globalThis as unknown as { __terraGenesis: unknown }).__terraGenesis = {
   engine,
+  gpuSelfTest: (seconds?: number) => runGpuSelfTest(undefined, seconds),
   info: () => {
     const r = scene?.renderer;
     return r ? { children: scene!.scene.children.length, ...r.info.memory, programs: r.info.programs?.length, calls: r.info.render.calls } : null;
