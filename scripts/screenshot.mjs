@@ -250,6 +250,17 @@ const worldNote = await page.textContent('.dialog .hint.small.tight');
 check('arch lab scenarios and world coast set rock and waves', claySel === 'clay' && /clay/i.test(q) && /From this world/.test(worldNote), `${claySel} · ${worldNote}`);
 await page.click('.dialog [aria-label="Close"]');
 
+// --- Beaches, spits and bars lab (M05-C04b): bay-mouth bar closes a lagoon ---
+await page.click('.rail-btn:has-text("Coast")');
+await page.click('text=Open beaches, spits and bars lab');
+await page.waitForSelector('.shore-view canvas');
+for (let k = 0; k < 24; k++) await page.click('.dialog button:has-text("+1 year")');
+const shore = await page.textContent('.slump-readout');
+await shot('25-shoreline-lab');
+const lag = +(shore.match(/Lagoon ([\d.]+) km/)?.[1] ?? 0);
+check('shoreline lab: bay-mouth bar encloses a lagoon', lag > 1, shore);
+await page.click('.dialog [aria-label="Close"]');
+
 // --- Coastal slump cycle (M05-C06) in the slump lab ---
 await page.click('.rail-btn:has-text("Landslide")');
 await page.click('text=Open rotational slump lab');

@@ -22,7 +22,13 @@ export function CoastPanel() {
       <button className="primary small" onClick={() => set({ dialog: 'arch' })}>
         Open cave, arch, stack and stump lab (3D)
       </button>
-      <p className="hint small">Caves, arches and stacks are overhanging 3D shapes a height map cannot hold, so they are shown in their own guided voxel model.</p>
+      <button className="primary small" onClick={() => set({ dialog: 'shore' })}>
+        Open beaches, spits and bars lab (map)
+      </button>
+      <p className="hint small">
+        Caves, arches and stacks are overhanging 3D shapes a height map cannot hold, and bars, lagoons and recurved spits need a finer
+        shoreline model, so both are shown in their own guided models.
+      </p>
       <h3>Sea level</h3>
       <label className="field">
         <span className="field-label">

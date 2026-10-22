@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C04b
+- npm test PASS 130 (+ shoreline: sand ledger exact (<1e-3 m³) and f ≥ 0; zero energy → no change; bay-mouth bar: lagoon >600 cells by yr 26 and sand across the whole mouth; spit tip >20 cells out along the coast line; no supply → updrift beach erodes; A=0.8 straight (hook ≤3) vs A=0.65 recurved (hook ≥4, shorter); deterministic)
+- e2e PASS 26/26 (+ bay closes: lagoon 2.38 km² at year 24 in the browser)
+- Diffraction round corners was needed for recurves; it slows bar closure (yr 10 → yr 21).
+
 ## 2026-10-22 M05-C06b
 - npm test PASS 124 (+ clay: no cave/arch/stack; granite 4 m 12 s: full sequence but arch later than chalk 2 m 8 s; 4 m waves speed chalk; no joint ⇒ cave >3× later)
 - e2e PASS 25/25 (+ scenario picker sets clay + question; world coast note "waves 2.0 m, 8 s; cliffs mostly chalk")

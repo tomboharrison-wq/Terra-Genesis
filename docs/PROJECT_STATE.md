@@ -24,19 +24,21 @@ Verified working:
   FoS ground profile, waves strip debris then cut the toe, repeat slumps; FoS timeline chart.
 - M05-C06b arch lab rock types (registry erodibility + roof span + stand height: clay just retreats, granite slow),
   wave height/period (taller attack band, P/H per voxel), "Use this world's coast", 4 classroom scenarios.
+- M05-C04b beaches/spits/bars lab (src/local/shoreline/model.ts, ShorelineLab.tsx): CEM-style one-line model, traced
+  shoreline, CERC flux, shadowing, corner diffraction; bay-mouth bar closes lagoon ~yr 21; mixed waves → recurve. Not
+  yet coupled to the world map (M05-C04c).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 - Headlands preset: straight coast across chalk/clay bands, waves from S, ×1000: clay bays retreat 2–3 cells
   vs chalk headlands in 4 accelerated days (96² CPU run).
 
 Known failures / gaps:
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
-- Bay-mouth bars enclosing lagoons and clean recurves NOT reliable with grid drift (spits angle offshore under
-  high-angle waves); a one-line shoreline model is the planned fix (backlog M05-C04b).
+- On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
 - Inland cells below sea level count as sea.
 
 Relevant paths: src/sim/coast/{coastSim,params}.ts, src/engine/engine.ts (setSeaLevel, coastHook),
 src/app/CoastPanel.tsx, src/terrain/{settle,generate}.ts, src/renderer/TerrainScene.ts ('waves' overlay)
-Last checks: typecheck PASS · npm test PASS (124) · build PASS · e2e PASS 25/25 · gpu-check 7/7 (M04)
+Last checks: typecheck PASS · npm test PASS (130) · build PASS · e2e PASS 26/26 · gpu-check 7/7 (M04)
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

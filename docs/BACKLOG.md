@@ -2,9 +2,12 @@
 
 | ID | Outcome | Status |
 |---|---|---|
+| M06-C01 | Climate: temperature, season, lapse rate, rain shadow, spatial rainfall/evaporation | READY |
+| M06-C02..C05 | Snow/melt, glaciers + glacial erosion, vegetation, biome presets | TODO |
+| M05-C04c | Couple shoreline model to the world heightfield (bars/spits as real terrain) | TODO |
+| M05-C04b | One-line shoreline lab: spits, bay-mouth bars, lagoons, recurves | DONE |
 | M05-C06b | Arch lab rock types, wave climate, world coast, classroom scenarios | DONE |
 | M05-C06a | Coastal slump cycle (toe debris buttress, waves unload toe, repeat slumps) | DONE |
-| M05-C04b | One-line shoreline model: bay-mouth bars, lagoons, recurves | TODO |
 | M05-C05 | Local 3D cave → arch → stack → stump guided model | DONE |
 | M05-C04a | Beach-face drift, emergent attached spits | DONE |
 | M05-C04 | Wave field, onshore transport, surf smoothing, tombolo (partial) | PARTIAL |

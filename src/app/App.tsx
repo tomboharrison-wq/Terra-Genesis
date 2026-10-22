@@ -11,6 +11,7 @@ import { Toasts } from './Toasts';
 import { TimeBar } from './TimeBar';
 import { SlumpLab } from './SlumpLab';
 import { ArchLab } from './ArchLab';
+import { ShorelineLab } from './ShorelineLab';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
@@ -40,6 +41,7 @@ export function App() {
       {dialog === 'help' && <HelpDialog />}
       {dialog === 'slump' && <SlumpLab />}
       {dialog === 'arch' && <ArchLab />}
+      {dialog === 'shore' && <ShorelineLab />}
     </div>
   );
 }

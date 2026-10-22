@@ -64,3 +64,8 @@
 - Choose the rock (chalk, sandstone, granite, basalt, mudstone, clay) and wave height/period; or "Use this world's coast" to take the world's waves and commonest cliff rock.
 - Rock strength is physical in the model: how wide an overhang it can hold and how tall a face weak rock can stand. Clay retreats without caves or arches; granite takes far longer even under Atlantic swell.
 - Four classroom scenarios, each with a question.
+
+## M05-C04b — Beaches, spits and bars lab
+- New guided plan-view model (Coast panel → "Open beaches, spits and bars lab"): a one-line shoreline model in which waves drawn from a climate drift sand along the coast.
+- A spit grows across a bay mouth until it closes as a bar, leaving a lagoon; at a coast end the spit grows into open water, and mixed wave directions curl its tip into a recurve.
+- Controls for coast shape, share of waves from each side, high-angle waves and updrift sand supply; lagoon area, spit length and sand in/out readouts.
