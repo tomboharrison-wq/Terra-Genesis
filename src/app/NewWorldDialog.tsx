@@ -20,16 +20,20 @@ export function NewWorldDialog() {
   const [size, setSize] = useState(256);
   const [d, setD] = useState(() => ({ ...presetById('river-basin').defaults }));
   const [name, setName] = useState('');
+  const [rain, setRain] = useState(() => presetById('river-basin').defaults.rainMmH ?? 0);
+  const [boundary, setBoundary] = useState<'open' | 'closed'>('open');
+  const [autoplay, setAutoplay] = useState(true);
 
   const pick = (id: PresetId) => {
     setPresetId(id);
     setD({ ...presetById(id).defaults });
+    setRain(presetById(id).defaults.rainMmH ?? 0);
   };
   const extentKm = useMemo(() => ((size - 1) * d.cellSizeM) / 1000, [size, d.cellSizeM]);
 
   const generate = () => {
-    const o: GenerateOptions = { presetId, seed, size, ...d, name: name.trim() || `${presetById(presetId).name} ${seed}` };
-    newWorld(o);
+    const o: GenerateOptions = { presetId, seed, size, ...d, rainMmH: rain, boundary, name: name.trim() || `${presetById(presetId).name} ${seed}` };
+    newWorld(o, autoplay && rain > 0);
     close();
   };
 
@@ -79,6 +83,23 @@ export function NewWorldDialog() {
         {num('cellSizeM', 'Cell size', 'm', 1, 500, 1)}
         {num('reliefM', 'Vertical relief', 'm', 0, 6000, 10)}
         {num('seaLevelM', 'Sea level', 'm', -2000, 2000, 1)}
+        <label className="field">
+          <span className="field-label">
+            Rainfall <small>mm/h</small>
+          </span>
+          <input type="number" min={0} max={300} step={1} value={rain} onChange={(e) => setRain(Math.min(300, Math.max(0, +e.target.value || 0)))} />
+        </label>
+        <label className="field">
+          <span className="field-label">Map edges</span>
+          <select value={boundary} onChange={(e) => setBoundary(e.target.value as 'open' | 'closed')}>
+            <option value="open">Open outflow</option>
+            <option value="closed">Closed walls</option>
+          </select>
+        </label>
+        <label className="field check">
+          <input type="checkbox" checked={autoplay} onChange={(e) => setAutoplay(e.target.checked)} />
+          <span>Start simulation if raining</span>
+        </label>
         <label className="field">
           <span className="field-label">
             Roughness <b>{Math.round(d.roughness * 100)}%</b>

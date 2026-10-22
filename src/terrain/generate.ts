@@ -1,7 +1,8 @@
-import { createWorld, type WorldState } from '../engine/world';
+import { createWorld, MM_PER_H, type WorldState } from '../engine/world';
 import { Noise2D } from '../utils/noise';
 import { deriveSeed } from '../utils/rng';
 import { clamp, smoothstep } from '../utils/math';
+import { fillDepressions } from './conditioning';
 
 export type PresetId =
   | 'flat'
@@ -23,6 +24,12 @@ export interface GenerateOptions {
   seaLevelM: number;
   /** 0..1 fine-scale surface roughness. */
   roughness: number;
+  /** Initial map-wide rainfall (mm/h). Optional; default 0. */
+  rainMmH?: number;
+  /** Map-edge water boundary. Optional; default open. */
+  boundary?: 'open' | 'closed';
+  /** Fill closed depressions with loose sediment so the land drains (default true). */
+  drainage?: boolean;
   name?: string;
 }
 
@@ -30,11 +37,11 @@ export interface PresetDef {
   id: PresetId;
   name: string;
   description: string;
-  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness'>;
+  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH'>;
 }
 
 export const PRESETS: readonly PresetDef[] = [
-  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5 } },
+  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60 } },
   { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
   { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
   { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
@@ -177,6 +184,8 @@ export function generateWorld(o: GenerateOptions): WorldState {
   const n = new Noise2D(deriveSeed(o.seed, 'shape'));
   const n2 = new Noise2D(deriveSeed(o.seed, 'warp'));
   const nd = new Noise2D(deriveSeed(o.seed, 'detail'));
+  world.water.rainMPerS = (o.rainMmH ?? 0) * MM_PER_H;
+  world.water.boundary = o.boundary ?? 'open';
   const shape = shapes[o.presetId] ?? shapes.flat;
   const surf = new Float32Array(size * size);
   const ctx: Ctx = { u: 0, v: 0, n, n2, o };
@@ -215,6 +224,18 @@ export function generateWorld(o: GenerateOptions): WorldState {
       const thickness = o.presetId === 'flat' ? 1 : Math.max(0, sed);
       world.looseSedimentThicknessM[i] = thickness;
       world.bedrockElevationM[i] = surf[i] - thickness;
+    }
+  }
+
+  // Drainage conditioning: fill closed hollows with alluvium so rain organises into rivers.
+  if (o.drainage !== false && o.presetId !== 'flat') {
+    // 0.2 % down-valley gradient on filled ground: alluvial plains slope gently to their outlet.
+    const eps = Math.max(2e-3, 2e-3 * cs);
+    const sl = o.seaLevelM;
+    const filled = fillDepressions(surf, size, size, eps, (i) => surf[i] < sl);
+    for (let i = 0; i < surf.length; i++) {
+      const add = filled[i] - surf[i];
+      if (add > 0) world.looseSedimentThicknessM[i] += add;
     }
   }
   return world;

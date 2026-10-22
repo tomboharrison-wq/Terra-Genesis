@@ -6,12 +6,15 @@ import { useUi } from '../state/uiStore';
 import { AUTOSAVE_ID, loadSlot, saveSlot } from '../persistence/idb';
 import { worldFromFileBytes, worldToFileBytes } from '../persistence/format';
 import { runGpuSelfTest } from '../sim/water/gpuSelfTest';
+import { closureError, ledgerIn, ledgerOut } from '../sim/water/ledger';
+import { MM_PER_H } from '../engine/world';
 
 /**
  * Process-wide runtime: the single Engine (world owner) and the active TerrainScene.
  * UI components call these functions; they never touch typed arrays directly.
  */
 export const engine = new Engine(generateWorld(defaultOptions('river-basin', 20261022, 256)));
+// The default river basin starts paused with its preset rain (60 mm/h): press Play to watch it drain.
 let scene: TerrainScene | null = null;
 
 export function attachScene(s: TerrainScene | null) {
@@ -39,6 +42,33 @@ function syncHistory() {
   useUi.getState().set({ canUndo: h.canUndo, canRedo: h.canRedo, undoLabel: h.undoLabel, redoLabel: h.redoLabel });
 }
 
+/** Push simulation/water state into the UI store (throttled by callers). */
+export function syncSim() {
+  const w = engine.world;
+  const L = engine.water.ledger;
+  const stored = engine.water.storedVolume();
+  useUi.getState().set({
+    sim: {
+      playing: engine.clock.playing,
+      speed: engine.clock.speed,
+      achievedSpeed: engine.clock.achievedSpeed,
+      simTimeS: w.simTimeSeconds,
+      backend: engine.backend,
+      storedM3: stored,
+      inM3: ledgerIn(L),
+      outM3: ledgerOut(L),
+      closure: closureError(L, stored),
+      maxDepthM: engine.water.maxDepth,
+      maxSpeedMS: engine.water.maxSpeed,
+      rainMmH: w.water.rainMPerS / MM_PER_H,
+      infMmH: w.water.infiltrationMPerS / MM_PER_H,
+      evapMmH: w.water.evaporationMPerS / MM_PER_H,
+      boundary: w.water.boundary,
+      sources: w.water.sources.map((s) => ({ ...s })),
+    },
+  });
+}
+
 let autosaveTimer: ReturnType<typeof setTimeout> | undefined;
 function scheduleAutosave() {
   clearTimeout(autosaveTimer);
@@ -50,7 +80,12 @@ function scheduleAutosave() {
 engine.on((e) => {
   if (e.type === 'world-replaced') {
     syncWorldInfo();
+    syncSim();
     scheduleAutosave();
+  }
+  if (e.type === 'sim-state-changed' || e.type === 'water-params-changed') {
+    syncSim();
+    if (!engine.clock.playing) scheduleAutosave();
   }
   if (e.type === 'history-changed') {
     syncHistory();
@@ -58,10 +93,17 @@ engine.on((e) => {
   }
 });
 syncWorldInfo();
+syncSim();
 
-export function newWorld(o: GenerateOptions) {
+// Autosave periodically while the simulation runs.
+setInterval(() => {
+  if (engine.clock.playing) void saveToSlot(AUTOSAVE_ID, 'Autosave', true);
+}, 60_000);
+
+export function newWorld(o: GenerateOptions, autoplay = false) {
   const t = performance.now();
   engine.replaceWorld(generateWorld(o));
+  if (autoplay) engine.setPlaying(true);
   useUi.getState().toast(`Generated ${o.size}² ${o.name ?? o.presetId} in ${Math.round(performance.now() - t)} ms`, 'success');
 }
 
@@ -76,6 +118,7 @@ function extras() {
 
 export async function saveToSlot(id: string, name: string, quiet = false) {
   try {
+    engine.syncWater();
     const bytes = await worldToFileBytes(engine.world, extras());
     const w = engine.world;
     const info = await saveSlot({ id, name, width: w.width, height: w.height, presetId: w.meta.presetId }, bytes);
@@ -100,6 +143,7 @@ export async function loadFromSlot(id: string): Promise<boolean> {
 }
 
 export async function exportWorldFile() {
+  engine.syncWater();
   const bytes = await worldToFileBytes(engine.world, extras());
   const blob = new Blob([bytes], { type: 'application/octet-stream' });
   const a = document.createElement('a');

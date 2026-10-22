@@ -1,15 +1,23 @@
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
-import { attachScene, engine } from './runtime';
-import { useUi, type HoverInfo } from '../state/uiStore';
+import { attachScene, engine, syncSim } from './runtime';
+import { useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
 import { materialById } from '../terrain/materials';
 
 function currentBrush(): BrushParams | null {
   const s = useUi.getState();
-  if (s.tool === 'navigate') return null;
+  if (!isBrushTool(s.tool)) return null;
   return { kind: s.tool, radiusM: s.radiusM, rate: s.rates[s.tool], hardness: s.hardness, materialId: s.paintMaterialId };
+}
+
+/** Radius of the cursor ring for the active tool, or null if no ring. */
+function ringRadius(): number | null {
+  const s = useUi.getState();
+  if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain') return s.radiusM;
+  if (s.tool === 'spring') return (s.world?.cellSizeM ?? 10) * 2;
+  return null;
 }
 
 function hoverFrom(xM: number, yM: number): HoverInfo {
@@ -27,6 +35,9 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     sedimentM: w.looseSedimentThicknessM[i],
     slopeDeg: (Math.atan(slopeAt(engine.heightfield, cx, cy)) * 180) / Math.PI,
     materialName: materialById(w.materialId[i]).name,
+    waterDepthM: w.waterDepthM[i],
+    waterSpeedMS: Math.hypot(engine.water.vx[i], engine.water.vy[i]),
+    isSea: engine.water.sea[i] === 1,
   };
 }
 
@@ -49,37 +60,49 @@ export function Viewport() {
       return;
     }
     attachScene(scene);
+    syncSim(); // backend (GPU/CPU) is known once the renderer exists
 
     let client: { x: number; y: number } | null = null;
     let brushing = false;
+    let watering = false;
     let spaceHeld = false;
     let hoverTimer = 0;
 
-    const brushAllowed = (e?: { altKey: boolean }) => !spaceHeld && !(e?.altKey ?? false) && currentBrush() !== null;
+    const toolAllowed = (e?: { altKey: boolean }) => !spaceHeld && !(e?.altKey ?? false) && ringRadius() !== null;
 
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || !brushAllowed(e)) return;
+      if (e.button !== 0 || !toolAllowed(e)) return;
       const hit = scene.pick(e.clientX, e.clientY);
       if (!hit) return;
       e.stopPropagation();
       e.preventDefault();
+      const ui = useUi.getState();
+      if (ui.tool === 'spring') {
+        const src = engine.addSource(hit.xM, hit.yM, ui.springRate);
+        ui.toast(`Spring #${src.id} placed: ${ui.springRate.toFixed(1)} m³/s`, 'success');
+        return;
+      }
       el.setPointerCapture(e.pointerId);
-      brushing = true;
       client = { x: e.clientX, y: e.clientY };
-      const p = currentBrush()!;
-      engine.beginStroke(p, hit.xM, hit.yM, labelFor(p));
+      const p = currentBrush();
+      if (p) {
+        brushing = true;
+        engine.beginStroke(p, hit.xM, hit.yM, labelFor(p));
+      } else {
+        watering = true;
+      }
     };
     const onMove = (e: PointerEvent) => {
       client = { x: e.clientX, y: e.clientY };
     };
     const onUp = (e: PointerEvent) => {
-      if (!brushing) return;
-      brushing = false;
+      if (!brushing && !watering) return;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-      engine.endStroke();
+      if (brushing) engine.endStroke();
+      brushing = watering = false;
     };
     const onLeave = () => {
-      if (!brushing) {
+      if (!brushing && !watering) {
         client = null;
         scene.setBrush(false);
         useUi.getState().set({ hover: null });
@@ -87,10 +110,15 @@ export function Viewport() {
     };
 
     scene.onFrame = (dt) => {
-      const p = currentBrush();
+      const r = ringRadius();
       const hit = client ? scene.pick(client.x, client.y) : null;
       if (brushing && hit) engine.strokeStep(hit.xM, hit.yM, dt);
-      scene.setBrush(!!(hit && p && !spaceHeld), hit?.xM, hit?.yM, p?.radiusM);
+      if (watering && hit) {
+        const ui = useUi.getState();
+        const sign = ui.tool === 'water-drain' ? -1 : 1;
+        engine.addWater(hit.xM, hit.yM, ui.radiusM, sign * ui.waterRate * dt);
+      }
+      scene.setBrush(!!(hit && r !== null && !spaceHeld), hit?.xM, hit?.yM, r ?? undefined);
       hoverTimer += dt;
       if (hoverTimer > 0.1) {
         hoverTimer = 0;
@@ -98,6 +126,18 @@ export function Viewport() {
       }
     };
     scene.onStats = (s) => useUi.getState().set({ stats: s });
+    let simUiTimer = 0;
+    scene.onSim = () => {
+      const now = performance.now();
+      if (now - simUiTimer > 250) {
+        simUiTimer = now;
+        syncSim();
+      }
+    };
+    scene.setWaterView(useUi.getState().waterView);
+    const unsubView = useUi.subscribe((st, prev) => {
+      if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
+    });
 
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !isTyping(e)) {
@@ -123,6 +163,7 @@ export function Viewport() {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKey);
       if (brushing) engine.endStroke();
+      unsubView();
       attachScene(null);
       scene.dispose();
     };

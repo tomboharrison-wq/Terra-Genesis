@@ -5,10 +5,10 @@ import { ToolIcon } from './icons';
 export function ToolRail() {
   const tool = useUi((s) => s.tool);
   const set = useUi((s) => s.set);
-  return (
-    <aside className="toolrail" aria-label="Terrain tools">
-      <div className="rail-group-label">Terrain</div>
-      {TOOLS.map((t) => (
+  const group = (g: 'terrain' | 'water', label: string) => (
+    <>
+      <div className="rail-group-label">{label}</div>
+      {TOOLS.filter((t) => t.group === g).map((t) => (
         <button
           key={t.id}
           className={`rail-btn ${tool === t.id ? 'active' : ''}`}
@@ -20,6 +20,13 @@ export function ToolRail() {
           <span>{t.label}</span>
         </button>
       ))}
+    </>
+  );
+  return (
+    <aside className="toolrail" aria-label="Tools">
+      {group('terrain', 'Terrain')}
+      <div className="rail-sep" />
+      {group('water', 'Water')}
     </aside>
   );
 }

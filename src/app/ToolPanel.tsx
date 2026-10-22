@@ -1,4 +1,5 @@
-import { useUi, DEFAULT_RATES } from '../state/uiStore';
+import { useUi, DEFAULT_RATES, isBrushTool, isWaterTool } from '../state/uiStore';
+import { WaterPanel } from './WaterPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
@@ -40,7 +41,8 @@ export function ToolPanel() {
   }
   const cs = world?.cellSizeM ?? 10;
   const extent = world ? (Math.max(world.width, world.height) - 1) * cs : 1000;
-  const brush = t.id !== 'navigate';
+  const brush = isBrushTool(t.id);
+  const water = isWaterTool(t.id);
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -94,7 +96,24 @@ export function ToolPanel() {
         </>
       )}
 
-      {!brush && (
+      {water && (
+        <>
+          {t.id !== 'spring' && (
+            <>
+              <LogSlider label="Radius" unit="m" value={s.radiusM} min={cs * 1.5} max={extent / 3} onChange={(v) => s.set({ radiusM: v })} />
+              <LogSlider label={t.rateLabel!} unit="" value={s.waterRate} min={t.rateMin!} max={t.rateMax!} onChange={(v) => s.set({ waterRate: v })} />
+            </>
+          )}
+          {t.id === 'spring' && (
+            <LogSlider label="New spring discharge" unit="m³/s" value={s.springRate} min={0.1} max={2000} onChange={(v) => s.set({ springRate: v })} />
+          )}
+          <p className="hint small">Water tools act on the simulated water directly and are not undoable (use saves as checkpoints).</p>
+        </>
+      )}
+
+      {(water || !brush) && <WaterPanel />}
+
+      {!brush && !water && (
         <div className="cam-buttons">
           <button onClick={() => getScene()?.fitWorld()}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>

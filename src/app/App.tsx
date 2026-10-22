@@ -8,6 +8,7 @@ import { NewWorldDialog } from './NewWorldDialog';
 import { LoadDialog } from './LoadDialog';
 import { HelpDialog } from './HelpDialog';
 import { Toasts } from './Toasts';
+import { TimeBar } from './TimeBar';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
@@ -29,6 +30,7 @@ export function App() {
       <TopBar />
       <ToolRail />
       <ToolPanel />
+      <TimeBar />
       <StatusBar />
       <Toasts />
       {dialog === 'new' && <NewWorldDialog />}

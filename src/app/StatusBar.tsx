@@ -29,6 +29,15 @@ export function StatusBar() {
             <span>
               <b>Rock</b> {hover.materialName}
             </span>
+            {hover.isSea ? (
+              <span>
+                <b>Sea</b> below sea level
+              </span>
+            ) : (
+              <span title="Simulated surface water depth and depth-averaged speed">
+                <b>Water</b> {hover.waterDepthM < 0.001 ? 'dry' : `${hover.waterDepthM < 1 ? (hover.waterDepthM * 100).toFixed(1) + ' cm' : hover.waterDepthM.toFixed(2) + ' m'} · ${hover.waterSpeedMS.toFixed(2)} m/s`}
+              </span>
+            )}
           </>
         ) : (
           <span className="muted">Point at the terrain to inspect it</span>

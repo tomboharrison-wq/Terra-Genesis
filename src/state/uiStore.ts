@@ -1,8 +1,32 @@
 import { create } from 'zustand';
 import type { BrushKind } from '../tools/brush';
 import type { FrameStats, Quality } from '../renderer/TerrainScene';
+import type { WaterView } from '../renderer/waterLayer';
 
-export type ToolId = 'navigate' | BrushKind;
+export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
+export type ToolId = 'navigate' | BrushKind | WaterToolId;
+
+export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && !t.startsWith('water-') && t !== 'spring';
+export const isWaterTool = (t: ToolId): t is WaterToolId => t === 'water-add' || t === 'water-drain' || t === 'spring';
+
+export interface SimInfo {
+  playing: boolean;
+  speed: number;
+  achievedSpeed: number;
+  simTimeS: number;
+  backend: 'gpu' | 'cpu';
+  storedM3: number;
+  inM3: number;
+  outM3: number;
+  closure: number;
+  maxDepthM: number;
+  maxSpeedMS: number;
+  rainMmH: number;
+  infMmH: number;
+  evapMmH: number;
+  boundary: 'open' | 'closed';
+  sources: { id: number; x: number; y: number; rateM3PerS: number }[];
+}
 
 export interface HoverInfo {
   xM: number;
@@ -14,6 +38,9 @@ export interface HoverInfo {
   sedimentM: number;
   slopeDeg: number;
   materialName: string;
+  waterDepthM: number;
+  waterSpeedMS: number;
+  isSea: boolean;
 }
 
 export interface WorldInfo {
@@ -61,6 +88,11 @@ interface UiState {
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;
+  sim: SimInfo | null;
+  waterView: WaterView;
+  /** Water brush rate (m/s of brush time). */
+  waterRate: number;
+  springRate: number;
   set: (p: Partial<UiState>) => void;
   setRate: (k: BrushKind, v: number) => void;
   toast: (text: string, kind?: Toast['kind']) => void;
@@ -85,6 +117,10 @@ export const useUi = create<UiState>((set) => ({
   panelOpen: true,
   toasts: [],
   lastSavedIso: null,
+  sim: null,
+  waterView: 'water',
+  waterRate: 0.5,
+  springRate: 20,
   set: (p) => set(p),
   setRate: (k, v) => set((s) => ({ rates: { ...s.rates, [k]: v } })),
   toast: (text, kind = 'info') => {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useUi } from '../state/uiStore';
-import { engine, getScene, saveToSlot } from './runtime';
+import { engine, getScene, saveToSlot, syncSim } from './runtime';
 import { TOOLS } from './tools';
 import { isTyping } from './Viewport';
 
@@ -53,6 +53,15 @@ export function useShortcuts() {
         case 'o':
         case 'O':
           return s?.oblique();
+        case 'p':
+        case 'P':
+          return engine.setPlaying(!engine.clock.playing);
+        case '.':
+          if (!engine.clock.playing) {
+            engine.advance(Math.min(engine.clock.speed, 3600));
+            syncSim();
+          }
+          return;
         case 'n':
         case 'N':
           return ui.set({ dialog: 'new' });

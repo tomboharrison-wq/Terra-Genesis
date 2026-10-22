@@ -161,3 +161,44 @@ input[type='range'] { width: 100%; accent-color: var(--scouts-yellow); }
   .brand-name, .quality span { display: none; }
   .panel { width: 230px; }
 }
+
+/* Water & time */
+.rail-sep { height: 1px; background: var(--panel-border); margin: 6px 4px; }
+.toolrail { max-height: calc(100vh - 128px); overflow-y: auto; }
+.seg { display: inline-flex; border: 1px solid var(--panel-border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 5px 9px; font-size: 12px; }
+.seg button.active { background: var(--scouts-yellow); color: #1b2a12; font-weight: 700; }
+.field .seg { width: 100%; }
+.field .seg button { flex: 1; justify-content: center; }
+.hint.tight { margin-top: -6px; }
+.springs { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.springs li { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.budget { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: 12px; }
+.budget dt { color: var(--muted); }
+.budget dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.water-panel h3:first-child { margin-top: 4px; }
+.water-panel > button { margin: 2px 0 6px; }
+.timebar {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 54px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  justify-content: center; max-width: calc(100vw - 420px); padding: 6px 10px; background: var(--panel); border: 1px solid var(--panel-border);
+  border-radius: var(--radius); backdrop-filter: blur(10px); z-index: 4; font-variant-numeric: tabular-nums;
+}
+.timebar select { width: auto; padding: 4px 6px; }
+.timebar .sep { width: 1px; height: 22px; background: var(--panel-border); }
+.timebar .play { background: var(--scouts-green); border-color: var(--scouts-green); padding: 6px 12px; }
+.timebar .play.on { background: var(--scouts-orange); border-color: var(--scouts-orange); }
+.timebar .clock { font-weight: 700; min-width: 140px; }
+.timebar .achieved { color: var(--muted); font-size: 12px; }
+.timebar .achieved.slow { color: var(--scouts-orange); }
+.badge { font-size: 10px; font-weight: 800; letter-spacing: 0.06em; padding: 2px 6px; border-radius: 5px; }
+.badge.gpu { background: rgba(37, 183, 85, 0.25); color: #8ff0ae; }
+.badge.cpu { background: rgba(255, 145, 42, 0.25); color: #ffc58a; }
+.legend { display: grid; grid-template-columns: repeat(3, auto); gap: 0 10px; font-size: 10px; color: var(--muted); align-items: center; }
+.legend .ramp { grid-column: 1 / -1; display: block; width: 150px; height: 8px; border-radius: 4px; }
+.legend .ramp.depth { background: linear-gradient(90deg, #cdeeff, #338cf2, #0a1f73); }
+.legend .ramp.speed { background: linear-gradient(90deg, #fff28c, #ff912a, #c71a1a); }
+.legend span:nth-child(3) { text-align: center; }
+.legend span:last-child { text-align: right; }
+@media (max-width: 1100px) { .timebar { max-width: calc(100vw - 120px); bottom: 96px; } }
+.field.check { display: flex; align-items: center; gap: 8px; align-self: end; padding-bottom: 6px; }
+.field.check input { width: auto; }

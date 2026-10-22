@@ -33,6 +33,7 @@ import { raycastHeightfield, sampleBilinear, type RayHit } from '../terrain/heig
 import { expandRect, clampRect, type CellRect } from '../utils/rect';
 import { terrainColour } from './palette';
 import { addTerrainDetail, createSeaMaterial, createSkyMaterial } from './shaders';
+import { WaterLayer, type WaterView } from './waterLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 
@@ -67,6 +68,8 @@ export class TerrainScene {
   private skirt: Mesh<BufferGeometry, MeshStandardMaterial> | null = null;
   private waterSkirt: Mesh<BufferGeometry, MeshStandardMaterial> | null = null;
   private baseM = 0;
+  private waterLayer: WaterLayer | null = null;
+  private waterView: WaterView = 'water';
   private heightTex: DataTexture | null = null;
   private heightHalf = new Uint16Array(0);
   private sky: Mesh;
@@ -86,6 +89,8 @@ export class TerrainScene {
   /** Called every frame with clamped dt (s), before rendering. */
   onFrame: ((dt: number) => void) | null = null;
   onStats: ((s: FrameStats) => void) | null = null;
+  /** Called after frames in which simulated time advanced. */
+  onSim: (() => void) | null = null;
   private statsTimer = 0;
 
   constructor(private container: HTMLElement, private engine: Engine, quality: Quality = 'balanced') {
@@ -137,6 +142,8 @@ export class TerrainScene {
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') this.buildWorld(true);
     });
+    // GPU water solver shares this WebGL2 context; falls back to CPU if float targets are missing.
+    engine.attachGpu(this.renderer.getContext() as WebGL2RenderingContext);
     this.buildWorld(true);
     this.loop();
   }
@@ -205,6 +212,14 @@ export class TerrainScene {
     this.terrain.receiveShadow = true;
     this.scene.add(this.terrain);
     this.stats.triangles = idx.length / 3;
+
+    if (this.waterLayer) {
+      this.scene.remove(this.waterLayer.mesh);
+      this.waterLayer.dispose();
+    }
+    this.waterLayer = new WaterLayer(this.engine, this.renderer, geo.getIndex()!, this.pos.slice());
+    this.waterLayer.setView(this.waterView);
+    this.scene.add(this.waterLayer.mesh);
 
     this.baseM = Math.min(zmin, w.seaLevelM) - Math.max(20, this.reliefM * 0.12);
     this.buildSea(ex, ey);
@@ -343,6 +358,7 @@ export class TerrainScene {
       u.uFogFar.value = size * 5;
       u.uSunDir.value = this.sun.position.clone().sub(c).normalize().toArray();
     }
+    this.waterLayer?.setFog(size * 1.2, size * 5, this.sun.position.clone().sub(c).normalize().toArray(), Math.max(0.2, this.reliefM * 0.0008));
   }
 
   /** Recompute positions, normals and colours for cells in rect (plus 1-cell normal halo). */
@@ -407,16 +423,21 @@ export class TerrainScene {
     this.last = now;
     const dt = Math.min(rawDt, 0.05);
     this.onFrame?.(dt);
+    const simDone = this.engine.tick(rawDt);
+    if (this.engine.gpu) this.renderer.resetState(); // raw GL compute passes ran on this context
+    if (simDone > 0) this.onSim?.();
     const dirty = this.engine.takeDirty();
     if (dirty) {
       this.updateVertices(dirty, true);
       this.updateHeightTexture();
+      this.waterLayer?.updateGround();
       if (dirty.x0 <= 1 || dirty.y0 <= 1 || dirty.x1 >= this.engine.world.width - 1 || dirty.y1 >= this.engine.world.height - 1) this.updateSkirts();
     }
     if (this.brushVisible) this.updateBrushRing();
     this.controls.update();
     this.sky.position.copy(this.camera.position);
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
+    this.waterLayer?.update(now / 1000);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
     const cpuMs = performance.now() - t0;
@@ -530,9 +551,16 @@ export class TerrainScene {
     this.controls.update();
   }
 
+  setWaterView(v: WaterView) {
+    this.waterView = v;
+    this.waterLayer?.setView(v);
+  }
+
   dispose() {
     cancelAnimationFrame(this.raf);
     this.unsub();
+    this.engine.detachGpu();
+    this.waterLayer?.dispose();
     this.resizeObs.disconnect();
     this.controls.dispose();
     this.terrain?.geometry.dispose();
