@@ -41,6 +41,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     ...(w.snowSweM[i] > 0 ? { snowSweM: w.snowSweM[i] } : {}),
     ...(w.iceThicknessM[i] > 0 ? { iceM: w.iceThicknessM[i] } : {}),
     ...(w.lavaDepthM[i] > 0 ? { lavaM: w.lavaDepthM[i], lavaC: w.lavaTempC[i] } : {}),
+    ...(w.tephraM[i] > 0.001 ? { ashM: Math.min(w.tephraM[i], w.looseSedimentThicknessM[i]) } : {}),
     ...(w.vegCover[i] > 0.005 ? { vegPct: 100 * w.vegCover[i] } : {}),
     ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
@@ -85,9 +86,9 @@ export function Viewport() {
       const ui = useUi.getState();
       if (ui.tool === 'volcano') {
         const v = ui.volcano;
-        const vent = engine.addVent(hit.xM, hit.yM, v.rateM3PerS, v.kind, v.hours * 3600);
+        const vent = engine.addVent(hit.xM, hit.yM, v.rateM3PerS, v.kind, v.hours * 3600, v.style);
         syncSim();
-        ui.toast(`Vent ${vent.id} erupting ${v.kind} at ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`, 'success');
+        ui.toast(`Vent ${vent.id}: ${v.style === 'lava' ? '' : v.style + ' '}${v.kind} eruption, ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`, 'success');
         return;
       }
       if (ui.tool === 'earthquake') {

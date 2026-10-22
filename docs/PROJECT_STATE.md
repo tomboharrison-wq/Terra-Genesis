@@ -2,7 +2,7 @@
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M08 — Volcanoes (M07 tectonics complete)
-Current chunk: M08-C02 — tephra / explosive eruptions (see NEXT_TASK)
+Current chunk: M08-C03 — shield vs composite cones (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -25,6 +25,8 @@ Verified working:
 - M08-C01 lava (src/sim/lava/lavaSim.ts, VolcanoPanel, key V): lavaDepthM/TempC/Kind (v10) + vents; Bingham flux,
   η,τ ∝ e^{b(Te−T)}, radiation+convection cooling; sub-steps inside each water step (0.5–5 s, ⅛-difference cap);
   Engine.lavaHook solidifies on 60 s cadence → addTopRock (world.ts) volcanic layer. Glow via lavaGlow attribute.
+  C02 tephra (src/sim/lava/tephra.ts): vent style lava/explosive/mixed; Mastin H; cinder exp(−r/150 m) + settleLoose
+  (33°); fall footprint exp(−ρ), L = 150 m·H, wind-stretched; loose sediment + tephraM (v11) ash colour; 600 s cadence.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -33,10 +35,10 @@ Known failures / gaps:
 - On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
 - Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea.
-- No glacial U-shapes (plan-view SIA). Lava: no crust insulation, steam or lava–ice melting; map edges are walls.
+- No glacial U-shapes (plan-view SIA). Lava: no crust, steam, lava–ice melting; edges are walls. Ash lands instantly (no grain sizes / PDCs).
 
 Relevant paths: src/sim/lava/lavaSim.ts, src/engine/engine.ts (stepper, lavaHook), src/app/VolcanoPanel.tsx,
 TerrainScene (lava colour/glow), src/renderer/shaders.ts
-Last checks: typecheck PASS · npm test PASS (196) · build PASS · e2e PASS 38/38 · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (202) · build PASS · e2e 38/39 (see TEST_RESULTS) · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

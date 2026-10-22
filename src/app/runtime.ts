@@ -1,4 +1,4 @@
-import { lavaClosure } from '../sim/lava/lavaSim';
+import { lavaClosure, tephraClosure } from '../sim/lava/lavaSim';
 import { Engine } from '../engine/engine';
 import type { WorldState } from '../engine/world';
 import { generateWorld, defaultOptions, type GenerateOptions } from '../terrain/generate';
@@ -122,6 +122,12 @@ export function syncSim() {
         solidifiedM3: engine.lava.ledger.solidified,
         maxTempC: engine.lava.maxTemp(),
         closure: lavaClosure(engine.lava),
+        tephraEruptedM3: engine.lava.ledger.tephraErupted,
+        tephraDepositedM3: engine.lava.ledger.tephraDeposited,
+        tephraOffMapM3: engine.lava.ledger.tephraOffMap,
+        tephraClosure: tephraClosure(engine.lava),
+        plumeKm: engine.lava.lastPlumeKm,
+        windSpeedMS: w.lava.windSpeedMS,
       },
       tectonics: (() => {
         const t = w.tectonics;

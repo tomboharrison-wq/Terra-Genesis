@@ -6,7 +6,7 @@ import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacier
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 
-export const WORLD_FORMAT_VERSION = 10;
+export const WORLD_FORMAT_VERSION = 11;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -133,6 +133,8 @@ export interface WorldState {
   lavaTempC: Float32Array;
   /** Lava kind per cell (0 basalt, 1 andesite). */
   lavaKind: Uint8Array;
+  /** Volcanic ash / cinder share of the loose sediment (m, ≤ looseSedimentThicknessM; for display). */
+  tephraM: Float32Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
@@ -191,6 +193,7 @@ export function createWorld(init: WorldInit): WorldState {
     lavaDepthM: new Float32Array(n),
     lavaTempC: new Float32Array(n),
     lavaKind: new Uint8Array(n),
+    tephraM: new Float32Array(n),
     plateId: new Uint8Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
@@ -300,6 +303,7 @@ export function cloneWorld(w: WorldState): WorldState {
     lavaDepthM: w.lavaDepthM.slice(),
     lavaTempC: w.lavaTempC.slice(),
     lavaKind: w.lavaKind.slice(),
+    tephraM: w.tephraM.slice(),
     plateId: w.plateId.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },

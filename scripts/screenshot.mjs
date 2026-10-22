@@ -511,6 +511,30 @@ await shot('37-lava-flow');
 const vp = await page.textContent('.volcano-panel');
 check('volcano vent erupts lava that spreads with a closed volume ledger', vent === 1 && lava.cells > 3 && Math.abs(lava.erupted - 200 * 1800) < 1 && lava.closure < 1e-4 && /Erupted/.test(vp ?? ''), `vent on land ${vent} ` + JSON.stringify(lava));
 
+// --- Explosive eruption (M08-C02): ash + cinder, thinning downwind, tephra ledger closes ---
+await page.selectOption('.volcano-panel select >> nth=1', 'explosive');
+await page.locator('.volcano-panel input[type=range]').nth(0).fill('8'); // 500 m³/s
+await page.mouse.move(980, 520);
+await page.mouse.down();
+await page.mouse.up();
+await page.waitForTimeout(300);
+const ash = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  const v = e.world.lava.vents.find((q) => q.style === 'explosive');
+  const onLand = v ? e.surface[v.y * e.world.width + v.x] > e.world.seaLevelM : false;
+  e.advance(1800);
+  const L = e.lava.ledger;
+  let cells = 0;
+  for (const t of e.world.tephraM) if (t > 0.01) cells++;
+  const pending = e.lava.pendingTephra();
+  return { onLand, erupted: L.tephraErupted, deposited: L.tephraDeposited, off: L.tephraOffMap, closure: Math.abs(L.tephraErupted - L.tephraDeposited - L.tephraOffMap - pending) / L.tephraErupted, cells };
+});
+await page.click('button[aria-label="Step"]');
+await page.waitForTimeout(1500);
+await shot('38-ash-fall');
+const ap = await page.textContent('.volcano-panel');
+check('explosive eruption lays ash and cinder with a closed tephra ledger', ash.deposited > 0 && ash.cells > 50 && ash.closure < 1e-4 && /Ash and cinder/.test(ap ?? ''), JSON.stringify(ash));
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

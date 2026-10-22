@@ -121,3 +121,7 @@
 - New Earth → Volcano tool (V): click the map to open a vent and pick runny basalt or sticky andesite, the eruption rate and how long it lasts. Press Play and the lava flows downhill in real time, fills hollows, slows as it cools and sets into a new layer of volcanic rock (soil it buries becomes a rock layer underneath). Hot lava glows, burns plants and melts snow.
 - Sticky lava has a strength: it only moves where it is thick and the slope steep, so it piles up; runny lava spreads in thin sheets. The panel keeps a volume check: erupted = still molten + turned to rock.
 - Hover shows lava thickness and temperature. Saves keep lava and vents (file format v10).
+
+## M08-C02 — Volcanoes: ash and cinder
+- The Volcano tool has an eruption style: lava only, explosive, or mixed. Explosive eruptions blast magma into ash and cinder. Cinder piles up round the vent into a steep cone that stands at the angle of repose (33°); ash falls from an eruption column (its height from the eruption rate, Mastin 2009) and thins with distance, stretched downwind by an ash-wind speed you can set (direction from Climate).
+- Ash is loose, so rain and rivers can wash it away. It buries plants, shows grey on the map, and hovering shows its depth. The panel keeps a volume check: erupted = landed on the map + blown off the edge. Saves keep ash (file format v11).

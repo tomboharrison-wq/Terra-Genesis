@@ -65,7 +65,13 @@ export interface SimInfo {
     snowmeltM3: number;
   };
   lava: {
-    vents: { id: number; x: number; y: number; rateM3PerS: number; kind: 'basalt' | 'andesite'; remainingS: number }[];
+    vents: { id: number; x: number; y: number; rateM3PerS: number; kind: 'basalt' | 'andesite'; remainingS: number; style?: 'lava' | 'explosive' | 'mixed' }[];
+    tephraEruptedM3: number;
+    tephraDepositedM3: number;
+    tephraOffMapM3: number;
+    tephraClosure: number;
+    plumeKm: number;
+    windSpeedMS: number;
     eruptedM3: number;
     flowingM3: number;
     solidifiedM3: number;
@@ -128,6 +134,7 @@ export interface HoverInfo {
   iceM?: number;
   lavaM?: number;
   lavaC?: number;
+  ashM?: number;
   vegPct?: number;
   rainHereMmH?: number;
   isSea: boolean;
@@ -170,6 +177,7 @@ export interface QuakeSettings {
 
 export interface VolcanoSettings {
   kind: 'basalt' | 'andesite';
+  style: 'lava' | 'explosive' | 'mixed';
   rateM3PerS: number;
   hours: number;
 }
@@ -214,7 +222,7 @@ let toastId = 0;
 
 export const useUi = create<UiState>((set) => ({
   tool: 'navigate',
-  volcano: { kind: 'basalt', rateM3PerS: 50, hours: 6 },
+  volcano: { kind: 'basalt', style: 'lava', rateM3PerS: 50, hours: 6 },
   quake: { type: 'reverse', mw: 7, strikeDeg: 30, landslides: true, shake: true },
   lastQuake: null,
   radiusM: 300,

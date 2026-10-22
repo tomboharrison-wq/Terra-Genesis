@@ -65,6 +65,7 @@ const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
 // Lava by temperature: cooled crust → dull red → orange → yellow-orange (eruption heat).
 const LAVA_CRUST = new Color(0x2a2422);
+const ASH = new Color(0x6f6c6a); // grey volcanic ash / dark cinder
 const LAVA_RED = new Color(0x8e1d0c);
 const LAVA_ORANGE = new Color(0xe8551a);
 const LAVA_HOT = new Color(0xffb13b);
@@ -514,6 +515,14 @@ export class TerrainScene {
           this.col,
           o,
         );
+        const ash = Math.min(w.tephraM[i], w.looseSedimentThicknessM[i]);
+        if (ash > 0.005) {
+          // Ash / cinder cover from the tephra share of the loose sediment (thin ash lets ground show).
+          const a = Math.min(1, ash / 0.2);
+          this.col[o] += (ASH.r - this.col[o]) * a;
+          this.col[o + 1] += (ASH.g - this.col[o + 1]) * a;
+          this.col[o + 2] += (ASH.b - this.col[o + 2]) * a;
+        }
         const vc = w.vegCover[i];
         if (vc > 0.02 && this.terrainOverlay === 'none' && z[i] >= sea) {
           // Plant cover: grassland → forest green.

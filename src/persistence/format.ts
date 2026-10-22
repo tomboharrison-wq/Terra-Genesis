@@ -16,6 +16,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
+ * v11 adds tephraM (ash share of loose sediment). Older files migrate without ash.
  * v10 adds lavaDepthM, lavaTempC, lavaKind and header.lava. Older files migrate without lava.
  * v9 adds plateId and header.tectonics. Older files migrate with one plate and tectonics off.
  * v8 adds vegCover and header.vegetation. Older files migrate bare.
@@ -25,7 +26,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId' | 'lavaDepthM' | 'lavaTempC' | 'lavaKind';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId' | 'lavaDepthM' | 'lavaTempC' | 'lavaKind' | 'tephraM';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
@@ -43,6 +44,7 @@ const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'lavaDepthM', type: 'f32', perCell: 1 },
   { name: 'lavaTempC', type: 'f32', perCell: 1 },
   { name: 'lavaKind', type: 'u8', perCell: 1 },
+  { name: 'tephraM', type: 'f32', perCell: 1 },
 ];
 
 export interface FileHeader {
@@ -167,6 +169,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     lavaDepthM: has('lavaDepthM') ? new Float32Array(get('lavaDepthM')) : new Float32Array(n),
     lavaTempC: has('lavaTempC') ? new Float32Array(get('lavaTempC')) : new Float32Array(n),
     lavaKind: has('lavaKind') ? new Uint8Array(get('lavaKind')) : new Uint8Array(n),
+    tephraM: has('tephraM') ? new Float32Array(get('tephraM')) : new Float32Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
     coast: { ...defaultCoastParams(), ...h.coast },
     climate: { ...defaultClimateParams(), ...h.climate },
@@ -192,7 +195,8 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.plateId.length !== n ||
     world.lavaDepthM.length !== n ||
     world.lavaTempC.length !== n ||
-    world.lavaKind.length !== n
+    world.lavaKind.length !== n ||
+    world.tephraM.length !== n
   )
     throw new Error('Field size mismatch');
   return { world, extras: h.extras };

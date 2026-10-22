@@ -17,6 +17,7 @@ import { compareClimate, type ClimateChange, type CompareResult } from '../terra
 import { generatePlates, TectonicsSim, type Plate, type TectonicsParams } from '../sim/tectonics/plates';
 import { earthquake, type QuakeOptions, type QuakeResult } from '../sim/tectonics/earthquake';
 import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
+import type { EruptionStyle } from '../sim/lava/tephra';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -347,8 +348,19 @@ export class Engine {
       this.emit({ type: 'terrain-changed', rect: region });
     }
     this.lavaRevision++;
-    if (!lava.solidifyDue() && lava.active) return;
+    const solid = lava.solidifyDue() || !lava.active;
+    const teph = lava.tephraDue();
+    if (!solid && !teph) return;
     if (this.gpu) this.gpu.syncToCpu();
+    if (teph) {
+      lava.windFromDeg = this.world.climate.windFromDeg;
+      const t = lava.layTephra();
+      if (t) {
+        this.markDirty(t);
+        this.water.refreshSea();
+      }
+    }
+    if (!solid) return;
     const r = lava.solidify();
     this.gpu?.uploadWater(); // snow melted under hot lava
     this.vegetationRevision++;
@@ -356,14 +368,20 @@ export class Engine {
   }
 
   /** Open a vent at world (xM, yM). */
-  addVent(xM: number, yM: number, rateM3PerS: number, kind: LavaKind, durationS: number): LavaVent {
+  addVent(xM: number, yM: number, rateM3PerS: number, kind: LavaKind, durationS: number, style: EruptionStyle = 'lava'): LavaVent {
     const w = this.world;
     const x = Math.min(w.width - 1, Math.max(0, Math.round(xM / w.cellSizeM)));
     const y = Math.min(w.height - 1, Math.max(0, Math.round(yM / w.cellSizeM)));
-    const v = this.lava.addVent(x, y, rateM3PerS, kind, durationS);
+    const v = this.lava.addVent(x, y, rateM3PerS, kind, durationS, style);
     this.lavaRevision++;
     this.emit({ type: 'water-params-changed' });
     return v;
+  }
+
+  /** High-level wind speed carrying volcanic ash (m/s). */
+  setAshWind(ms: number): void {
+    this.world.lava.windSpeedMS = ms;
+    this.emit({ type: 'water-params-changed' });
   }
 
   removeVent(id: number): void {

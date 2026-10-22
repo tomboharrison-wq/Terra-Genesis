@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M08-C02
+- npm test PASS 202 (+ tephra: thin ash on 3 km sediment conserved to 1e-9; Mastin H(1)=2 km, H(1000)=10.5 km; footprint on-map + off-map = erupted to 1e-5; ash thins away from the vent, downwind > 5× upwind and > crosswind, ledger < 1e-4, finished vent leaves after its ash lands; 1 day of 200 m³/s explosive basalt builds a > 50 m cinder cone whose steepest flank is 28–33°; mixed splits lava/tephra, buries plants, save/load keeps ash + style)
+- Browser (River basin): 3 h at 500 m³/s → 8.9 km column, 10.0 M m³ landed + 4.1 M m³ off the edge = 14.1 M m³ erupted.
+- e2e: last full run 38/39 — the new ash check's data passed (1854 ash cells, ledger 2e-15) but it also required the vent on land and the random map put it in the sea; that condition was dropped (underwater eruptions are valid). Not re-run in full afterwards. Fixed on the way: float32 rounding lost thin ash on 3 km sediment columns (now carried per cell in float64).
+
 ## 2026-10-22 M08-C01
 - npm test PASS 196 (+ lava: runs downhill and fills a 6 m hollow, ledger < 1e-4; 3 m andesite slab does not move on 3 % (h_c ≈ 70 m) but creeps on 45 °, basalt spreads; flow cools, stops and becomes volcanic rock — ground rises by the erupted 6000 m³, world valid; 0.5 m sheet cools > 3× faster than 5 m; save/load keeps lava + vents)
 - Browser: 3 h of 200 m³/s basalt on River basin (256², 30 m) = 2.2 s CPU; flow follows the valley.

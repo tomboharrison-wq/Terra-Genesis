@@ -1,5 +1,17 @@
 import { addTopRock, type WorldState } from '../../engine/world';
 import type { CellRect } from '../../utils/rect';
+import {
+  BULK_FACTOR,
+  CINDER_R0_M,
+  FALL_L_PER_KM,
+  coarseFraction,
+  depositTephra,
+  footprint,
+  plumeHeightKm,
+  settleLoose,
+  type EruptionStyle,
+  type Footprint,
+} from './tephra';
 
 /**
  * Lava flows (spec E10), CPU, explicit, real simulated time (seconds – days).
@@ -24,6 +36,8 @@ import type { CellRect } from '../../utils/rect';
  *   receivers no cell overshoots its neighbours (where very thick runny lava near a vent would level
  *   out faster than 0.5 s, the cap levels it within the step instead); a donor never gives more than it has.
  * Ledger: erupted = flowing + solidified.
+ * Vent styles: 'lava' (all magma as lava), 'explosive' (all as tephra, see tephra.ts), 'mixed' (half each).
+ * The vent rate is the magma rate (dense rock, m³/s); tephra is laid on the solidify cadence.
  */
 export type LavaKind = 'basalt' | 'andesite';
 
@@ -52,6 +66,7 @@ const H_WATER = 500;
 const G = 9.81;
 const MAX_DT = 5;
 const MIN_DT = 0.5;
+const TEPHRA_INTERVAL_S = 600;
 const HMIN = 1e-4;
 export const VOLCANIC_ID = 5;
 const BURIED_SOIL_ID = 2;
@@ -64,16 +79,27 @@ export interface LavaVent {
   kind: LavaKind;
   /** Eruption time left (s). */
   remainingS: number;
+  /** How the magma comes out (older saves: 'lava'). */
+  style?: EruptionStyle;
+  /** Tephra erupted but not yet laid down (bulk m³). */
+  pendingTephraM3?: number;
 }
 
 export interface LavaParams {
   vents: LavaVent[];
-  /** Simulated seconds between solidification passes. */
+  /** Simulated seconds between solidification / tephra passes. */
   solidifyIntervalS: number;
+  /** High-level wind speed carrying ash (m/s); direction from the climate wind. */
+  windSpeedMS: number;
 }
 
 export function defaultLavaParams(): LavaParams {
-  return { vents: [], solidifyIntervalS: 60 };
+  return { vents: [], solidifyIntervalS: 60, windSpeedMS: 10 };
+}
+
+/** Lava share of a vent's magma by style. */
+export function lavaShare(style: EruptionStyle | undefined): number {
+  return style === 'explosive' ? 0 : style === 'mixed' ? 0.5 : 1;
 }
 
 export interface LavaLedger {
@@ -81,6 +107,10 @@ export interface LavaLedger {
   solidified: number;
   /** Ground volume changed by solidification (lava → rock), m³. */
   rockAdded: number;
+  /** Tephra (bulk m³): erupted = deposited + off the map + pending in vents. */
+  tephraErupted: number;
+  tephraDeposited: number;
+  tephraOffMap: number;
 }
 
 export function lavaKindDef(id: number): LavaKindDef {
@@ -88,11 +118,19 @@ export function lavaKindDef(id: number): LavaKindDef {
 }
 
 export class LavaSim {
-  ledger: LavaLedger = { erupted: 0, solidified: 0, rockAdded: 0 };
+  ledger: LavaLedger = { erupted: 0, solidified: 0, rockAdded: 0, tephraErupted: 0, tephraDeposited: 0, tephraOffMap: 0 };
+  /** Wind the ash plume blows FROM (bearing, °); Engine keeps it equal to the climate wind. */
+  windFromDeg = 240;
+  private footprints = new Map<string, Footprint>();
+  /** Ash too thin to register on a cell yet (m), see depositTephra. */
+  readonly tephraResidual: Float64Array;
+  /** Height of the last explosive column (km), for the panel. */
+  lastPlumeKm = 0;
   private flux: Float32Array;
   private maxD = 0;
   private box: CellRect | null = null;
   private sinceSolid = 0;
+  private sinceTephra = 0;
   /** Ambient air temperature per cell (°C), when a climate field is attached. */
   airC: Float32Array | null = null;
   /** 1 where the cell is sea (water sim's mask), for quenching. */
@@ -103,6 +141,7 @@ export class LavaSim {
     private surface: Float32Array,
   ) {
     this.flux = new Float32Array(w.width * w.height * 4);
+    this.tephraResidual = new Float64Array(w.width * w.height);
     this.ledger.erupted = this.flowingVolume();
     this.box = this.findBox();
   }
@@ -153,16 +192,18 @@ export class LavaSim {
     return Math.max(MIN_DT, Math.min(MAX_DT, (0.2 * this.w.cellSizeM * this.w.cellSizeM) / this.maxD));
   }
 
-  addVent(x: number, y: number, rateM3PerS: number, kind: LavaKind, durationS: number): LavaVent {
+  addVent(x: number, y: number, rateM3PerS: number, kind: LavaKind, durationS: number, style: EruptionStyle = 'lava'): LavaVent {
     const id = this.w.lava.vents.reduce((m, v) => Math.max(m, v.id), 0) + 1;
-    const v: LavaVent = { id, x, y, rateM3PerS, kind, remainingS: durationS };
+    const v: LavaVent = { id, x, y, rateM3PerS, kind, remainingS: durationS, style, pendingTephraM3: 0 };
     this.w.lava.vents.push(v);
     this.box = this.findBox();
     return v;
   }
 
+  /** Stop a vent (tephra it already produced is still laid down on the next pass). */
   removeVent(id: number): void {
-    this.w.lava.vents = this.w.lava.vents.filter((v) => v.id !== id);
+    for (const v of this.w.lava.vents) if (v.id === id) v.remainingS = 0;
+    this.w.lava.vents = this.w.lava.vents.filter((v) => v.remainingS > 0 || (v.pendingTephraM3 ?? 0) > 0);
     this.box = this.findBox();
   }
 
@@ -195,14 +236,22 @@ export class LavaSim {
       if (run <= 0) continue;
       const i = v.y * W + v.x;
       const kd = LAVA_KINDS[v.kind];
-      const add = (v.rateM3PerS * run) / A;
+      const share = lavaShare(v.style);
+      if (share < 1) {
+        const t = (1 - share) * v.rateM3PerS * run * BULK_FACTOR;
+        v.pendingTephraM3 = (v.pendingTephraM3 ?? 0) + t;
+        this.ledger.tephraErupted += t;
+      }
+      if (share <= 0) continue;
+      const add = (share * v.rateM3PerS * run) / A;
       const nh = Math.fround(h[i] + add);
       T[i] = (h[i] * T[i] + (nh - h[i]) * kd.eruptC) / nh;
       this.ledger.erupted += (nh - h[i]) * A;
       h[i] = nh;
       kind[i] = KIND_IDS.indexOf(v.kind);
     }
-    w.lava.vents = vents.filter((v) => v.remainingS > 0);
+    // Finished vents leave once their last tephra has been laid down.
+    w.lava.vents = vents.filter((v) => v.remainingS > 0 || (v.pendingTephraM3 ?? 0) > 0);
     const box = this.findBoxFast();
     this.box = box;
     if (!box) {
@@ -301,6 +350,7 @@ export class LavaSim {
       }
     this.maxD = maxD;
     this.sinceSolid += dt;
+    this.sinceTephra += dt;
   }
 
   /** Bounding box from the previous box grown by one (lava moves at most one cell per step). */
@@ -393,6 +443,75 @@ export class LavaSim {
     return r;
   }
 
+  /** Tephra is laid every TEPHRA_INTERVAL_S of simulated time, and at once when a vent stops. */
+  tephraDue(): boolean {
+    const vs = this.w.lava.vents;
+    if (!vs.some((v) => (v.pendingTephraM3 ?? 0) > 0)) return false;
+    return this.sinceTephra >= TEPHRA_INTERVAL_S || vs.some((v) => v.remainingS <= 0);
+  }
+
+  /**
+   * Lay down the tephra each vent produced since the last pass (cinder near the vent settling to
+   * the angle of repose, ash downwind). Returns the changed rect (or null).
+   */
+  layTephra(): CellRect | null {
+    const w = this.w;
+    this.sinceTephra = 0;
+    let r: CellRect | null = null;
+    const grow = (q: CellRect | null) => {
+      if (!q) return;
+      r = r ? { x0: Math.min(r.x0, q.x0), y0: Math.min(r.y0, q.y0), x1: Math.max(r.x1, q.x1), y1: Math.max(r.y1, q.y1) } : { ...q };
+    };
+    for (const v of w.lava.vents) {
+      const bulk = v.pendingTephraM3 ?? 0;
+      if (bulk <= 0) continue;
+      v.pendingTephraM3 = 0;
+      const H = plumeHeightKm((1 - lavaShare(v.style)) * v.rateM3PerS);
+      this.lastPlumeKm = H;
+      const fc = coarseFraction(H);
+      const L = Math.max(w.cellSizeM, FALL_L_PER_KM * H);
+      const e = 1 + w.lava.windSpeedMS / 5;
+      const toDeg = (this.windFromDeg + 180) % 360;
+      const key = (s: string) => `${s}:${v.x},${v.y}`;
+      const cKey = key('c');
+      const fKey = key(`f${H.toFixed(2)}:${e.toFixed(2)}:${toDeg.toFixed(1)}`);
+      if (!this.footprints.has(cKey)) this.footprints.set(cKey, footprint(w, v.x, v.y, CINDER_R0_M, CINDER_R0_M, CINDER_R0_M, 0));
+      if (!this.footprints.has(fKey)) {
+        if (this.footprints.size > 32) this.footprints.clear();
+        this.footprints.set(fKey, footprint(w, v.x, v.y, L * e, L / e, L, toDeg));
+      }
+      for (const [fp, part] of [
+        [this.footprints.get(cKey)!, fc * bulk],
+        [this.footprints.get(fKey)!, (1 - fc) * bulk],
+      ] as const) {
+        const res = depositTephra(w, this.surface, fp, part, this.tephraResidual);
+        this.ledger.tephraDeposited += res.depositedM3;
+        this.ledger.tephraOffMap += res.offMapM3;
+        grow(res.rect);
+      }
+      // The cinder pile near the vent slides to its angle of repose.
+      const rc = Math.ceil((6 * CINDER_R0_M) / w.cellSizeM);
+      grow(
+        settleLoose(w, this.surface, {
+          x0: Math.max(0, v.x - rc),
+          y0: Math.max(0, v.y - rc),
+          x1: Math.min(w.width, v.x + rc + 1),
+          y1: Math.min(w.height, v.y + rc + 1),
+        }),
+      );
+    }
+    w.lava.vents = w.lava.vents.filter((v) => v.remainingS > 0 || (v.pendingTephraM3 ?? 0) > 0);
+    this.box = this.findBox();
+    return r;
+  }
+
+  /** Tephra still waiting in vents or below a cell's float32 resolution (bulk m³). */
+  pendingTephra(): number {
+    let r = 0;
+    for (const v of this.tephraResidual) r += v;
+    return this.w.lava.vents.reduce((s, v) => s + (v.pendingTephraM3 ?? 0), 0) + r * this.w.cellSizeM * this.w.cellSizeM;
+  }
+
   /** Hottest lava (°C), or null. */
   maxTemp(): number | null {
     let m = -Infinity;
@@ -405,4 +524,10 @@ export class LavaSim {
 export function lavaClosure(sim: LavaSim): number {
   const l = sim.ledger;
   return Math.abs(l.erupted - sim.flowingVolume() - l.solidified) / Math.max(1e-9, l.erupted);
+}
+
+/** Relative closure error of the tephra ledger. */
+export function tephraClosure(sim: LavaSim): number {
+  const l = sim.ledger;
+  return Math.abs(l.tephraErupted - l.tephraDeposited - l.tephraOffMap - sim.pendingTephra()) / Math.max(1e-9, l.tephraErupted);
 }

@@ -1,12 +1,12 @@
 # One next executable task
-ID: M08-C02
-Goal: Explosive eruptions and fragmental deposits (spec E10). Vent gets an eruption style: effusive (lava only,
-as now) / explosive (tephra) / mixed. Tephra: erupted bulk volume rate split into (a) ballistic cinder within a
-few hundred m of the vent (deposit thickness ∝ exp(−r/r0), r0 ≈ 150–300 m), and (b) fall from a plume of height
-from rate (Mastin 2009: H[km] ≈ 2.0·V̇^0.241, V̇ dense-rock m³/s) carried downwind by the climate wind; thinning
-exp(−r/L) with L growing with plume height (Pyle 1989 thinning). Deposits become loose sediment (erodible) or a
-tuff layer if thick; tephra ledger (erupted = deposited + left map). Ash overlay/colour; plants buried.
-Read only: src/sim/lava/lavaSim.ts (vents, addTopRock), engine lavaHook, climate wind params, VolcanoPanel.
-Acceptance: deposit thins away from vent and is elongated downwind; ledger closes; cinder makes steep cone
-slopes near the angle of repose (talus settle); save/load.
+ID: M08-C03
+Goal: Shield vs composite volcanoes (spec E10 "avoid identical or pyramid cones"). Demonstrate, with the existing
+lava + tephra physics, that long-lived basalt lava-only eruptions build broad low shields (flank slopes a few °)
+and alternating andesite lava + explosive phases build steeper concave composite cones (≈ 15–35° near the top,
+gentler apron). Add: vent "episodes" (a vent erupts repeatedly: N episodes with rest gaps, alternating style for
+'composite'), vent elevation follows the growing summit (vent cell stays the crater: small crater depression
+from explosive phases), and a quick "build volcano" action that runs episodes in accelerated time with progress
+(time compression labelled). Profile tool shows the cone; tests measure flank slope and concavity
+(height–radius profile not a straight pyramid). Read only: lavaSim.ts, tephra.ts, engine lavaHook, VolcanoPanel.
+Acceptance: shield mean flank slope < 8°; composite upper flank > 15° and profile concave up; ledgers close.
 Done when: tests/typecheck/build/e2e pass, committed + pushed.

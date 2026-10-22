@@ -39,6 +39,11 @@ export function StatusBar() {
                 <b>Lava</b> {hover.lavaM < 10 ? hover.lavaM.toFixed(1) : Math.round(hover.lavaM)} m · {Math.round(hover.lavaC ?? 0)} °C
               </span>
             )}
+            {hover.ashM !== undefined && hover.ashM > 0.001 && (
+              <span title="Volcanic ash and cinder in the loose sediment">
+                <b>Ash</b> {hover.ashM < 1 ? `${Math.round(hover.ashM * 100)} cm` : `${hover.ashM.toFixed(1)} m`}
+              </span>
+            )}
             {hover.iceM !== undefined && (
               <span title="Glacier ice thickness">
                 <b>Ice</b> {hover.iceM < 10 ? hover.iceM.toFixed(1) : Math.round(hover.iceM)} m
