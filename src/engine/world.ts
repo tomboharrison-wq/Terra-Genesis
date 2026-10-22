@@ -1,0 +1,121 @@
+import type { CellRect } from '../utils/rect';
+
+export const WORLD_FORMAT_VERSION = 1;
+
+export interface WorldMeta {
+  name: string;
+  presetId: string;
+  /** Total vertical relief requested at generation (m). Informational. */
+  reliefM: number;
+  createdAtIso: string;
+}
+
+/**
+ * Authoritative physical world state (spec C3). All fields SI units.
+ * Array index i = y * width + x (x east, y north). Surface elevation is derived.
+ */
+export interface WorldState {
+  version: number;
+  width: number;
+  height: number;
+  cellSizeM: number;
+  seaLevelM: number;
+  seed: number;
+  simTimeSeconds: number;
+  bedrockElevationM: Float32Array;
+  looseSedimentThicknessM: Float32Array;
+  /** Bedrock lithology id, see terrain/materials.ts. */
+  materialId: Uint8Array;
+  meta: WorldMeta;
+}
+
+export interface WorldInit {
+  width: number;
+  height: number;
+  cellSizeM: number;
+  seaLevelM?: number;
+  seed: number;
+  meta?: Partial<WorldMeta>;
+}
+
+export function createWorld(init: WorldInit): WorldState {
+  const { width, height } = init;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 2 || height < 2) {
+    throw new Error(`Invalid world size ${width}x${height}`);
+  }
+  if (!(init.cellSizeM > 0)) throw new Error(`Invalid cell size ${init.cellSizeM}`);
+  const n = width * height;
+  return {
+    version: WORLD_FORMAT_VERSION,
+    width,
+    height,
+    cellSizeM: init.cellSizeM,
+    seaLevelM: init.seaLevelM ?? 0,
+    seed: init.seed >>> 0,
+    simTimeSeconds: 0,
+    bedrockElevationM: new Float32Array(n),
+    looseSedimentThicknessM: new Float32Array(n),
+    materialId: new Uint8Array(n),
+    meta: {
+      name: 'Untitled world',
+      presetId: 'flat',
+      reliefM: 0,
+      createdAtIso: new Date().toISOString(),
+      ...init.meta,
+    },
+  };
+}
+
+export const cellIndex = (w: WorldState, x: number, y: number) => y * w.width + x;
+
+export function surfaceAt(w: WorldState, i: number): number {
+  return w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
+}
+
+/** Recompute derived surface elevation into `out` for a rect (or whole world). */
+export function computeSurface(w: WorldState, out: Float32Array, rect?: CellRect): void {
+  const r = rect ?? { x0: 0, y0: 0, x1: w.width, y1: w.height };
+  const b = w.bedrockElevationM;
+  const s = w.looseSedimentThicknessM;
+  for (let y = r.y0; y < r.y1; y++) {
+    let i = y * w.width + r.x0;
+    for (let x = r.x0; x < r.x1; x++, i++) out[i] = b[i] + s[i];
+  }
+}
+
+export function worldExtentM(w: WorldState): { x: number; y: number } {
+  return { x: (w.width - 1) * w.cellSizeM, y: (w.height - 1) * w.cellSizeM };
+}
+
+/** Structural and numerical sanity check. Returns list of problems (empty = valid). */
+export function validateWorld(w: WorldState): string[] {
+  const errs: string[] = [];
+  const n = w.width * w.height;
+  if (w.bedrockElevationM.length !== n) errs.push('bedrock length mismatch');
+  if (w.looseSedimentThicknessM.length !== n) errs.push('sediment length mismatch');
+  if (w.materialId.length !== n) errs.push('material length mismatch');
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(w.bedrockElevationM[i])) {
+      errs.push(`non-finite bedrock at ${i}`);
+      break;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const s = w.looseSedimentThicknessM[i];
+    if (!(s >= 0) || !Number.isFinite(s)) {
+      errs.push(`invalid sediment ${s} at ${i}`);
+      break;
+    }
+  }
+  return errs;
+}
+
+export function cloneWorld(w: WorldState): WorldState {
+  return {
+    ...w,
+    bedrockElevationM: w.bedrockElevationM.slice(),
+    looseSedimentThicknessM: w.looseSedimentThicknessM.slice(),
+    materialId: w.materialId.slice(),
+    meta: { ...w.meta },
+  };
+}

@@ -1,0 +1,220 @@
+import { createWorld, type WorldState } from '../engine/world';
+import { Noise2D } from '../utils/noise';
+import { deriveSeed } from '../utils/rng';
+import { clamp, smoothstep } from '../utils/math';
+
+export type PresetId =
+  | 'flat'
+  | 'island'
+  | 'archipelago'
+  | 'river-basin'
+  | 'mountain-range'
+  | 'coastal-headland'
+  | 'plateau'
+  | 'continental';
+
+export interface GenerateOptions {
+  presetId: PresetId;
+  seed: number;
+  size: number;
+  cellSizeM: number;
+  /** Vertical relief scale (m). */
+  reliefM: number;
+  seaLevelM: number;
+  /** 0..1 fine-scale surface roughness. */
+  roughness: number;
+  name?: string;
+}
+
+export interface PresetDef {
+  id: PresetId;
+  name: string;
+  description: string;
+  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness'>;
+}
+
+export const PRESETS: readonly PresetDef[] = [
+  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5 } },
+  { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
+  { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
+  { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
+  { id: 'coastal-headland', name: 'Coastal headlands', description: 'Alternating hard and soft rock bands meeting the sea.', defaults: { cellSizeM: 10, reliefM: 120, seaLevelM: 0, roughness: 0.4 } },
+  { id: 'plateau', name: 'Layered plateau', description: 'Resistant cap rock over weaker strata with escarpments.', defaults: { cellSizeM: 25, reliefM: 400, seaLevelM: -100, roughness: 0.35 } },
+  { id: 'continental', name: 'Continental', description: 'Large-scale mixed terrain: uplands, lowlands and coast.', defaults: { cellSizeM: 120, reliefM: 1500, seaLevelM: 0, roughness: 0.55 } },
+  { id: 'flat', name: 'Flat test world', description: 'Level plain 10 m above sea level for controlled tests.', defaults: { cellSizeM: 10, reliefM: 0, seaLevelM: 0, roughness: 0 } },
+];
+
+export function presetById(id: string): PresetDef {
+  return PRESETS.find((p) => p.id === id) ?? PRESETS[0];
+}
+
+export function defaultOptions(presetId: PresetId, seed: number, size = 256): GenerateOptions {
+  return { presetId, seed, size, ...presetById(presetId).defaults };
+}
+
+// Material ids (see materials.ts)
+const CRYSTALLINE = 0;
+const SANDSTONE = 1;
+const MUDSTONE = 2;
+const CLAY = 3;
+const CHALK = 4;
+
+interface Ctx {
+  u: number;
+  v: number;
+  n: Noise2D;
+  n2: Noise2D;
+  o: GenerateOptions;
+}
+
+/** Elevation in units of relief (≈ -0.3 .. 1) and bedrock material for a sample point. */
+type ShapeFn = (c: Ctx) => { e: number; mat: number };
+
+function warp(c: Ctx, amount: number, freq = 2.2): [number, number] {
+  return [
+    c.u + amount * c.n2.fbm(c.u * freq + 3.1, c.v * freq + 7.7, 3),
+    c.v + amount * c.n2.fbm(c.u * freq - 5.3, c.v * freq + 1.9, 3),
+  ];
+}
+
+const shapes: Record<PresetId, ShapeFn> = {
+  flat: () => ({ e: 0, mat: MUDSTONE }),
+
+  'river-basin': (c) => {
+    const [wu, wv] = warp(c, 0.06);
+    // Meandering main valley axis running south (v=0) to north.
+    const axis = 0.5 + 0.1 * Math.sin(wv * Math.PI * 1.6 + c.n.noise(0.3, 0.7) * 3);
+    const dx = (wu - axis) / 0.2;
+    const valley = 1 - Math.exp(-dx * dx);
+    // Horseshoe rim: high to the north, east and west.
+    const rim = Math.max(smoothstep(0.25, 1, wv), smoothstep(0.3, 0.5, Math.abs(wu - 0.5)));
+    const ridges = c.n.ridged(wu * 4, wv * 4, 5);
+    const base = 0.04 + 0.3 * wv + 0.35 * valley * (0.35 + 0.65 * wv) + 0.25 * rim;
+    const e = base * (0.72 + 0.45 * ridges) + 0.05 * c.n.fbm(wu * 9, wv * 9, 4);
+    const mat = e > 0.65 ? CRYSTALLINE : e > 0.35 ? SANDSTONE : ridges > 0.55 ? SANDSTONE : MUDSTONE;
+    return { e, mat };
+  },
+
+  'mountain-range': (c) => {
+    const [wu, wv] = warp(c, 0.1);
+    // Range runs SW→NE.
+    const along = (wu + wv) * 0.7071;
+    const across = (wu - wv) * 0.7071 + 0.12 * c.n.fbm(along * 2, 0.5, 3);
+    const band = Math.exp(-((across / 0.2) ** 2));
+    const ridge = c.n.ridged(wu * 3.5, wv * 3.5, 6);
+    const foot = 0.18 * smoothstep(-0.7, 0.2, across) * (0.5 + 0.5 * c.n.fbm(wu * 3, wv * 3, 4));
+    const e = 0.03 + foot + band * (0.35 + 0.75 * ridge) + 0.03 * c.n.fbm(wu * 12, wv * 12, 3) - 0.05 * smoothstep(0.2, 0.7, -across);
+    const mat = band > 0.55 ? CRYSTALLINE : band > 0.2 ? SANDSTONE : ridge > 0.6 ? SANDSTONE : MUDSTONE;
+    return { e, mat };
+  },
+
+  island: (c) => {
+    const [wu, wv] = warp(c, 0.12, 1.8);
+    const d = Math.hypot(wu - 0.5, wv - 0.5);
+    const mask = smoothstep(0.46, 0.08, d);
+    const ridge = c.n.ridged(wu * 3, wv * 3, 6);
+    const e = -0.3 + 0.38 * mask + mask * mask * (0.25 + 0.7 * ridge) + 0.04 * c.n.fbm(wu * 10, wv * 10, 4);
+    const mat = mask > 0.75 && ridge > 0.4 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
+    return { e, mat };
+  },
+
+  archipelago: (c) => {
+    const [wu, wv] = warp(c, 0.1);
+    const blobs = c.n.fbm(wu * 3.2, wv * 3.2, 5);
+    const edge = smoothstep(0.5, 0.42, Math.max(Math.abs(c.u - 0.5), Math.abs(c.v - 0.5)));
+    const land = blobs + 0.2 * edge - 0.12;
+    const ridge = c.n.ridged(wu * 6, wv * 6, 4);
+    const e = land < 0 ? land * 0.9 : land * (0.8 + 1.2 * ridge);
+    return { e: e - 0.03, mat: ridge > 0.6 && land > 0.15 ? CRYSTALLINE : land > 0.08 ? SANDSTONE : CLAY };
+  },
+
+  'coastal-headland': (c) => {
+    // Sea to the south; bands of rock run north–south so they meet the coast perpendicular.
+    const [wu, wv] = warp(c, 0.03);
+    const bandCoord = wu * 4 + 0.15 * c.n.fbm(wv * 2, 1.3, 3);
+    const hard = Math.sin(bandCoord * Math.PI * 2) > 0.1;
+    const coastV = 0.35 + (hard ? 0.0 : 0.12) + 0.03 * c.n.fbm(wu * 6, 2.1, 3);
+    const landRise = smoothstep(coastV - 0.02, coastV + 0.3, wv);
+    const cliff = hard ? smoothstep(coastV - 0.01, coastV + 0.02, wv) * 0.45 : 0;
+    const e =
+      -0.25 + 0.27 * smoothstep(0, coastV, wv) + Math.max(cliff, 0.25 * landRise) + 0.45 * landRise * (0.6 + 0.4 * c.n.fbm(wu * 3, wv * 3, 4)) + 0.02 * c.n.fbm(wu * 14, wv * 14, 3);
+    return { e, mat: hard ? CHALK : CLAY };
+  },
+
+  plateau: (c) => {
+    const [wu, wv] = warp(c, 0.08);
+    const mesa = c.n.fbm(wu * 2.4, wv * 2.4, 5) + 0.25;
+    const top = smoothstep(0.18, 0.24, mesa);
+    const lower = smoothstep(-0.1, 0.0, mesa);
+    const e = 0.1 + 0.25 * lower + 0.55 * top + 0.04 * c.n.fbm(wu * 8, wv * 8, 4);
+    // Layered stratigraphy by elevation: chalk cap, sandstone, mudstone base.
+    const mat = e > 0.78 ? CHALK : e > 0.32 ? SANDSTONE : MUDSTONE;
+    return { e, mat };
+  },
+
+  continental: (c) => {
+    const [wu, wv] = warp(c, 0.15, 1.5);
+    const cont = c.n.fbm(wu * 1.6, wv * 1.6, 6) + 0.15;
+    const mount = c.n.ridged(wu * 2.5, wv * 2.5, 6) * smoothstep(0.1, 0.45, cont);
+    const e = cont < 0 ? cont * 0.8 : cont * 0.35 + mount * 0.75;
+    const mat = mount > 0.35 ? CRYSTALLINE : cont > 0.25 ? SANDSTONE : cont > 0.05 ? MUDSTONE : CLAY;
+    return { e, mat };
+  },
+};
+
+/** Deterministically generate a world. Same options → bit-identical arrays. */
+export function generateWorld(o: GenerateOptions): WorldState {
+  const size = Math.round(o.size);
+  const world = createWorld({
+    width: size,
+    height: size,
+    cellSizeM: o.cellSizeM,
+    seaLevelM: o.seaLevelM,
+    seed: o.seed,
+    meta: { name: o.name ?? presetById(o.presetId).name, presetId: o.presetId, reliefM: o.reliefM },
+  });
+  const n = new Noise2D(deriveSeed(o.seed, 'shape'));
+  const n2 = new Noise2D(deriveSeed(o.seed, 'warp'));
+  const nd = new Noise2D(deriveSeed(o.seed, 'detail'));
+  const shape = shapes[o.presetId] ?? shapes.flat;
+  const surf = new Float32Array(size * size);
+  const ctx: Ctx = { u: 0, v: 0, n, n2, o };
+  const inv = 1 / (size - 1);
+  const flatBase = o.presetId === 'flat' ? 10 : 0;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      ctx.u = x * inv;
+      ctx.v = y * inv;
+      const { e, mat } = shape(ctx);
+      const detail = o.roughness * 0.012 * nd.fbm(ctx.u * 40, ctx.v * 40, 3);
+      const i = y * size + x;
+      surf[i] = flatBase + (e + detail) * o.reliefM;
+      world.materialId[i] = mat;
+    }
+  }
+
+  // Loose sediment (regolith/soil): thicker on gentle, low ground; thin on steep or high ground.
+  const nsed = new Noise2D(deriveSeed(o.seed, 'sediment'));
+  const cs = o.cellSizeM;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const xl = Math.max(0, x - 1);
+      const xr = Math.min(size - 1, x + 1);
+      const yd = Math.max(0, y - 1);
+      const yu = Math.min(size - 1, y + 1);
+      const sx = (surf[y * size + xr] - surf[y * size + xl]) / ((xr - xl) * cs);
+      const sy = (surf[yu * size + x] - surf[yd * size + x]) / ((yu - yd) * cs);
+      const slope = Math.hypot(sx, sy);
+      const relH = o.reliefM > 0 ? (surf[i] - o.seaLevelM) / o.reliefM : 0;
+      const gentle = clamp(1 - slope / 0.7, 0, 1);
+      const altitudeFactor = clamp(1 - relH * 1.1, 0.05, 1);
+      const sed = 2.0 * gentle * gentle * altitudeFactor * (0.7 + 0.3 * nsed.noise(x * 0.05, y * 0.05));
+      const thickness = o.presetId === 'flat' ? 1 : Math.max(0, sed);
+      world.looseSedimentThicknessM[i] = thickness;
+      world.bedrockElevationM[i] = surf[i] - thickness;
+    }
+  }
+  return world;
+}
