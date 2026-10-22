@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C04 (partial)
+- npm test PASS 110 (+ tombolo: lee wave energy < 0.7× open, salient shoreline advances >2 cells toward island, sand conserved 1e-5; spit seed: >20% of sand carried past the coast end (submerged ridge))
+- e2e PASS 22/22 (fixed a test race: tool key + immediate mouse-down after redo).
+- Explored and rejected: bay-mouth bar scenario (sand filled bay head / formed submerged diagonal fan) — documented as needing a one-line model.
+
 ## 2026-10-22 M05-C01..C03
 - npm test PASS 109 (coast: wave power formula, zero-energy no erosion, debris conserved, weak > hard retreat, island shelter, platform slows retreat, drift direction + conservation, spit seed beyond coast end; sea level flood/expose + water closure; coast cadence in engine; settle: stable cliff + talus, presets start stable)
 - e2e PASS 22/22 (+ sea-level rise floods 5281→5594 cells; waves erode headlands 177k m³ in 6 h ×1000)

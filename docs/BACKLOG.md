@@ -2,7 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M05-C04 | Bar / lagoon / tombolo / recurved-spit scenarios | READY |
+| M05-C04b | One-line shoreline model: spits, bars, lagoons, recurves | READY |
+| M05-C04 | Wave field, onshore transport, surf smoothing, tombolo (partial) | PARTIAL |
 | M05-C05 | Local 3D solid geometry: cave → arch → stack → stump | TODO |
 | M05-C06 | Stack/stump, cliff slump, wave-cut features, classroom scenarios | TODO |
 | M05-C03 | Longshore drift, spit seeds | DONE |

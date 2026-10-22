@@ -9,10 +9,12 @@ export interface CoastParams {
   cliffK: number;
   /** Longshore transport coefficient (m³/s per m^2.5 at ×1). */
   driftK: number;
+  /** Onshore (cross-shore) transport coefficient for shelf sand (m³/s per m^2.5 at ×1). */
+  onshoreK: number;
   /** Simulated seconds between coastal updates. */
   intervalS: number;
 }
 
 export function defaultCoastParams(): CoastParams {
-  return { wavesOn: false, waveHeightM: 2, wavePeriodS: 8, waveFromDeg: 180, cliffK: 6e-11, driftK: 2e-4, intervalS: 600 };
+  return { wavesOn: false, waveHeightM: 2, wavePeriodS: 8, waveFromDeg: 180, cliffK: 6e-11, driftK: 2e-4, onshoreK: 1e-4, intervalS: 600 };
 }

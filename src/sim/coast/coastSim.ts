@@ -9,9 +9,12 @@ import { MATERIALS } from '../../terrain/materials';
  * height H, period T, arriving FROM compass bearing θ.
  *
  * C02 — wave attack and cliff retreat. For each coastal land cell (land with a sea neighbour):
- *   exposure e = refraction-softened incidence (0.25 + 0.75·cos i, i = angle between the
- *   seaward coast normal and the wave source) × shelter (a ray towards the wave source that
- *   crosses land again ⇒ ×0.1, diffraction) × foreshore attenuation (max(0.2, d_min·0.78/H) when
+ *   local wave field: a fan of rays (±60° in 10° steps, weight cos²δ) is cast towards the wave
+ *   source; rays that reach open water carry energy. Their weighted share is the cell's wave
+ *   energy and their weighted mean direction its effective wave direction — so the lee of an
+ *   island or headland receives weaker waves bent around the obstacle (diffraction proxy).
+ *   exposure e = fan energy × refraction-softened incidence (0.25 + 0.75·cos i, i = angle
+ *   between the seaward coast normal and the effective wave source) × foreshore attenuation (max(0.2, d_min·0.78/H) when
  *   the shallowest of the next three seaward cells is shallower than the breaking depth H/0.78
  *   — a widening wave-cut platform slows retreat but does not stop it).
  *   Lowering rate = cliffK · P₀ · e · erodibility · speedup, down to a platform level of
@@ -22,8 +25,17 @@ import { MATERIALS } from '../../terrain/materials';
  *   collapse → retreat); talus at the toe shields the cliff until waves remove it.
  *
  * C03 — longshore drift (CERC-like): in each surf cell (sea cell with a land neighbour) loose
- * sediment moves along the shore at Q = driftK · H^2.5 · |sin 2α| (m³/s), α = wave angle to
- * the shore-normal, towards the 8-neighbour best aligned with the alongshore wave component.
+ * sediment moves along the shore at Q = driftK · H_eff^2.5 · |sin 2α| (m³/s), with H_eff = H·√e
+ * from the local wave field and α the effective wave angle to the shore-normal, towards the
+ * 8-neighbour best aligned with the alongshore component. In an island's lee the bent waves
+ * drive drift inward from both sides, so sand converges (salient → tombolo).
+ * Onshore transport: in shallow sea cells (depth < 2× breaking depth) that have a shore within
+ * 10 cells ahead along the local wave direction, loose sand moves one cell in that direction at
+ * onshoreK · H_eff^2.5 — shoaling waves feed shelf sand to beaches, salients and tombolos (in
+ * open water with no shore ahead there is no net shoreward transport).
+ * Nearshore reworking: in the surf zone (within 2 cells of the shoreline and |z − sea| below 2×
+ * breaking depth) loose sand diffuses pairwise (min(0.1·Δz, donor/4)) so beaches and ridges stay
+ * continuous rather than speckled at cell scale.
  * Transfers are computed from a snapshot then applied (order-independent, exactly
  * conservative). Where the coast turns away, drift carries on into open water and deposits —
  * the seed of a spit; deposits that rise above sea level become land.
@@ -118,26 +130,45 @@ export class CoastSim {
     return l > 1e-9 ? [nx / l, ny / l] : [0, 0];
   }
 
-  /** Unit vector towards the wave source (x east, y north). */
-  private toSource(): [number, number] {
-    const t = (this.params.waveFromDeg * Math.PI) / 180;
-    return [Math.sin(t), Math.cos(t)];
-  }
-
-  /** 1 if a ray from (x, y) towards the wave source reaches open water / map edge, 0.1 if land blocks it. */
-  private shelter(x: number, y: number, maxCells = 120): number {
+  /** True if a ray from (x, y) along (ux, uy) reaches open water / the map edge without crossing land again. */
+  private rayOpen(x: number, y: number, ux: number, uy: number, maxCells = 120): boolean {
     const w = this.world;
-    const [ux, uy] = this.toSource();
     let seenSea = false;
     for (let k = 1; k <= maxCells; k++) {
       const xx = Math.round(x + ux * k);
       const yy = Math.round(y + uy * k);
-      if (xx < 0 || yy < 0 || xx >= w.width || yy >= w.height) return 1;
-      const sea = this.isSea(yy * w.width + xx);
-      if (sea) seenSea = true;
-      else if (seenSea) return 0.1;
+      if (xx < 0 || yy < 0 || xx >= w.width || yy >= w.height) return true;
+      if (this.isSea(yy * w.width + xx)) seenSea = true;
+      else if (seenSea) return false;
     }
-    return 1;
+    return true;
+  }
+
+  /**
+   * Local wave field at (x, y): energy share e ∈ [0, 1] of a ±60° ray fan (weights cos²δ) that
+   * reaches open water, and the unit vector towards the effective wave source.
+   */
+  waveField(x: number, y: number): { e: number; sx: number; sy: number } {
+    const t0 = (this.params.waveFromDeg * Math.PI) / 180;
+    let wSum = 0;
+    let open = 0;
+    let vx = 0;
+    let vy = 0;
+    for (let k = -6; k <= 6; k++) {
+      const d = (k * 10 * Math.PI) / 180;
+      const wt = Math.cos(d) ** 2;
+      const ux = Math.sin(t0 + d);
+      const uy = Math.cos(t0 + d);
+      wSum += wt;
+      if (this.rayOpen(x, y, ux, uy)) {
+        open += wt;
+        vx += wt * ux;
+        vy += wt * uy;
+      }
+    }
+    const l = Math.hypot(vx, vy);
+    if (open <= 0 || l < 1e-9) return { e: 0, sx: 0, sy: 0 };
+    return { e: open / wSum, sx: vx / l, sy: vy / l };
   }
 
   private waveAttack(dt: number, speedup: number): number {
@@ -154,7 +185,6 @@ export class CoastSim {
     const P0 = wavePower(p.waveHeightM, p.wavePeriodS);
     const floor = sl - 0.3 * p.waveHeightM;
     const breakDepth = p.waveHeightM / 0.78;
-    const [sx, sy] = this.toSource();
     this.exposure.fill(0);
     if (P0 <= 0) return 0;
     // Collect coastal land cells first (from the state at the start of the update).
@@ -170,9 +200,11 @@ export class CoastSim {
       const x = i % W;
       const y = (i / W) | 0;
       const [nx, ny] = this.seawardNormal(x, y);
-      const cosI = nx * sx + ny * sy;
+      const wf = this.waveField(x, y);
+      if (wf.e <= 0) continue;
+      const cosI = nx * wf.sx + ny * wf.sy;
       if (cosI < -0.3) continue; // faces away from the waves
-      let e = Math.max(0, 0.25 + 0.75 * cosI) * this.shelter(x, y);
+      let e = Math.max(0, 0.25 + 0.75 * cosI) * wf.e;
       // Foreshore attenuation from the shallowest of the next three seaward cells.
       let dmin = Infinity;
       for (let k = 1; k <= 3; k++) {
@@ -246,6 +278,57 @@ export class CoastSim {
     this.ledger.nearshoreDeposited += vol * w.cellSizeM * w.cellSizeM;
   }
 
+  /** Wave reworking of loose sand in the active band: pairwise diffusion from a snapshot. */
+  private nearshoreSmooth(activeDepth: number, kappa = 0.1) {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const sl = w.seaLevelM;
+    const z = this.surface;
+    const b = w.bedrockElevationM;
+    const loose = w.looseSedimentThicknessM;
+    const z0 = z.slice();
+    const l0 = loose.slice();
+    // Distance (in cells, Chebyshev, capped at 3) to the nearest shoreline cell pair.
+    const near = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const sea = z0[i] < sl;
+        let shore = false;
+        for (let dy = -2; dy <= 2 && !shore; dy++)
+          for (let dx = -2; dx <= 2; dx++) {
+            const xx = x + dx;
+            const yy = y + dy;
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+            if (z0[yy * W + xx] < sl !== sea) {
+              shore = true;
+              break;
+            }
+          }
+        near[i] = shore ? 1 : 0;
+      }
+    const active = (i: number) => near[i] === 1 && Math.abs(z0[i] - sl) < activeDepth;
+    const face = (i: number, j: number) => {
+      const dz = z0[i] - z0[j];
+      return dz > 0 ? Math.min(kappa * dz, 0.25 * l0[i]) : -Math.min(-kappa * dz, 0.25 * l0[j]);
+    };
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (!active(i)) continue;
+        let net = 0;
+        if (x > 0 && active(i - 1)) net += face(i, i - 1);
+        if (x < W - 1 && active(i + 1)) net += face(i, i + 1);
+        if (y > 0 && active(i - W)) net += face(i, i - W);
+        if (y < H - 1 && active(i + W)) net += face(i, i + W);
+        if (net !== 0) {
+          loose[i] = Math.max(0, l0[i] - net);
+          z[i] = b[i] + loose[i];
+        }
+      }
+  }
+
   private drift(dt: number, speedup: number): number {
     const w = this.world;
     const p = this.params;
@@ -257,9 +340,6 @@ export class CoastSim {
     const b = w.bedrockElevationM;
     const z = this.surface;
     if (p.driftK <= 0 || p.waveHeightM <= 0) return 0;
-    const [sx, sy] = this.toSource();
-    const px = -sx; // wave propagation direction
-    const py = -sy;
     const qMax = p.driftK * Math.pow(p.waveHeightM, 2.5) * speedup * dt; // m³ for |sin 2α| = 1
     const moves: { from: number; to: number; m: number }[] = [];
     const DX = [1, 1, 0, -1, -1, -1, 0, 1];
@@ -270,14 +350,17 @@ export class CoastSim {
         if (!this.isSea(i) || loose[i] <= 0) continue;
         if (!((x > 0 && !this.isSea(i - 1)) || (x < W - 1 && !this.isSea(i + 1)) || (y > 0 && !this.isSea(i - W)) || (y < H - 1 && !this.isSea(i + W)))) continue;
         const [nx, ny] = this.seawardNormal(x, y); // points away from land
+        const wf = this.waveField(x, y);
+        if (wf.e <= 0) continue;
+        const px = -wf.sx; // effective wave propagation direction
+        const py = -wf.sy;
         const approach = -(px * nx + py * ny); // > 0 when waves travel towards the shore
         if (approach <= 0) continue;
-        if (this.shelter(x, y) < 1) continue;
         const tx = -ny;
         const ty = nx;
         const along = px * tx + py * ty; // signed alongshore component
         const sin2a = 2 * Math.abs(along) * approach;
-        const vol = Math.min(qMax * sin2a, loose[i] * A);
+        const vol = Math.min(qMax * Math.pow(wf.e, 1.25) * sin2a, loose[i] * A);
         if (vol <= 0) continue;
         const dx = Math.sign(along) * tx;
         const dy = Math.sign(along) * ty;
@@ -299,6 +382,47 @@ export class CoastSim {
         if (best < 0) continue; // blocked (e.g. against a headland): sediment accumulates here
         moves.push({ from: i, to: best, m: vol / A });
       }
+    // Onshore transport of shelf sand by shoaling waves (cells not already drifting).
+    const qOn = p.onshoreK * Math.pow(p.waveHeightM, 2.5) * speedup * dt;
+    const activeDepth = (2 * p.waveHeightM) / 0.78;
+    const drifting = new Set(moves.map((m) => m.from));
+    if (qOn > 0)
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (drifting.has(i) || !this.isSea(i) || loose[i] <= 0) continue;
+          const depth = w.seaLevelM - z[i];
+          if (depth > activeDepth) continue;
+          const wf = this.waveField(x, y);
+          if (wf.e <= 0) continue;
+          const px = -wf.sx;
+          const py = -wf.sy;
+          let shoreAhead = false;
+          for (let k = 1; k <= 10 && !shoreAhead; k++) {
+            const xx = Math.round(x + px * k);
+            const yy = Math.round(y + py * k);
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;
+            if (!this.isSea(yy * W + xx)) shoreAhead = true;
+          }
+          if (!shoreAhead) continue;
+          let best = -1;
+          let bestDot = 0.5;
+          for (let k = 0; k < 8; k++) {
+            const xx = x + DX[k];
+            const yy = y + DY[k];
+            if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+            const j = yy * W + xx;
+            if (!this.isSea(j)) continue;
+            const d = (DX[k] * px + DY[k] * py) / Math.hypot(DX[k], DY[k]);
+            if (d > bestDot) {
+              bestDot = d;
+              best = j;
+            }
+          }
+          if (best < 0) continue;
+          const vol = Math.min(qOn * Math.pow(wf.e, 1.25), 0.5 * loose[i] * A);
+          if (vol > 0) moves.push({ from: i, to: best, m: vol / A });
+        }
     for (const mv of moves) {
       loose[mv.from] -= mv.m;
       loose[mv.to] += mv.m;
@@ -309,6 +433,7 @@ export class CoastSim {
       z[mv.from] = b[mv.from] + loose[mv.from];
       z[mv.to] = b[mv.to] + loose[mv.to];
     }
+    this.nearshoreSmooth(activeDepth);
     return moves.length;
   }
 }

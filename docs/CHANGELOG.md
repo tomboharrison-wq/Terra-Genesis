@@ -41,3 +41,8 @@
 - Longshore drift moves beach sand along the shore with oblique waves; spits start to grow where the coast turns.
 - New worlds start with settled, stable slopes (talus aprons) instead of collapsing on the first step.
 - Coastal headlands preset rebuilt: straight coast, chalk/clay bands, waves on — bays form in the clay.
+
+## M05-C04 (partial) — Wave shadow, onshore sand, tombolos
+- Waves now bend around islands and headlands (weaker, angled waves in their shadow). Shoaling waves bring shelf sand ashore and the surf zone keeps beaches smooth.
+- Behind an offshore island, sand converges and a salient grows towards it (the start of a tombolo).
+- Not yet: spits that grow into land and curve, or bars closing bays — next task.

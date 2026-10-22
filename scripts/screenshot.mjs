@@ -62,12 +62,15 @@ check('redo reapplies', Math.abs((await sum()) - s1) < 1e-3 * Math.abs(s1) + 1e-
 
 // Smooth stroke
 await page.keyboard.press('4');
+await page.waitForTimeout(300);
 await page.mouse.move(720, 520);
+await page.waitForTimeout(300);
 await page.mouse.down();
 await page.waitForTimeout(800);
 await page.mouse.up();
 const s3 = await sum();
-check('smooth stroke changes terrain', s3 !== s1);
+const smoothLabel = await page.evaluate(() => window.__terraGenesis.engine.history.undoLabel);
+check('smooth stroke changes terrain', s3 !== s1 && smoothLabel === 'smooth', `Δ=${(s3 - s1).toFixed(4)} undo=${smoothLabel}`);
 
 // Navigate tool: drag orbits camera, terrain unchanged
 await page.keyboard.press('1');
@@ -154,6 +157,8 @@ await shot('06-island-top');
 for (const preset of ['Mountain range', 'Coastal headlands', 'Layered plateau']) {
   await page.click('text=New');
   await page.click(`.preset:has-text("${preset}")`);
+  const auto = page.locator('label.check:has-text("Start simulation") input');
+  if (await auto.isChecked()) await auto.uncheck(); // keep software-GL e2e deterministic
   await page.click('text=Generate world');
   await page.waitForTimeout(1500);
   await eng(() => window.__terraGenesis.engine.setPlaying(false));
