@@ -53,11 +53,13 @@ export const SLOPE_MAX = 1.0;
 export class SedimentSim {
   ledger: SedimentLedger;
   private buf: Float32Array;
+  private zSnap: Float32Array;
   /** Per-material bedrock erodibility lookup. */
   private erod = new Float32Array(256);
 
   constructor(private world: WorldState, private surface: Float32Array, private water: WaterSim) {
     this.buf = new Float32Array(world.width * world.height);
+    this.zSnap = new Float32Array(world.width * world.height);
     for (const m of MATERIALS) this.erod[m.id] = m.erodibility;
     this.ledger = emptySedimentLedger(this.suspendedVolume());
   }
@@ -75,6 +77,8 @@ export class SedimentSim {
 
   step(dt: number): void {
     if (!this.world.erosion.enabled) return;
+    // Slopes come from the surface at the start of the step (Jacobi), as in the GPU port.
+    this.zSnap.set(this.surface);
     this.advect(dt);
     this.exchange(dt);
   }
@@ -150,6 +154,7 @@ export class SedimentSim {
     const A = cs * cs;
     const p = w.erosion;
     const z = this.surface;
+    const zs = this.zSnap;
     const d = w.waterDepthM;
     const s = w.sedimentSuspendedM;
     const b = w.bedrockElevationM;
@@ -182,8 +187,8 @@ export class SedimentSim {
         const xr = x < W - 1 ? x + 1 : x;
         const yd = y > 0 ? y - 1 : y;
         const yu = y < H - 1 ? y + 1 : y;
-        const sx = (z[y * W + xr] - z[y * W + xl]) / ((xr - xl) * cs);
-        const sy = (z[yu * W + x] - z[yd * W + x]) / ((yu - yd) * cs);
+        const sx = (zs[y * W + xr] - zs[y * W + xl]) / ((xr - xl) * cs);
+        const sy = (zs[yu * W + x] - zs[yd * W + x]) / ((yu - yd) * cs);
         let S = Math.sqrt(sx * sx + sy * sy);
         S = S < SLOPE_MIN ? SLOPE_MIN : S > SLOPE_MAX ? SLOPE_MAX : S;
         const q = di * Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);

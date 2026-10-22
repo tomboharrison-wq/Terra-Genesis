@@ -6,8 +6,9 @@ import { History, StrokeRecorder } from '../tools/history';
 import { unionRect, type CellRect } from '../utils/rect';
 import { WaterSim } from '../sim/water/waterSim';
 import { GpuWater } from '../sim/water/gpuWater';
+import { SedimentSim } from '../sim/sediment/sedimentSim';
 import { SimClock, type Stepper } from './clock';
-import type { WaterParams, WaterSource } from './world';
+import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
   | { type: 'world-replaced' }
@@ -29,6 +30,11 @@ export class Engine {
   private stroke: { rec: StrokeRecorder; params: BrushParams } | null = null;
   /** CPU water solver: tested reference, fallback backend, ledger and stats owner. */
   water!: WaterSim;
+  /** CPU sediment solver (reference/fallback; owns the sediment ledger). */
+  sediment!: SedimentSim;
+  /** Surface at the last "set reference" (for the erosion/deposition change map). */
+  referenceSurface!: Float32Array;
+  private cpuStepper!: Stepper;
   /** Optional GPU backend (attached by the renderer when WebGL2 float targets exist). */
   gpu: GpuWater | null = null;
   private gpuContext: WebGL2RenderingContext | null = null;
@@ -50,6 +56,17 @@ export class Engine {
     computeSurface(world, this.surface);
     this.dirty = null;
     this.water = new WaterSim(world, this.surface);
+    this.sediment = new SedimentSim(world, this.surface, this.water);
+    this.referenceSurface = this.surface.slice();
+    const water = this.water;
+    const sediment = this.sediment;
+    this.cpuStepper = {
+      stableDt: () => water.stableDt(),
+      step: (dt) => {
+        water.step(dt);
+        sediment.step(dt);
+      },
+    };
     this.clock.playing = false;
     this.clock.reset();
     this.groundDirty = false;
@@ -60,7 +77,11 @@ export class Engine {
   // ---------- water backend ----------
 
   get stepper(): Stepper {
-    return this.gpu ?? this.water;
+    return this.gpu ?? this.cpuStepper;
+  }
+
+  get erosionActive(): boolean {
+    return this.world.erosion.enabled;
   }
 
   get backend(): 'gpu' | 'cpu' {
@@ -73,7 +94,7 @@ export class Engine {
     this.gpuContext = gl;
     try {
       if (!GpuWater.isSupported(gl)) return false;
-      this.gpu = new GpuWater(gl, this.world, this.surface, this.water);
+      this.gpu = new GpuWater(gl, this.world, this.surface, this.water, this.sediment);
       return true;
     } catch (err) {
       console.warn('GPU water unavailable, using CPU', err);
@@ -85,16 +106,26 @@ export class Engine {
   /** Sync GPU state to the CPU mirror and drop the GPU backend (e.g. renderer disposal). */
   detachGpu(): void {
     if (this.gpu) {
-      if (!this.gpu.disposed) this.gpu.syncToCpu();
+      if (!this.gpu.disposed) this.syncWater();
       this.gpu.dispose();
     }
     this.gpu = null;
     this.gpuContext = null;
   }
 
-  /** Make the CPU mirror current (before save, inspect, CPU-side water edits). */
+  /** Make the CPU mirror current (before save, inspect, CPU-side edits). */
   syncWater(): void {
-    if (this.gpu) this.gpu.syncToCpu();
+    if (!this.gpu) return;
+    // Pending CPU terrain edits must reach the GPU before reading its bed back.
+    this.flushGround();
+    if (this.gpu.syncToCpu()) this.markRenderDirtyAll();
+  }
+
+  /** Terrain changed by the simulation: renderer must rebuild; GPU already has it. */
+  private markRenderDirtyAll() {
+    const r = { x0: 0, y0: 0, x1: this.world.width, y1: this.world.height };
+    this.dirty = unionRect(this.dirty, r);
+    this.emit({ type: 'terrain-changed', rect: r });
   }
 
   /** Advance simulation by one real frame. Returns simulated seconds advanced. */
@@ -108,8 +139,10 @@ export class Engine {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
           this.syncTimer = 0;
-          this.gpu.syncToCpu();
+          this.syncWater();
         }
+      } else if (this.erosionActive) {
+        this.markRenderDirtyAll();
       }
     }
     return done;
@@ -121,6 +154,7 @@ export class Engine {
     const done = this.clock.advanceExactly(this.stepper, seconds);
     this.world.simTimeSeconds += done;
     this.syncWater();
+    if (!this.gpu && this.erosionActive) this.markRenderDirtyAll();
     this.waterRevision++;
     return done;
   }
@@ -143,9 +177,23 @@ export class Engine {
     this.emit({ type: 'sim-state-changed' });
   }
 
+  setErosionParams(p: Partial<ErosionParams>): void {
+    // Bed fields must be current on the CPU before erosion turns off (GPU stops syncing bed).
+    if (p.enabled === false) this.syncWater();
+    Object.assign(this.world.erosion, p);
+    if (p.enabled) this.groundDirty = true;
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Snapshot the current surface as the reference for the erosion/deposition change map. */
+  setReference(): void {
+    this.syncWater();
+    this.referenceSurface = this.surface.slice();
+    this.markRenderDirtyAll();
+  }
+
   setWaterParams(p: Partial<WaterParams>): void {
     Object.assign(this.world.water, p);
-    if (p.boundary !== undefined) this.groundDirty = true;
     this.emit({ type: 'water-params-changed' });
   }
 
@@ -222,6 +270,7 @@ export class Engine {
   }
 
   beginStroke(params: BrushParams, xM: number, yM: number, label: string = params.kind): void {
+    this.syncIfGpuErodes();
     const p = { ...params };
     if (p.kind === 'flatten' && p.targetM === undefined) p.targetM = this.sampleSurface(xM, yM);
     this.stroke = { rec: new StrokeRecorder(this.world, label), params: p };
@@ -230,6 +279,7 @@ export class Engine {
   /** Apply the active stroke at (xM, yM) for dt seconds of brush time. */
   strokeStep(xM: number, yM: number, dt: number): void {
     if (!this.stroke) return;
+    this.syncIfGpuErodes();
     const rect = applyBrush(this.world, this.surface, xM, yM, this.stroke.params, dt, this.stroke.rec.capture);
     if (rect) this.markDirty(rect);
   }
@@ -244,14 +294,21 @@ export class Engine {
     }
   }
 
+  /** GPU erosion keeps changing the bed: pull it before a CPU-side terrain edit. */
+  private syncIfGpuErodes() {
+    if (this.gpu && this.erosionActive && this.clock.playing) this.syncWater();
+  }
+
   undo(): void {
     if (this.stroke) this.endStroke();
+    this.syncIfGpuErodes();
     const r = this.history.undo(this.world);
     if (r) this.afterBulkEdit(r);
   }
 
   redo(): void {
     if (this.stroke) this.endStroke();
+    this.syncIfGpuErodes();
     const r = this.history.redo(this.world);
     if (r) this.afterBulkEdit(r);
   }

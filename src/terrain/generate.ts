@@ -30,6 +30,8 @@ export interface GenerateOptions {
   boundary?: 'open' | 'closed';
   /** Fill closed depressions with loose sediment so the land drains (default true). */
   drainage?: boolean;
+  /** Start with hydraulic erosion enabled (default false). */
+  erosion?: boolean;
   name?: string;
 }
 
@@ -37,11 +39,11 @@ export interface PresetDef {
   id: PresetId;
   name: string;
   description: string;
-  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH'>;
+  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH' | 'erosion'>;
 }
 
 export const PRESETS: readonly PresetDef[] = [
-  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60 } },
+  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60, erosion: true } },
   { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
   { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
   { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
@@ -186,6 +188,7 @@ export function generateWorld(o: GenerateOptions): WorldState {
   const nd = new Noise2D(deriveSeed(o.seed, 'detail'));
   world.water.rainMPerS = (o.rainMmH ?? 0) * MM_PER_H;
   world.water.boundary = o.boundary ?? 'open';
+  world.erosion.enabled = o.erosion ?? false;
   const shape = shapes[o.presetId] ?? shapes.flat;
   const surf = new Float32Array(size * size);
   const ctx: Ctx = { u: 0, v: 0, n, n2, o };

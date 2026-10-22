@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { BrushKind } from '../tools/brush';
-import type { FrameStats, Quality } from '../renderer/TerrainScene';
+import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainScene';
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
@@ -26,6 +26,10 @@ export interface SimInfo {
   evapMmH: number;
   boundary: 'open' | 'closed';
   sources: { id: number; x: number; y: number; rateM3PerS: number }[];
+  erosionOn: boolean;
+  speedup: number;
+  bedrockFactor: number;
+  sed: { erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
 }
 
 export interface HoverInfo {
@@ -90,6 +94,7 @@ interface UiState {
   lastSavedIso: string | null;
   sim: SimInfo | null;
   waterView: WaterView;
+  terrainOverlay: TerrainOverlay;
   /** Water brush rate (m/s of brush time). */
   waterRate: number;
   springRate: number;
@@ -119,6 +124,7 @@ export const useUi = create<UiState>((set) => ({
   lastSavedIso: null,
   sim: null,
   waterView: 'water',
+  terrainOverlay: 'none',
   waterRate: 0.5,
   springRate: 20,
   set: (p) => set(p),

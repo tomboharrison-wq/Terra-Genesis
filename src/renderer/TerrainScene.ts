@@ -36,6 +36,11 @@ import { addTerrainDetail, createSeaMaterial, createSkyMaterial } from './shader
 import { WaterLayer, type WaterView } from './waterLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
+/** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
+export type TerrainOverlay = 'none' | 'change';
+
+const ERODE_RGB = new Color(0xed3f23);
+const DEPOSIT_RGB = new Color(0x006ddf);
 
 export interface FrameStats {
   fps: number;
@@ -70,6 +75,7 @@ export class TerrainScene {
   private baseM = 0;
   private waterLayer: WaterLayer | null = null;
   private waterView: WaterView = 'water';
+  private terrainOverlay: TerrainOverlay = 'none';
   private heightTex: DataTexture | null = null;
   private heightHalf = new Uint16Array(0);
   private sky: Mesh;
@@ -372,6 +378,8 @@ export class TerrainScene {
     if (!r) return;
     const sea = w.seaLevelM;
     const relief = this.reliefM;
+    const overlay = this.terrainOverlay === 'change';
+    const ref = this.engine.referenceSurface;
     for (let y = r.y0; y < r.y1; y++) {
       const yd = y > 0 ? y - 1 : y;
       const yu = y < H - 1 ? y + 1 : y;
@@ -399,6 +407,22 @@ export class TerrainScene {
           this.col,
           o,
         );
+        if (overlay) {
+          // Diverging change map: red = lowered (eroded), blue = raised (deposited); log 1 cm … 10 m.
+          const dz = z[i] - ref[i];
+          const t = Math.min(1, Math.max(0, Math.log10(Math.abs(dz) / 0.01) / 3));
+          if (Math.abs(dz) >= 0.01) {
+            const c = dz < 0 ? ERODE_RGB : DEPOSIT_RGB;
+            const a = 0.35 + 0.65 * t;
+            const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
+            this.col[o] = grey * (1 - a) + c.r * a;
+            this.col[o + 1] = grey * (1 - a) + c.g * a;
+            this.col[o + 2] = grey * (1 - a) + c.b * a;
+          } else {
+            const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
+            this.col[o] = this.col[o + 1] = this.col[o + 2] = grey;
+          }
+        }
       }
     }
     if (upload && this.terrain) {
@@ -549,6 +573,13 @@ export class TerrainScene {
     this.camera.position.fromArray(p.position);
     this.controls.target.fromArray(p.target);
     this.controls.update();
+  }
+
+  setTerrainOverlay(o: TerrainOverlay) {
+    if (o === this.terrainOverlay) return;
+    this.terrainOverlay = o;
+    const w = this.engine.world;
+    this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
   }
 
   setWaterView(v: WaterView) {

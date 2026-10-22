@@ -135,8 +135,10 @@ export function Viewport() {
       }
     };
     scene.setWaterView(useUi.getState().waterView);
+    scene.setTerrainOverlay(useUi.getState().terrainOverlay);
     const unsubView = useUi.subscribe((st, prev) => {
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
+      if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
     });
 
     const onKey = (e: KeyboardEvent) => {

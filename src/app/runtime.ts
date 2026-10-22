@@ -7,6 +7,7 @@ import { AUTOSAVE_ID, loadSlot, saveSlot } from '../persistence/idb';
 import { worldFromFileBytes, worldToFileBytes } from '../persistence/format';
 import { runGpuSelfTest } from '../sim/water/gpuSelfTest';
 import { closureError, ledgerIn, ledgerOut } from '../sim/water/ledger';
+import { sedimentClosure } from '../sim/sediment/sedimentSim';
 import { MM_PER_H } from '../engine/world';
 
 /**
@@ -65,6 +66,22 @@ export function syncSim() {
       evapMmH: w.water.evaporationMPerS / MM_PER_H,
       boundary: w.water.boundary,
       sources: w.water.sources.map((s) => ({ ...s })),
+      erosionOn: w.erosion.enabled,
+      speedup: w.erosion.speedup,
+      bedrockFactor: w.erosion.bedrockFactor,
+      sed: (() => {
+        const S = engine.sediment.ledger;
+        const susp = engine.sediment.suspendedVolume();
+        return {
+          erodedLoose: S.erodedLoose,
+          erodedBedrock: S.erodedBedrock,
+          deposited: S.deposited,
+          seaDeposited: S.seaDeposited,
+          exported: S.edgeExport,
+          suspended: susp,
+          closure: sedimentClosure(S, susp),
+        };
+      })(),
     },
   });
 }

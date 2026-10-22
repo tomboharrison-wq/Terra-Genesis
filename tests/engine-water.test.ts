@@ -68,3 +68,26 @@ describe('Engine water integration (CPU backend)', () => {
     expect(e.backend).toBe('cpu');
   });
 });
+
+describe('Engine erosion integration (CPU backend)', () => {
+  it('playing with erosion changes terrain, marks it dirty, and the sediment ledger closes', async () => {
+    const { sedimentClosure } = await import('../src/sim/sediment/sedimentSim');
+    const w = createWorld({ width: 32, height: 32, cellSizeM: 10, seed: 1, seaLevelM: -100 });
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) w.bedrockElevationM[y * 32 + x] = x * 0.8;
+    w.looseSedimentThicknessM.fill(0.5);
+    const e = new Engine(w);
+    e.setErosionParams({ enabled: true, speedup: 50 });
+    e.addSource(290, 160, 5);
+    const z0 = e.surface.slice();
+    e.takeDirty();
+    e.advance(1800);
+    expect(e.takeDirty()).not.toBeNull();
+    let changed = 0;
+    for (let i = 0; i < z0.length; i++) if (Math.abs(e.surface[i] - z0[i]) > 1e-4) changed++;
+    expect(changed).toBeGreaterThan(10);
+    expect(sedimentClosure(e.sediment.ledger, e.sediment.suspendedVolume())).toBeLessThan(1e-4);
+    // Reference snapshot for the change map follows setReference().
+    e.setReference();
+    expect(e.referenceSurface).toEqual(e.surface);
+  });
+});

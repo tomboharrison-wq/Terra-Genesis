@@ -38,6 +38,7 @@ const VIEWS: { v: WaterView; label: string }[] = [
 export function TimeBar() {
   const sim = useUi((s) => s.sim);
   const view = useUi((s) => s.waterView);
+  const terrainOverlay = useUi((s) => s.terrainOverlay);
   const set = useUi((s) => s.set);
   if (!sim) return null;
   const slow = sim.playing && sim.achievedSpeed < sim.speed * 0.8;
@@ -84,6 +85,17 @@ export function TimeBar() {
           </button>
         ))}
       </div>
+      <button className={`small ${terrainOverlay === 'change' ? 'active-toggle' : ''}`} onClick={() => set({ terrainOverlay: terrainOverlay === 'change' ? 'none' : 'change' })} title="Colour terrain by erosion (red) / deposition (blue) since the reference">
+        Change map
+      </button>
+      {terrainOverlay === 'change' && (
+        <div className="legend" aria-label="Elevation change legend">
+          <i className="ramp change" />
+          <span>−10 m</span>
+          <span>±1 cm</span>
+          <span>+10 m</span>
+        </div>
+      )}
       {view === 'depth' && (
         <div className="legend" aria-label="Water depth legend">
           <i className="ramp depth" />

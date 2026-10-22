@@ -1,5 +1,6 @@
 import { createWorld, computeSurface, cloneWorld, MM_PER_H, type WorldState } from '../../engine/world';
 import { WaterSim } from './waterSim';
+import { SedimentSim, sedimentClosure } from '../sediment/sedimentSim';
 import { GpuWater } from './gpuWater';
 import { closureError } from './ledger';
 import { generateWorld, defaultOptions } from '../../terrain/generate';
@@ -14,6 +15,12 @@ export interface SelfTestCase {
   cpuClosure: number;
   steps: number;
   gpuMsPerStep: number;
+  /** Erosion cases: max |Δ surface| CPU vs GPU (m), sediment ledger closures, eroded volumes. */
+  maxBedDiffM?: number;
+  cpuSedClosure?: number;
+  gpuSedClosure?: number;
+  cpuErodedM3?: number;
+  gpuErodedM3?: number;
 }
 
 function fixture(name: string): WorldState {
@@ -26,6 +33,21 @@ function fixture(name: string): WorldState {
     case 'slope-water': {
       const w = mk(48, 10, (x) => x * 0.8);
       w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 3 });
+      return w;
+    }
+    case 'erosion-slope': {
+      const w = mk(48, 10, (x) => x * 0.8);
+      w.looseSedimentThicknessM.fill(0.5);
+      w.materialId.fill(2);
+      w.erosion.enabled = true;
+      w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
+      return w;
+    }
+    case 'erosion-delta': {
+      const w = mk(48, 10, (x) => (x - 12) * 0.6, 0);
+      w.looseSedimentThicknessM.fill(1);
+      w.erosion.enabled = true;
+      w.water.sources.push({ id: 1, x: 44, y: 24, rateM3PerS: 6 });
       return w;
     }
     case 'bowl-overflow': {
@@ -52,7 +74,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -60,14 +82,17 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
     computeSurface(wc, sc);
     computeSurface(wg, sg);
     const cpu = new WaterSim(wc, sc);
+    const cpuSed = new SedimentSim(wc, sc, cpu);
     const gsim = new WaterSim(wg, sg);
-    const gpu = new GpuWater(ctx, wg, sg, gsim);
+    const gSed = new SedimentSim(wg, sg, gsim);
+    const gpu = new GpuWater(ctx, wg, sg, gsim, gSed);
     let t = 0;
     let steps = 0;
     let gpuMs = 0;
     while (t < simSeconds) {
       const dt = cpu.stableDt();
       cpu.step(dt);
+      cpuSed.step(dt);
       const t0 = performance.now();
       gpu.step(dt);
       gpuMs += performance.now() - t0;
@@ -84,7 +109,19 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
       diff = Math.max(diff, a);
       sum += a;
     }
+    let bedDiff = 0;
+    for (let i = 0; i < sc.length; i++) bedDiff = Math.max(bedDiff, Math.abs(sc[i] - sg[i]));
+    const erosion = wc.erosion.enabled
+      ? {
+          maxBedDiffM: bedDiff,
+          cpuSedClosure: sedimentClosure(cpuSed.ledger, cpuSed.suspendedVolume()),
+          gpuSedClosure: sedimentClosure(gSed.ledger, gSed.suspendedVolume()),
+          cpuErodedM3: cpuSed.ledger.erodedLoose + cpuSed.ledger.erodedBedrock,
+          gpuErodedM3: gSed.ledger.erodedLoose + gSed.ledger.erodedBedrock,
+        }
+      : {};
     out.push({
+      ...erosion,
       name,
       maxAbsDiffM: diff,
       meanAbsDiffM: sum / wc.waterDepthM.length,

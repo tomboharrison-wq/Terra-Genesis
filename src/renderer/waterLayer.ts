@@ -31,6 +31,7 @@ export class WaterLayer {
   private cpuState: DataTexture;
   private cpuData: Float32Array;
   private gpuState = new Texture();
+  private gpuBed = new Texture();
   private lastRevision = -1;
 
   constructor(private engine: Engine, private renderer: WebGLRenderer, index: BufferAttribute, positions: Float32Array) {
@@ -51,6 +52,7 @@ export class WaterLayer {
         uGround: { value: this.ground },
         uState: { value: this.cpuState },
         uCs: { value: w.cellSizeM },
+        uSea: { value: w.seaLevelM },
         uSize: { value: [w.width, w.height] },
         uTime: { value: 0 },
         uMode: { value: 0 },
@@ -94,14 +96,14 @@ export class WaterLayer {
     u.uLift.value = lift;
   }
 
-  /** Refresh surface elevation + sea flags (after terrain edits). */
+  /** Refresh the CPU bed mirror texture: bedrock, loose, suspended (CPU backend / fallback). */
   updateGround() {
-    const z = this.engine.surface;
-    const sea = this.engine.water.sea;
+    const w = this.engine.world;
     const g = this.groundData;
-    for (let i = 0; i < z.length; i++) {
-      g[i * 4] = z[i];
-      g[i * 4 + 1] = sea[i];
+    for (let i = 0; i < w.bedrockElevationM.length; i++) {
+      g[i * 4] = w.bedrockElevationM[i];
+      g[i * 4 + 1] = w.looseSedimentThicknessM[i];
+      g[i * 4 + 2] = w.sedimentSuspendedM[i];
     }
     this.ground.needsUpdate = true;
   }
@@ -110,16 +112,21 @@ export class WaterLayer {
   update(timeS: number) {
     const u = this.mesh.material.uniforms;
     u.uTime.value = timeS;
+    u.uSea.value = this.engine.world.seaLevelM;
     const gpu = this.engine.gpu;
     if (gpu) {
-      // Bind the solver's raw ping-pong texture into three without re-uploading.
+      // Bind the solver's raw ping-pong textures into three without re-uploading.
       (this.renderer.properties.get(this.gpuState) as { __webglTexture?: WebGLTexture }).__webglTexture = gpu.stateTexture;
+      (this.renderer.properties.get(this.gpuBed) as { __webglTexture?: WebGLTexture }).__webglTexture = gpu.bedTexture;
       u.uState.value = this.gpuState;
+      u.uGround.value = this.gpuBed;
       return;
     }
     u.uState.value = this.cpuState;
+    u.uGround.value = this.ground;
     if (this.engine.waterRevision === this.lastRevision) return;
     this.lastRevision = this.engine.waterRevision;
+    if (this.engine.erosionActive) this.updateGround();
     const d = this.engine.world.waterDepthM;
     const vx = this.engine.water.vx;
     const vy = this.engine.water.vy;
@@ -144,10 +151,12 @@ const VERT = /* glsl */ `
 uniform sampler2D uGround;
 uniform sampler2D uState;
 uniform float uCs;
+uniform float uSea;
 uniform ivec2 uSize;
 uniform int uMode;
 uniform float uLift;
 varying float vDepth;
+varying float vConc;
 varying vec2 vVel;
 varying vec3 vNormal2;
 varying vec3 vWorld;
@@ -156,8 +165,9 @@ varying float vHide;
 float headAt(ivec2 c, float fallback) {
   c = clamp(c, ivec2(0), uSize - 1);
   vec4 g = texelFetch(uGround, c, 0);
+  float z = g.r + g.g;
   float d = texelFetch(uState, c, 0).r;
-  return d > 0.01 && g.g < 0.5 ? g.r + d : fallback;
+  return d > 0.01 && z >= uSea ? z + d : fallback;
 }
 
 void main() {
@@ -165,13 +175,15 @@ void main() {
   vec4 g = texelFetch(uGround, c, 0);
   vec4 s = texelFetch(uState, c, 0);
   float d = s.r;
-  float z = g.r;
-  bool wet = d > 0.01 && g.g < 0.5;
+  float z = g.r + g.g;
+  bool isSea = z < uSea;
+  bool wet = d > 0.01 && !isSea;
   float h;
   if (uMode == 0) h = wet ? z + d : z - max(0.3, uLift);
   else h = z + max(d, 0.0) + uLift; // overlays drape over the ground
-  vDepth = g.g > 0.5 ? -1.0 : d;
-  vHide = g.g;
+  vDepth = isSea ? -1.0 : d;
+  vHide = isSea ? 1.0 : 0.0;
+  vConc = d > 0.01 ? g.b / d : 0.0;
   vVel = s.gb;
   float H = wet ? z + d : h;
   float hx = headAt(c + ivec2(1, 0), H) - headAt(c - ivec2(1, 0), H);
@@ -189,6 +201,7 @@ uniform int uMode;
 uniform vec3 uSunDir, uShallow, uDeep, uFogColor;
 uniform float uFogNear, uFogFar;
 varying float vDepth;
+varying float vConc;
 varying vec2 vVel;
 varying vec3 vNormal2;
 varying vec3 vWorld;
@@ -238,6 +251,9 @@ void main() {
 
   float depthT = smoothstep(0.0, 4.0, d);
   vec3 col = mix(uShallow, uDeep, depthT);
+  // Turbidity from the simulated suspended-sediment concentration (volume fraction s/d).
+  float turb = smoothstep(0.0003, 0.01, vConc);
+  col = mix(col, vec3(0.55, 0.43, 0.28), turb * 0.85);
   vec3 v = normalize(cameraPosition - vWorld);
   vec3 l = normalize(uSunDir);
   float diff = 0.55 + 0.45 * max(dot(n, l), 0.0);

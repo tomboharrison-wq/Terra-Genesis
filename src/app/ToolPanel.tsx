@@ -1,5 +1,6 @@
 import { useUi, DEFAULT_RATES, isBrushTool, isWaterTool } from '../state/uiStore';
 import { WaterPanel } from './WaterPanel';
+import { ErosionPanel } from './ErosionPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
@@ -112,6 +113,7 @@ export function ToolPanel() {
       )}
 
       {(water || !brush) && <WaterPanel />}
+      {(water || !brush) && <ErosionPanel />}
 
       {!brush && !water && (
         <div className="cam-buttons">

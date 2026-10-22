@@ -23,21 +23,23 @@ export function NewWorldDialog() {
   const [rain, setRain] = useState(() => presetById('river-basin').defaults.rainMmH ?? 0);
   const [boundary, setBoundary] = useState<'open' | 'closed'>('open');
   const [autoplay, setAutoplay] = useState(true);
+  const [erosion, setErosion] = useState(() => presetById('river-basin').defaults.erosion ?? false);
 
   const pick = (id: PresetId) => {
     setPresetId(id);
     setD({ ...presetById(id).defaults });
     setRain(presetById(id).defaults.rainMmH ?? 0);
+    setErosion(presetById(id).defaults.erosion ?? false);
   };
   const extentKm = useMemo(() => ((size - 1) * d.cellSizeM) / 1000, [size, d.cellSizeM]);
 
   const generate = () => {
-    const o: GenerateOptions = { presetId, seed, size, ...d, rainMmH: rain, boundary, name: name.trim() || `${presetById(presetId).name} ${seed}` };
+    const o: GenerateOptions = { presetId, seed, size, ...d, rainMmH: rain, boundary, erosion, name: name.trim() || `${presetById(presetId).name} ${seed}` };
     newWorld(o, autoplay && rain > 0);
     close();
   };
 
-  const num = (k: keyof typeof d, label: string, unit: string, min: number, max: number, step: number) => (
+  const num = (k: 'cellSizeM' | 'reliefM' | 'seaLevelM', label: string, unit: string, min: number, max: number, step: number) => (
     <label className="field">
       <span className="field-label">
         {label} <small>{unit}</small>
@@ -95,6 +97,10 @@ export function NewWorldDialog() {
             <option value="open">Open outflow</option>
             <option value="closed">Closed walls</option>
           </select>
+        </label>
+        <label className="field check">
+          <input type="checkbox" checked={erosion} onChange={(e) => setErosion(e.target.checked)} />
+          <span>Erosion &amp; deposition on</span>
         </label>
         <label className="field check">
           <input type="checkbox" checked={autoplay} onChange={(e) => setAutoplay(e.target.checked)} />
