@@ -151,7 +151,17 @@ export class Engine {
   /** Advance exactly `seconds` of simulated time (Step button / tests), ignoring budget. */
   advance(seconds: number): number {
     this.flushGround();
-    const done = this.clock.advanceExactly(this.stepper, seconds);
+    // Long advances run in segments so GPU accumulators are folded before float32 round-off grows.
+    let done = 0;
+    let left = seconds;
+    while (left > 0) {
+      const seg = this.gpu ? Math.min(left, 600) : left;
+      const d = this.clock.advanceExactly(this.stepper, seg);
+      done += d;
+      left -= seg;
+      if (this.gpu && left > 0) this.gpu.syncToCpu();
+      if (d === 0) break;
+    }
     this.world.simTimeSeconds += done;
     this.syncWater();
     if (!this.gpu && this.erosionActive) this.markRenderDirtyAll();

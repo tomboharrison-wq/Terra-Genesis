@@ -19,3 +19,10 @@
 - Water drawn from real depth/velocity: lakes, flowing streams with flow streaks and foam; depth and flow-speed maps with legends.
 - Play/Pause/Step/Speed time bar with simulated clock; Add water, Drain and Spring tools; rainfall, infiltration, evaporation and edge controls; live water budget.
 - New worlds are drainage-conditioned (hollows filled with alluvium) so rain organises into rivers. River-basin preset starts with 60 mm/h rain.
+
+## M03 — Erosion, sediment transport and deposition
+- Flowing water now erodes soil then bedrock (weak rock faster than hard), carries sediment (muddy water) and deposits it where flow slackens and on the sea floor — valleys incise, fans and deltas grow.
+- Runs on the GPU alongside the water; CPU reference and GPU match to 0.01 mm. Sediment budget always balances.
+- Erosion panel: on/off, geomorphic acceleration (labelled), bedrock hardness, optional hillslope creep, sediment budget.
+- Change map (red = eroded, blue = deposited) against a resettable reference; Profile tool draws cross-sections.
+- New preset: River to sea.

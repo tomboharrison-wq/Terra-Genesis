@@ -36,9 +36,12 @@ export const MM_PER_H = 1 / 3.6e6;
  * lithology erodibility × bedrockFactor); above capacity it deposits at depositK·(s − C).
  * `speedup` multiplies erosion and deposition rates together (geomorphic acceleration —
  * a labelled, non-physical time compression so landforms change within minutes).
+ * `creepK` is hillslope diffusivity (m²/s at ×1) acting on loose sediment: flux ∝ −∇z,
+ * limited to the loose sediment available. Smooths grid-scale roughness; valleys persist.
  */
 export interface ErosionParams {
   enabled: boolean;
+  creepK: number;
   capacityK: number;
   erodeK: number;
   depositK: number;
@@ -47,7 +50,7 @@ export interface ErosionParams {
 }
 
 export function defaultErosionParams(): ErosionParams {
-  return { enabled: false, capacityK: 0.05, erodeK: 0.01, depositK: 0.02, bedrockFactor: 0.1, speedup: 10 };
+  return { enabled: false, creepK: 0, capacityK: 0.05, erodeK: 0.01, depositK: 0.02, bedrockFactor: 0.1, speedup: 10 };
 }
 
 export function defaultWaterParams(): WaterParams {

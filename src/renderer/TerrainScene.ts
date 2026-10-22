@@ -82,6 +82,8 @@ export class TerrainScene {
   private sun: DirectionalLight;
   private brushRing: Line;
   private brushVisible = false;
+  private profileLine: Line;
+  private profileEnds: [number, number, number, number] | null = null;
   private brushCentre = new Vector2();
   private brushRadius = 100;
   private raf = 0;
@@ -140,6 +142,13 @@ export class TerrainScene {
     this.brushRing.frustumCulled = false;
     this.brushRing.visible = false;
     this.scene.add(this.brushRing);
+    const profGeo = new BufferGeometry();
+    profGeo.setAttribute('position', new BufferAttribute(new Float32Array(129 * 3), 3));
+    this.profileLine = new Line(profGeo, new LineBasicMaterial({ color: 0xffe627, depthTest: false, transparent: true }));
+    this.profileLine.renderOrder = 11;
+    this.profileLine.frustumCulled = false;
+    this.profileLine.visible = false;
+    this.scene.add(this.profileLine);
 
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(container);
@@ -408,10 +417,11 @@ export class TerrainScene {
           o,
         );
         if (overlay) {
-          // Diverging change map: red = lowered (eroded), blue = raised (deposited); log 1 cm … 10 m.
+          // Diverging change map: red = lowered (eroded), blue = raised (deposited);
+          // neutral within ±5 cm, log scale 5 cm … 10 m.
           const dz = z[i] - ref[i];
-          const t = Math.min(1, Math.max(0, Math.log10(Math.abs(dz) / 0.01) / 3));
-          if (Math.abs(dz) >= 0.01) {
+          const t = Math.min(1, Math.max(0, Math.log10(Math.abs(dz) / 0.05) / Math.log10(200)));
+          if (Math.abs(dz) >= 0.05) {
             const c = dz < 0 ? ERODE_RGB : DEPOSIT_RGB;
             const a = 0.35 + 0.65 * t;
             const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
@@ -458,6 +468,7 @@ export class TerrainScene {
       if (dirty.x0 <= 1 || dirty.y0 <= 1 || dirty.x1 >= this.engine.world.width - 1 || dirty.y1 >= this.engine.world.height - 1) this.updateSkirts();
     }
     if (this.brushVisible) this.updateBrushRing();
+    if (this.profileEnds) this.updateProfileLine();
     this.controls.update();
     this.sky.position.copy(this.camera.position);
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
@@ -511,6 +522,26 @@ export class TerrainScene {
       const th = (k / 128) * Math.PI * 2;
       const x = this.brushCentre.x + Math.cos(th) * this.brushRadius;
       const y = this.brushCentre.y + Math.sin(th) * this.brushRadius;
+      a.setXYZ(k, x, sampleBilinear(hf, x, y) + lift, -y);
+    }
+    a.needsUpdate = true;
+  }
+
+  /** Show a transect draped on the terrain (world metres), or hide with null. */
+  setProfileLine(ends: [number, number, number, number] | null) {
+    this.profileEnds = ends;
+    this.profileLine.visible = !!ends;
+  }
+
+  private updateProfileLine() {
+    const [ax, ay, bx, by] = this.profileEnds!;
+    const a = this.profileLine.geometry.getAttribute('position') as BufferAttribute;
+    const hf = this.engine.heightfield;
+    const lift = Math.max(0.5, this.reliefM * 0.004);
+    for (let k = 0; k <= 128; k++) {
+      const t = k / 128;
+      const x = ax + (bx - ax) * t;
+      const y = ay + (by - ay) * t;
       a.setXYZ(k, x, sampleBilinear(hf, x, y) + lift, -y);
     }
     a.needsUpdate = true;

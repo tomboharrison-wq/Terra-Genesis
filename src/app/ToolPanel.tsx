@@ -1,6 +1,7 @@
 import { useUi, DEFAULT_RATES, isBrushTool, isWaterTool } from '../state/uiStore';
 import { WaterPanel } from './WaterPanel';
 import { ErosionPanel } from './ErosionPanel';
+import { ProfilePanel } from './ProfilePanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
@@ -44,6 +45,7 @@ export function ToolPanel() {
   const extent = world ? (Math.max(world.width, world.height) - 1) * cs : 1000;
   const brush = isBrushTool(t.id);
   const water = isWaterTool(t.id);
+  const measure = t.id === 'profile';
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -112,10 +114,11 @@ export function ToolPanel() {
         </>
       )}
 
-      {(water || !brush) && <WaterPanel />}
-      {(water || !brush) && <ErosionPanel />}
+      {(measure || s.profile) && <ProfilePanel />}
+      {(water || (!brush && !measure)) && <WaterPanel />}
+      {(water || (!brush && !measure)) && <ErosionPanel />}
 
-      {!brush && !water && (
+      {!brush && !water && !measure && (
         <div className="cam-buttons">
           <button onClick={() => getScene()?.fitWorld()}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>

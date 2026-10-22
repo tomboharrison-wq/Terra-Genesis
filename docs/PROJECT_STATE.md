@@ -1,27 +1,28 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M03 — Erosion, sediment transport, deposition
-Current chunk: M03-C01 — bedrock + loose sediment layer & material property registry for erosion
+Current milestone: M04 — Geology layers, weathering, hillslopes, landslides
+Current chunk: M04-C01 — layered geology / material paint, exposure after erosion, visual stratification
 Status: READY
 
 Verified working:
-- M01 editable terrain: 8 seeded presets, brushes, undo/redo, save/load (.tgw v2), see tests/*.test.ts.
-- M02 water: rain/springs/infiltration/evaporation + exact ledger; local-inertial solver (CPU reference
-  src/sim/water/waterSim.ts, GPU port gpuWater.ts on the renderer's WebGL2 context, CPU fallback).
-- GPU vs CPU: `npm run gpu-check` PASS (smooth fixtures ≤0.09 mm; turbulent mean 0.013 mm, vol 0.02%).
-- Water rendered from solver textures (waterLayer.ts); overlays depth/flow speed; TimeBar play/step/speed.
-- Generated terrain is drainage-conditioned (priority-flood fill with alluvium, 0.2% gradient).
-- river-catchment fixture: 24% of rain drained in 3 h, top 5% cells carry 71% of discharge.
+- M01 terrain editor; M02 water (CPU ref + WebGL2 GPU, ledger, rendering, time controls, tools).
+- M03 erosion: suspended transport with water discharges, capacity C=K·q·S, loose-then-bedrock erosion by
+  lithology, deposition, sea-floor settling (deltas), optional hillslope creep (default off), GPU sediment pass.
+- gpu-check 5/5 incl. erosion fixtures (bed ≤0.01 mm vs CPU, identical eroded volume, closures ~1e-7).
+- e2e 19/19: GPU water + erosion, budgets close in browser, eroded terrain + suspended load survive reload.
+- UI: Erosion panel (toggle, ×acceleration, bedrock factor, creep, sediment budget), change map (±5 cm
+  neutral), turbid water, Profile tool (cross-section chart: surface / reference / water; table view).
+- Presets: River basin (rain+erosion), River to sea (delta demo), 7 others.
 
 Known failures / gaps:
-- Real M4 Safari/Chrome speed NOT measured (SwiftShader: ~3 min sim/s; budget 10 ms/frame).
-- Bitwise frame-rate independence holds for the CPU solver; GPU dt uses synced stats (reproducible, not bitwise).
-- Inland cells below sea level are treated as sea. Water tools are not undoable (by design: snapshots).
-- Low-gradient valley fills flood as broad sheets under heavy rain (physical, but looks sheet-like).
+- Real M4 GPU speed unmeasured (SwiftShader only). Change map shows cell-scale scour/bar alternation in channels.
+- Single grain size; no bedload, armouring, lateral bank erosion or meander dynamics (needs local model, spec E5).
+- Hillslope creep smooths generator micro-relief at high acceleration (hence default off).
+- Inland cells below sea level are treated as sea.
 
-Relevant paths: src/engine/{engine,clock,world}.ts, src/sim/water/*, src/renderer/{TerrainScene,waterLayer}.ts,
-src/app/{TimeBar,WaterPanel,Viewport}.tsx, src/terrain/conditioning.ts
-Last checks: typecheck PASS · npm test PASS (69) · build PASS · e2e PASS 16/16 · gpu-check PASS 3/3
+Relevant paths: src/sim/sediment/sedimentSim.ts, src/sim/water/gpuWater.ts (water+sediment passes),
+src/engine/engine.ts, src/renderer/{TerrainScene,waterLayer}.ts, src/app/{ErosionPanel,ProfilePanel}.tsx
+Last checks: typecheck PASS · npm test PASS (79) · build PASS · e2e PASS 19/19 · gpu-check PASS 5/5
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

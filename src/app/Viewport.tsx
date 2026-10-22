@@ -16,7 +16,7 @@ function currentBrush(): BrushParams | null {
 function ringRadius(): number | null {
   const s = useUi.getState();
   if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain') return s.radiusM;
-  if (s.tool === 'spring') return (s.world?.cellSizeM ?? 10) * 2;
+  if (s.tool === 'spring' || s.tool === 'profile') return (s.world?.cellSizeM ?? 10) * 2;
   return null;
 }
 
@@ -77,6 +77,14 @@ export function Viewport() {
       e.stopPropagation();
       e.preventDefault();
       const ui = useUi.getState();
+      if (ui.tool === 'profile') {
+        if (!ui.profileStart || ui.profile) {
+          ui.set({ profileStart: { x: hit.xM, y: hit.yM }, profile: null });
+        } else {
+          ui.set({ profile: { ax: ui.profileStart.x, ay: ui.profileStart.y, bx: hit.xM, by: hit.yM }, profileStart: null });
+        }
+        return;
+      }
       if (ui.tool === 'spring') {
         const src = engine.addSource(hit.xM, hit.yM, ui.springRate);
         ui.toast(`Spring #${src.id} placed: ${ui.springRate.toFixed(1)} m³/s`, 'success');
@@ -139,6 +147,11 @@ export function Viewport() {
     const unsubView = useUi.subscribe((st, prev) => {
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
       if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
+      if (st.profile !== prev.profile || st.profileStart !== prev.profileStart) {
+        const p = st.profile;
+        const a = st.profileStart;
+        scene.setProfileLine(p ? [p.ax, p.ay, p.bx, p.by] : a ? [a.x, a.y, a.x, a.y] : null);
+      }
     });
 
     const onKey = (e: KeyboardEvent) => {

@@ -2,12 +2,13 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M03-C01 | Erosion material properties, suspended-sediment field, sediment ledger, format v3 | READY |
-| M03-C02 | Transport capacity + advection with water flux (CPU ref → GPU) | TODO |
-| M03-C03 | Erosion limited by available material & resistance | TODO |
-| M03-C04 | Deposition updates surface, routing, mesh | TODO |
-| M03-C05 | Stability, overlays (erosion/deposition differential) | TODO |
-| M03-C06 | Rain → incision → delta demo, profile, save/reload | TODO |
+| M04-C01 | Layered stratigraphy, exposure by erosion, plateau/headland layers | READY |
+| M04-C02 | Weathering (bedrock→regolith) + creep tuning | TODO |
+| M04-C03 | Saturation/stability + basic landslide event | TODO |
+| M04-C04 | Local curved-slip rotational slump prototype | TODO |
+| M03-C06 | River-to-sea preset, profile tool, e2e erosion checks | DONE |
+| M03-C04..C05 | GPU sediment pass, change map, turbid water, erosion UI | DONE |
+| M03-C01..C03 | Sediment fields/ledger, transport, erosion/deposition (CPU ref) | DONE |
 | M02-C06 | River-catchment fixture, e2e water checks, drainage conditioning | DONE |
 | M02-C05 | TimeBar, water tools/panel, overlays, inspector water | DONE |
 | M02-C04 | Water rendering from solver textures | DONE |

@@ -1,8 +1,7 @@
 import type { WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import type { WaterSim } from './waterSim';
-import type { SedimentSim } from '../sediment/sedimentSim';
-import { MIN_TRANSPORT_DEPTH, SLOPE_MAX, SLOPE_MIN } from '../sediment/sedimentSim';
+import { MIN_TRANSPORT_DEPTH, SLOPE_MAX, SLOPE_MIN, SedimentSim } from '../sediment/sedimentSim';
 import { MATERIALS } from '../../terrain/materials';
 
 /**
@@ -12,11 +11,12 @@ import { MATERIALS } from '../../terrain/materials';
  *           a = bedrock erodibility of the cell's lithology. Surface z = r + g; sea ⇔ z < sea level.
  *   state:  r = water depth d, g = vx, b = vy (m/s)
  *   flux:   outflow discharge west, east, south, north (m³/s)
- *   acc:    water depth-equivalents since last sync: infiltrated, evaporated, into sea, off edges
+ *   acc:    water depth-equivalents since last sync: lost (infiltration+evaporation, split by
+ *           their rate ratio on sync), rain added, into sea, off edges
  *   sedA:   sediment since last sync (m): eroded loose, eroded bedrock, deposited on land, exported
  *   sedB:   r = deposited on the sea floor (m)
- * Accumulators are folded into the CPU ledgers (× cell area) on sync and cleared. Rain and
- * source inputs are ledgered analytically on the CPU using the land-cell count from the last sync.
+ * Accumulators are folded into the CPU ledgers (× cell area) on sync and cleared. Rain is
+ * measured on the GPU (the land/sea mask moves with erosion); source inputs are ledgered on the CPU.
  * While attached, GPU textures are authoritative; CPU arrays are a mirror refreshed by syncToCpu().
  */
 
@@ -63,6 +63,7 @@ void main() {
     return;
   }
   d += uRain * uDt;
+  acc.g += uRain * uDt;
   for (int k = 0; k < ${MAX_SOURCES}; k++) {
     if (k >= uNSrc) break;
     if (ivec2(uSrc[k].xy) == c) d += uSrc[k].z * uDt;
@@ -71,9 +72,7 @@ void main() {
   if (lossRate > 0.0 && d > 0.0) {
     float l = min(d, lossRate * uDt);
     d -= l;
-    float fInf = uInf / lossRate;
-    acc.r += l * fInf;
-    acc.g += l * (1.0 - fInf);
+    acc.r += l;
   }
   oState = vec4(d, s.g, s.b, 0.0);
   oAcc = acc;
@@ -173,6 +172,7 @@ uniform float uCapK;
 uniform float uKe;         // min(1, erodeK * speedup * dt)
 uniform float uKd;         // min(1, depositK * speedup * dt)
 uniform float uRockF;
+uniform float uKappa;      // creep coefficient (see SedimentSim.creepKappa)
 layout(location = 0) out vec4 oBed;
 layout(location = 1) out vec4 oSedA;
 layout(location = 2) out vec4 oSedB;
@@ -188,6 +188,13 @@ float outThrough(ivec2 j, int k) {
   return b.b * f * uDt / (d0 * uCs * uCs);
 }
 
+// Creep loss of cell i to neighbour j (negative = gain), from start-of-step values.
+float creepFace(float zi, float li, ivec2 j) {
+  vec4 bj = texelFetch(uBed, j, 0);
+  float dz = zi - (bj.r + bj.g);
+  return dz > 0.0 ? min(uKappa * dz, 0.25 * li) : -min(-uKappa * dz, 0.25 * bj.g);
+}
+
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec4 B = texelFetch(uBed, c, 0);
@@ -198,6 +205,16 @@ void main() {
   float s = B.b;
   float zi = bedrock + loose;
   bool sea = zi < uSea;
+
+  // 0. Hillslope creep of loose sediment (conservative pairwise exchange).
+  if (uKappa > 0.0) {
+    float net = 0.0;
+    if (c.x > 0) net += creepFace(zi, B.g, c + ivec2(-1, 0));
+    if (c.x < uSize.x - 1) net += creepFace(zi, B.g, c + ivec2(1, 0));
+    if (c.y > 0) net += creepFace(zi, B.g, c + ivec2(0, -1));
+    if (c.y < uSize.y - 1) net += creepFace(zi, B.g, c + ivec2(0, 1));
+    loose = max(0.0, B.g - net);
+  }
 
   // 1. Advection (upwind, same face discharges as the water).
   float inS = 0.0;
@@ -292,7 +309,6 @@ export class GpuWater implements Stepper {
   private b = 0; // index of current bed/sedA/sedB
   private W: number;
   private H: number;
-  private nonSeaCells = 0;
   /** Depth assumed when choosing dt between syncs (m); grows to observed max depth. */
   assumedDepthM = 4;
   disposed = false;
@@ -419,17 +435,10 @@ export class GpuWater implements Stepper {
       g[i * 4 + 2] = w.sedimentSuspendedM[i];
       g[i * 4 + 3] = erod[w.materialId[i]];
     }
-    this.countLand();
     this.write(this.bed[this.b], g);
     const zero = new Float32Array(n * 4);
     this.write(this.sedA[this.b], zero);
     this.write(this.sedB[this.b], zero);
-  }
-
-  private countLand() {
-    let nonSea = 0;
-    for (let i = 0; i < this.sim.sea.length; i++) if (!this.sim.sea[i]) nonSea++;
-    this.nonSeaCells = nonSea;
   }
 
   /** Upload the CPU water mirror (depth, velocity, flux) and clear accumulators. */
@@ -461,8 +470,8 @@ export class GpuWater implements Stepper {
     this.read(this.fbStateAcc[this.s], 1, ac);
     this.read(this.fbFlux[this.f], 0, w.waterFluxM3PerS);
     const d = w.waterDepthM;
-    let inf = 0;
-    let evap = 0;
+    let lost = 0;
+    let rain = 0;
     let sea = 0;
     let edge = 0;
     for (let i = 0; i < n; i++) {
@@ -470,14 +479,17 @@ export class GpuWater implements Stepper {
       d[i] = st[o];
       this.sim.vx[i] = st[o + 1];
       this.sim.vy[i] = st[o + 2];
-      inf += ac[o];
-      evap += ac[o + 1];
+      lost += ac[o];
+      rain += ac[o + 1];
       sea += ac[o + 2];
       edge += ac[o + 3];
     }
     const L = this.sim.ledger;
-    L.infiltrated += inf * A;
-    L.evaporated += evap * A;
+    const lossRate = w.water.infiltrationMPerS + w.water.evaporationMPerS;
+    const fInf = lossRate > 0 ? w.water.infiltrationMPerS / lossRate : 1;
+    L.infiltrated += lost * A * fInf;
+    L.evaporated += lost * A * (1 - fInf);
+    L.rainIn += rain * A;
     L.seaOut += sea * A;
     L.edgeOut += edge * A;
     this.write(this.acc[this.s], new Float32Array(n * 4));
@@ -517,7 +529,6 @@ export class GpuWater implements Stepper {
       this.write(this.sedA[this.b], zero);
       this.write(this.sedB[this.b], zero);
       this.sim.refreshSea();
-      this.countLand();
       bedChanged = true;
     }
     this.sim.refreshStats();
@@ -552,8 +563,7 @@ export class GpuWater implements Stepper {
     const p = w.water;
     const A = w.cellSizeM * w.cellSizeM;
     const L = this.sim.ledger;
-    // Analytic CPU-side ledger of state-independent inputs (mirrors WaterSim.applyForcing).
-    if (p.rainMPerS > 0) L.rainIn += this.nonSeaCells * p.rainMPerS * dt * A;
+    // Sources are ledgered on the CPU (rain is measured on the GPU, see acc.g).
     const src: number[] = [];
     for (const s of p.sources.slice(0, MAX_SOURCES)) {
       if (s.x < 0 || s.y < 0 || s.x >= w.width || s.y >= w.height || s.rateM3PerS <= 0) continue;
@@ -629,6 +639,7 @@ export class GpuWater implements Stepper {
       gl.uniform1f(this.uni(this.sediment, 'uKe'), Math.min(1, e.erodeK * e.speedup * dt));
       gl.uniform1f(this.uni(this.sediment, 'uKd'), Math.min(1, e.depositK * e.speedup * dt));
       gl.uniform1f(this.uni(this.sediment, 'uRockF'), e.bedrockFactor);
+      gl.uniform1f(this.uni(this.sediment, 'uKappa'), SedimentSim.creepKappa(w, dt));
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBed[b1]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.b = b1;

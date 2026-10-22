@@ -22,7 +22,8 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 ## Folder map
 - `src/engine/`   WorldState contract, Engine (world owner, dirty regions, history)
 - `src/terrain/`  materials registry, procedural generation, drainage conditioning, heightfield sampling/raycast
-- `src/sim/water/` WaterSim (CPU reference), GpuWater (WebGL2), ledger, GPU self-test
+- `src/sim/water/` WaterSim (CPU reference), GpuWater (WebGL2 water + sediment passes), ledger, GPU self-test
+- `src/sim/sediment/` SedimentSim (CPU reference erosion/transport/deposition/creep) + sediment ledger
 - `src/tools/`    sculpt brushes (physical edits), undo/redo stroke recorder
 - `src/renderer/` Three.js scene (imperative; React never touches Three objects)
 - `src/persistence/` binary world format + IndexedDB slots

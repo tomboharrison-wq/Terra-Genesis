@@ -4,9 +4,17 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId;
+export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile';
 
-export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && !t.startsWith('water-') && t !== 'spring';
+export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && !t.startsWith('water-') && t !== 'spring';
+
+/** Transect end points in world metres (x east, y north). */
+export interface ProfileLine {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+}
 export const isWaterTool = (t: ToolId): t is WaterToolId => t === 'water-add' || t === 'water-drain' || t === 'spring';
 
 export interface SimInfo {
@@ -29,6 +37,7 @@ export interface SimInfo {
   erosionOn: boolean;
   speedup: number;
   bedrockFactor: number;
+  creepK: number;
   sed: { erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
 }
 
@@ -95,6 +104,8 @@ interface UiState {
   sim: SimInfo | null;
   waterView: WaterView;
   terrainOverlay: TerrainOverlay;
+  profile: ProfileLine | null;
+  profileStart: { x: number; y: number } | null;
   /** Water brush rate (m/s of brush time). */
   waterRate: number;
   springRate: number;
@@ -125,6 +136,8 @@ export const useUi = create<UiState>((set) => ({
   sim: null,
   waterView: 'water',
   terrainOverlay: 'none',
+  profile: null,
+  profileStart: null,
   waterRate: 0.5,
   springRate: 20,
   set: (p) => set(p),

@@ -69,6 +69,7 @@ export function syncSim() {
       erosionOn: w.erosion.enabled,
       speedup: w.erosion.speedup,
       bedrockFactor: w.erosion.bedrockFactor,
+      creepK: w.erosion.creepK,
       sed: (() => {
         const S = engine.sediment.ledger;
         const susp = engine.sediment.suspendedVolume();

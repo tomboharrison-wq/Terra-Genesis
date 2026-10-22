@@ -92,7 +92,7 @@ export function TimeBar() {
         <div className="legend" aria-label="Elevation change legend">
           <i className="ramp change" />
           <span>−10 m</span>
-          <span>±1 cm</span>
+          <span>±5 cm</span>
           <span>+10 m</span>
         </div>
       )}

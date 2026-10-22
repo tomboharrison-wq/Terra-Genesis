@@ -124,6 +124,28 @@ describe('M03 sediment: erosion, transport, deposition', () => {
     expect(sedimentClosure(sed.ledger, sed.suspendedVolume())).toBeLessThan(1e-4);
   }, 60000);
 
+  it('hillslope creep smooths grid-scale roughness, conserves loose sediment exactly, never touches bedrock', () => {
+    const { w, s, water, sed } = setup(32, 10, () => 10, { loose: 0 });
+    w.erosion.creepK = 0.002;
+    // Checkerboard of ±0.5 m loose sediment bumps on a flat bedrock plain.
+    for (let i = 0; i < 32 * 32; i++) w.looseSedimentThicknessM[i] = ((i % 32) + Math.floor(i / 32)) % 2 ? 1 : 0;
+    computeSurface(w, s);
+    const tot = () => w.looseSedimentThicknessM.reduce((a, v) => a + v, 0);
+    const rough = () => {
+      let r = 0;
+      for (let i = 1; i < 32 * 32; i++) r += Math.abs(s[i] - s[i - 1]);
+      return r;
+    };
+    const t0 = tot();
+    const r0 = rough();
+    const b0 = w.bedrockElevationM.slice();
+    run(water, sed, 1800);
+    expect(rough()).toBeLessThan(0.2 * r0);
+    expect(Math.abs(tot() - t0)).toBeLessThan(1e-3);
+    expect(w.bedrockElevationM).toEqual(b0);
+    expect(w.looseSedimentThicknessM.every((v) => v >= 0)).toBe(true);
+  });
+
   it('format v3 round-trips suspended sediment and erosion params', () => {
     const { w } = setup(8, 10, () => 1);
     w.sedimentSuspendedM[3] = 0.25;

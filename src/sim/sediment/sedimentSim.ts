@@ -54,12 +54,14 @@ export class SedimentSim {
   ledger: SedimentLedger;
   private buf: Float32Array;
   private zSnap: Float32Array;
+  private looseSnap: Float32Array;
   /** Per-material bedrock erodibility lookup. */
   private erod = new Float32Array(256);
 
   constructor(private world: WorldState, private surface: Float32Array, private water: WaterSim) {
     this.buf = new Float32Array(world.width * world.height);
     this.zSnap = new Float32Array(world.width * world.height);
+    this.looseSnap = new Float32Array(world.width * world.height);
     for (const m of MATERIALS) this.erod[m.id] = m.erodibility;
     this.ledger = emptySedimentLedger(this.suspendedVolume());
   }
@@ -77,10 +79,53 @@ export class SedimentSim {
 
   step(dt: number): void {
     if (!this.world.erosion.enabled) return;
-    // Slopes come from the surface at the start of the step (Jacobi), as in the GPU port.
+    // Slopes and creep use the state at the start of the step (Jacobi), as in the GPU port.
     this.zSnap.set(this.surface);
+    this.looseSnap.set(this.world.looseSedimentThicknessM);
+    this.creep(dt);
     this.advect(dt);
     this.exchange(dt);
+  }
+
+  /** Dimensionless creep coefficient κ = K·speedup·dt/cs², capped for explicit stability. */
+  static creepKappa(w: WorldState, dt: number): number {
+    return Math.min(0.125, (w.erosion.creepK * w.erosion.speedup * dt) / (w.cellSizeM * w.cellSizeM));
+  }
+
+  /**
+   * Hillslope creep: each face moves min(κ·Δz, loose_donor/4) of loose sediment from the
+   * higher to the lower cell (pairwise, from start-of-step values ⇒ exactly conservative and
+   * never more than a donor holds). Map edges are closed to creep.
+   */
+  private creep(dt: number) {
+    const w = this.world;
+    const kappa = SedimentSim.creepKappa(w, dt);
+    if (kappa <= 0) return;
+    const W = w.width;
+    const H = w.height;
+    const zs = this.zSnap;
+    const ls = this.looseSnap;
+    const loose = w.looseSedimentThicknessM;
+    const b = w.bedrockElevationM;
+    const z = this.surface;
+    const face = (i: number, j: number) => {
+      const dz = zs[i] - zs[j];
+      return dz > 0 ? Math.min(kappa * dz, 0.25 * ls[i]) : -Math.min(-kappa * dz, 0.25 * ls[j]);
+    };
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        let net = 0; // positive = this cell loses
+        if (x > 0) net += face(i, i - 1);
+        if (x < W - 1) net += face(i, i + 1);
+        if (y > 0) net += face(i, i - W);
+        if (y < H - 1) net += face(i, i + W);
+        if (net !== 0) {
+          loose[i] = Math.max(0, ls[i] - net);
+          z[i] = b[i] + loose[i];
+        }
+      }
+    }
   }
 
   private advect(dt: number) {

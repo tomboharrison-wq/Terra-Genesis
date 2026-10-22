@@ -37,6 +37,12 @@ export function ErosionPanel() {
         </span>
         <input type="range" min={1} max={100} value={Math.round(sim.bedrockFactor * 100)} onChange={(e) => engine.setErosionParams({ bedrockFactor: +e.target.value / 100 })} />
       </label>
+      <label className="field" title="Soil creep: loose sediment slowly diffuses downslope (rounds hilltops, fills hollows). Off by default; at high acceleration it also smooths fine terrain detail.">
+        <span className="field-label">
+          Hillslope creep <b>{sim.creepK === 0 ? 'off' : `${(sim.creepK * 1e5).toFixed(1)}×10⁻⁵ m²/s`}</b>
+        </span>
+        <input type="range" min={0} max={20} value={Math.round(sim.creepK * 1e5)} onChange={(e) => engine.setErosionParams({ creepK: +e.target.value * 1e-5 })} />
+      </label>
       <div className="field">
         <span className="field-label">Change map</span>
         <div className="seg">

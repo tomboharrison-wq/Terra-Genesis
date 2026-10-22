@@ -158,6 +158,39 @@ for (const preset of ['Mountain range', 'Coastal headlands', 'Layered plateau'])
   await shot('07-' + preset.toLowerCase().replace(/\s+/g, '-'));
 }
 
+// --- Erosion (M03): river-to-sea world, accelerated erosion, budget, save/reload ---
+await page.click('text=New');
+await page.click('.preset:has-text("River to sea")');
+await page.selectOption('.dialog select >> nth=0', '128');
+await page.fill('.form-grid input[type=number] >> nth=0', '777');
+await page.click('label.check:has-text("Start simulation") input');
+await page.click('text=Generate world');
+await page.waitForTimeout(1200);
+const er = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  e.setErosionParams({ speedup: 300 });
+  e.advance(2 * 3600);
+  const S = e.sediment.ledger;
+  const susp = e.sediment.suspendedVolume();
+  const expected = S.initialSuspended + S.erodedLoose + S.erodedBedrock - S.deposited - S.seaDeposited - S.edgeExport;
+  return { eroded: S.erodedLoose + S.erodedBedrock, sea: S.seaDeposited, closure: Math.abs(susp - expected) / Math.max(1, S.erodedLoose + S.erodedBedrock) };
+});
+check('erosion runs on GPU and moves sediment to the sea', er.eroded > 1000 && er.sea > 0, `eroded=${er.eroded.toFixed(0)} m³ seaDeposited=${er.sea.toFixed(0)} m³`);
+check('sediment budget closes in browser', er.closure < 1e-3, `closure=${er.closure.toExponential(2)}`);
+await page.click('.timebar button:has-text("Change map")');
+await page.waitForTimeout(800);
+await shot('13-erosion-change-map');
+await page.click('.timebar button:has-text("Change map")');
+await page.keyboard.press('Control+s');
+await page.waitForTimeout(3500);
+const bedSum = () => eng(() => { const w = window.__terraGenesis.engine.world; let a = 0; for (let i = 0; i < w.bedrockElevationM.length; i++) a += w.bedrockElevationM[i] + w.looseSedimentThicknessM[i] + w.sedimentSuspendedM[i]; return a; });
+const b1 = await bedSum();
+await page.goto(base);
+await page.waitForSelector('canvas');
+await page.waitForTimeout(2500);
+const b2 = await bedSum();
+check('eroded terrain + suspended load restored after reload', Math.abs(b1 - b2) < 1e-6 * Math.abs(b1), `before=${b1.toFixed(3)} after=${b2.toFixed(3)}`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(results.join('\n'));

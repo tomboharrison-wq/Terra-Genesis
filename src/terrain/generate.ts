@@ -6,6 +6,7 @@ import { fillDepressions } from './conditioning';
 
 export type PresetId =
   | 'flat'
+  | 'river-delta'
   | 'island'
   | 'archipelago'
   | 'river-basin'
@@ -44,6 +45,7 @@ export interface PresetDef {
 
 export const PRESETS: readonly PresetDef[] = [
   { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60, erosion: true } },
+  { id: 'river-delta', name: 'River to sea', description: 'Uplands draining across a coastal plain onto a shallow shelf. Rain and erosion on: watch a delta build.', defaults: { cellSizeM: 30, reliefM: 600, seaLevelM: 0, roughness: 0.45, rainMmH: 50, erosion: true } },
   { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
   { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
   { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
@@ -101,6 +103,22 @@ const shapes: Record<PresetId, ShapeFn> = {
     const base = 0.04 + 0.3 * wv + 0.35 * valley * (0.35 + 0.65 * wv) + 0.25 * rim;
     const e = base * (0.72 + 0.45 * ridges) + 0.05 * c.n.fbm(wu * 9, wv * 9, 4);
     const mat = e > 0.65 ? CRYSTALLINE : e > 0.35 ? SANDSTONE : ridges > 0.55 ? SANDSTONE : MUDSTONE;
+    return { e, mat };
+  },
+
+  'river-delta': (c) => {
+    const [wu, wv] = warp(c, 0.05);
+    // Coast runs east–west at v ≈ 0.3; land rises northward; one main valley feeds the coast.
+    const coast = 0.3 + 0.04 * c.n.fbm(wu * 3, 1.7, 3);
+    const land = wv - coast;
+    const axis = 0.5 + 0.08 * Math.sin(wv * Math.PI * 2 + 1);
+    const dx = (wu - axis) / 0.16;
+    const valley = 1 - Math.exp(-dx * dx);
+    const ridges = c.n.ridged(wu * 4, wv * 4, 5);
+    let e: number;
+    if (land < 0) e = land * 0.25 - 0.004; // shallow shelf
+    else e = 0.01 + land * 0.95 * (0.3 + 0.7 * valley) * (0.7 + 0.45 * ridges) + 0.015 * c.n.fbm(wu * 10, wv * 10, 3);
+    const mat = e > 0.35 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
     return { e, mat };
   },
 

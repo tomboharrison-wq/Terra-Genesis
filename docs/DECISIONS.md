@@ -14,3 +14,6 @@
 - 2026-10-22 — CPU solver too slow for interactive use (~20 ms/step at 256²); GPU port planned as M02-C03, CPU kept as reference.
 - 2026-10-22 — GPU water = raw WebGL2 passes on three's context (forcing / flux / update, RGBA32F ping-pong, MRT accumulators); three binds the state texture via renderer.properties injection; renderer.resetState() after compute. CPU arrays are a mirror synced every 0.25 s and before save.
 - 2026-10-22 — Generated terrain is drainage-conditioned by priority-flood with a 0.2% gradient; fill volume is added as loose sediment (alluvium), bedrock untouched.
+- 2026-10-22 — Sediment = single-class suspended load (bulk m) advected with the water solver's own face discharges (upwind, exactly conservative); capacity C = K·q·S; loose sediment eroded before bedrock (× lithology erodibility × bedrockFactor); bedrock change booked as the exact float32 delta. Sea cells receive settling sediment (sea-floor building).
+- 2026-10-22 — GPU: water passes read surface from a shared bed texture (bedrock, loose, suspended, erodibility); a 4th pass does creep → advection → exchange; rain measured on GPU (acc.g), infiltration+evaporation share acc.r split by rate ratio on sync. Long advances sync every 600 s.
+- 2026-10-22 — Change map neutral band ±5 cm; hillslope creep default off (measured: it mostly smooths generator micro-relief at ×300).
