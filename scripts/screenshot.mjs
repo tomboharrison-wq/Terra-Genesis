@@ -241,6 +241,13 @@ await page.click('.dialog button.primary:has-text("Pause")').catch(() => {});
 await shot('23-arch-lab-stack');
 const archSeen = await page.$$eval('.arch-stages li', (els) => els.map((e) => e.getAttribute('data-stage') + ':' + e.querySelector('span').textContent));
 check('arch lab reaches the stack stage via cave and arch', archSeen.slice(1, 4).every((s) => /step \d+/.test(s)), archSeen.join(' '));
+await page.selectOption('.dialog select >> nth=0', 'clay');
+await page.waitForTimeout(300);
+const claySel = await page.locator('.dialog select').nth(1).inputValue();
+const q = await page.textContent('.arch-question');
+await page.click('.dialog button:has-text("Use this world")');
+const worldNote = await page.textContent('.dialog .hint.small.tight');
+check('arch lab scenarios and world coast set rock and waves', claySel === 'clay' && /clay/i.test(q) && /From this world/.test(worldNote), `${claySel} · ${worldNote}`);
 await page.click('.dialog [aria-label="Close"]');
 
 // --- Coastal slump cycle (M05-C06) in the slump lab ---

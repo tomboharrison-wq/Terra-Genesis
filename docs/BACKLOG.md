@@ -2,7 +2,7 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M05-C06b | Arch lab fed from world waves + lithology; classroom scenarios | READY |
+| M05-C06b | Arch lab rock types, wave climate, world coast, classroom scenarios | DONE |
 | M05-C06a | Coastal slump cycle (toe debris buttress, waves unload toe, repeat slumps) | DONE |
 | M05-C04b | One-line shoreline model: bay-mouth bars, lagoons, recurves | TODO |
 | M05-C05 | Local 3D cave → arch → stack → stump guided model | DONE |

@@ -58,9 +58,7 @@ export function CoastalSlump() {
   const wedge = debrisWedge(sp);
   const off = m.crestM; // slump-model frame has the crest at x = 0
   const cliff = `${X(x0)},${Z(z0)} ${X(x0)},${Z(Hm)} ${X(m.crestM)},${Z(Hm)} ${X(m.toeM)},${Z(0)} ${X(x1)},${Z(0)} ${X(x1)},${Z(z0)}`;
-  const apron = wedge
-    ? `${X(off + wedge.x0)},${Z(wedge.h)} ${X(off + wedge.xt)},${Z(wedge.h)} ${X(off + wedge.x1)},${Z(0)} ${X(m.toeM)},${Z(0)}`
-    : '';
+  const apron = wedge ? `${X(off + wedge.x0)},${Z(wedge.h)} ${X(off + wedge.xt)},${Z(wedge.h)} ${X(off + wedge.x1)},${Z(0)} ${X(m.toeM)},${Z(0)}` : '';
 
   // FoS timeline.
   const years = Math.max(100, m.year);
@@ -122,10 +120,17 @@ export function CoastalSlump() {
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="slump-svg" role="img" aria-label="Coastal cliff cross-section">
         <rect x={0} y={0} width={W} height={H} fill="#cfe0ec" />
-        <rect x={X(m.toeM - 0.12 * Hm / Math.tan((m.faceDeg * Math.PI) / 180))} y={Z(0.12 * Hm)} width={W} height={H} fill="#3d84b8" opacity={0.55} />
+        <rect x={X(m.toeM - (0.12 * Hm) / Math.tan((m.faceDeg * Math.PI) / 180))} y={Z(0.12 * Hm)} width={W} height={H} fill="#3d84b8" opacity={0.55} />
         <polygon points={cliff} fill="#9a7a5c" />
         {apron && <polygon points={apron} fill="#c09a6c" stroke="#5a4330" strokeWidth={1} />}
-        <polyline points={`${X(x0)},${Z(Hm)} ${X(0)},${Z(Hm)} ${X(toe0)},${Z(0)}`} fill="none" stroke="#1d1a16" strokeWidth={1.5} strokeDasharray="5 4" opacity={0.7} />
+        <polyline
+          points={`${X(x0)},${Z(Hm)} ${X(0)},${Z(Hm)} ${X(toe0)},${Z(0)}`}
+          fill="none"
+          stroke="#1d1a16"
+          strokeWidth={1.5}
+          strokeDasharray="5 4"
+          opacity={0.7}
+        />
         <text className="slump-label" x={X(0) + 4} y={Z(Hm) - 6}>
           Original cliff
         </text>
@@ -215,8 +220,8 @@ export function CoastalSlump() {
           </button>
         </div>
         <span className="muted small">
-          Guided model: slumped material rests at the toe and buttresses the cliff until waves remove it; then waves cut the toe, the face
-          steepens and the next slump follows.
+          Guided model: slumped material rests at the toe and buttresses the cliff until waves remove it; then waves cut the toe, the face steepens and the next
+          slump follows.
         </span>
       </div>
     </>

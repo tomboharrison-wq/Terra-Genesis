@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C06b
+- npm test PASS 124 (+ clay: no cave/arch/stack; granite 4 m 12 s: full sequence but arch later than chalk 2 m 8 s; 4 m waves speed chalk; no joint ⇒ cave >3× later)
+- e2e PASS 25/25 (+ scenario picker sets clay + question; world coast note "waves 2.0 m, 8 s; cliffs mostly chalk")
+- Stage tests tightened: cave needs a roof, arch passage must run under rock, stack must have a sheer face to sea level.
+
 ## 2026-10-22 M05-C06a
 - npm test PASS 120 (+ coastal slump: apron raises FoS monotonically and is real ground; ≥2 slumps in 160 yr, each repeat only after debris removed, ledger slumped − removed = debris, crest retreat = Σ events; no waves ⇒ ≤1 slump and apron kept; stronger waves ⇒ more slumps, more retreat)
 - e2e PASS 24/24 (+ coastal cycle: 2 slumps, 35.9 m retreat in 150 yr in the browser)

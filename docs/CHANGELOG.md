@@ -59,3 +59,8 @@
 ## M05-C06a — Coastal slumping cycle
 - Slump lab gains a "Coastal cycle" mode: slumped material rests at the cliff foot and props the cliff up until waves carry it away; then waves cut the toe, the face steepens and the next slump follows.
 - Year-by-year factor-of-safety chart with slump markers, toe-debris and cliff-retreat readouts; material, height, saturation and wave-energy controls.
+
+## M05-C06b — Arch lab: rock, waves and classroom scenarios
+- Choose the rock (chalk, sandstone, granite, basalt, mudstone, clay) and wave height/period; or "Use this world's coast" to take the world's waves and commonest cliff rock.
+- Rock strength is physical in the model: how wide an overhang it can hold and how tall a face weak rock can stand. Clay retreats without caves or arches; granite takes far longer even under Atlantic swell.
+- Four classroom scenarios, each with a question.

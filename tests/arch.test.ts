@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ArchModel, BED_Z, defaultArchParams, NX, NY, NZ, STAGE_ORDER, type Stage } from '../src/local/arch/model';
+import { ArchModel, archParamsFor, BED_Z, defaultArchParams, NX, NY, NZ, STAGE_ORDER, type Stage } from '../src/local/arch/model';
 
 /** Run the default headland to the stump stage, keeping a copy of the voxels at each new stage. */
 function runToStump(seed = 7) {
@@ -132,5 +132,36 @@ describe('guided cave → arch → stack → stump model (M05-C05)', () => {
     expect(m.count()).toBe(m.initialVoxels);
     expect(m.currentStage).toBe('headland');
     expect(m.step).toBe(0);
+  });
+
+  describe('rock type and wave climate (M05-C06b)', () => {
+    const run = (rock: string, h: number, t: number, joint = 5) => {
+      const m = new ArchModel(archParamsFor(rock, h, t, joint));
+      for (let k = 0; k < 4000 && m.currentStage !== 'stump' && m.currentStage !== 'gone'; k++) m.advance();
+      return m.stageHistory;
+    };
+    const stepOf = (h: { stage: Stage; step: number }[], s: Stage) => h.find((q) => q.stage === s)?.step ?? Infinity;
+
+    it('clay never forms a cave, arch or stack: the headland just retreats', () => {
+      const stages = run('clay', 2, 8).map((q) => q.stage);
+      expect(stages).not.toContain('cave');
+      expect(stages).not.toContain('arch');
+      expect(stages).not.toContain('stack');
+    }, 120000);
+
+    it('granite under much stronger waves still forms its arch later than chalk', () => {
+      const chalk = run('chalk', 2, 8);
+      const granite = run('crystalline', 4, 12);
+      expect(granite.map((q) => q.stage)).toEqual(['headland', 'cave', 'arch', 'stack', 'stump']);
+      expect(stepOf(granite, 'arch')).toBeGreaterThan(stepOf(chalk, 'arch'));
+    }, 120000);
+
+    it('bigger waves speed up the chalk sequence', () => {
+      expect(stepOf(run('chalk', 4, 8), 'arch')).toBeLessThan(stepOf(run('chalk', 2, 8), 'arch'));
+    }, 120000);
+
+    it('without a joint the cave starts much later', () => {
+      expect(stepOf(run('chalk', 2, 8, 1), 'cave')).toBeGreaterThan(3 * stepOf(run('chalk', 2, 8), 'cave'));
+    }, 120000);
   });
 });

@@ -3,7 +3,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Dialog } from './Dialog';
 import { useUi } from '../state/uiStore';
-import { ArchModel, BED_Z, defaultArchParams, NX, NY, NZ, type Stage } from '../local/arch/model';
+import { ARCH_ROCKS, archParamsFor, ArchModel, BED_Z, defaultArchParams, NX, NY, NZ, REFERENCE_WAVE_POWER, type Stage } from '../local/arch/model';
+import { wavePower } from '../sim/coast/coastSim';
+import { MATERIALS } from '../terrain/materials';
+import { engine } from './runtime';
 import { Icon } from './icons';
 
 const STAGES: { id: Stage; label: string; text: string }[] = [
@@ -27,6 +30,33 @@ function exposed(m: ArchModel): number[] {
   return out;
 }
 
+/** Classroom scenarios: each sets rock, waves and joint weakness, and poses a question. */
+const SCENARIOS: { id: string; label: string; rock: string; h: number; t: number; joint: number; question: string }[] = [
+  { id: 'chalk', label: 'Chalk headland (like Old Harry Rocks, Dorset)', rock: 'chalk', h: 2, t: 8, joint: 5, question: 'Where does the sea attack first, and why there?' },
+  { id: 'granite', label: "Granite headland under Atlantic swell (like Land's End)", rock: 'crystalline', h: 4, t: 12, joint: 5, question: 'The waves are far stronger than in Dorset. Why does the granite still take longer?' },
+  { id: 'nojoint', label: 'Chalk with no line of weakness', rock: 'chalk', h: 2, t: 8, joint: 1, question: 'Without a joint, how much later does a cave start? Does a stack survive when the arch falls?' },
+  { id: 'clay', label: 'Clay headland (like the Holderness coast)', rock: 'clay', h: 2, t: 8, joint: 5, question: 'Why does clay never form a cave or an arch?' },
+];
+
+/** Commonest bedrock in the world's sea cliffs (land cells beside the sea, ≥ 2 m above it). */
+function coastalRock(): string | null {
+  const w = engine.world;
+  const sea = engine.water.sea;
+  const surf = engine.surface;
+  const counts = new Map<string, number>();
+  for (let y = 1; y < w.height - 1; y++)
+    for (let x = 1; x < w.width - 1; x++) {
+      const i = y * w.width + x;
+      if (sea[i] || surf[i] < w.seaLevelM + 2) continue;
+      if (!(sea[i - 1] || sea[i + 1] || sea[i - w.width] || sea[i + w.width])) continue;
+      const key = MATERIALS[w.materialId[i]]?.key;
+      if (key && ARCH_ROCKS.some((r) => r.key === key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  let best: string | null = null;
+  for (const [k, n] of counts) if (!best || n > counts.get(best)!) best = k;
+  return best;
+}
+
 /**
  * Cave → arch → stack → stump lab — a guided local model (spec E6/G3), separate from the global
  * heightfield physics. Every voxel drawn is the state of src/local/arch/model.ts; stages are
@@ -37,6 +67,13 @@ export function ArchLab() {
   const host = useRef<HTMLDivElement>(null);
   const model = useRef<ArchModel>(new ArchModel());
   const [jointFactor, setJoint] = useState(defaultArchParams().jointFactor);
+  const [rock, setRock] = useState('chalk');
+  const [waveH, setWaveH] = useState(2);
+  const [waveT, setWaveT] = useState(8);
+  const [note, setNote] = useState('');
+  const rockRef = useRef(rock);
+  const waveRef = useRef({ h: 2, t: 8 });
+  rockRef.current = rock;
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(2);
   const [, setTick] = useState(0);
@@ -76,12 +113,14 @@ export function ArchLab() {
 
     const mtx = new THREE.Matrix4();
     const col = new THREE.Color();
-    const chalk = new THREE.Color(0xd8d1bd);
-    const jointCol = new THREE.Color(0xa99d84);
+    const rockCol = new THREE.Color();
+    const jointCol = new THREE.Color();
     const bed = new THREE.Color(0x7d7466);
     const build = () => {
       const m = model.current;
       const list = exposed(m);
+      rockCol.setHex(MATERIALS.find((q) => q.key === rockRef.current)!.colour).multiplyScalar(1.15);
+      jointCol.copy(rockCol).multiplyScalar(0.82);
       for (let k = 0; k < list.length; k++) {
         const i = list[k];
         const z = Math.floor(i / (NX * NY));
@@ -90,7 +129,7 @@ export function ArchLab() {
         mtx.makeTranslation(x + 0.5, z + 0.5, -(y + 0.5));
         mesh.setMatrixAt(k, mtx);
         const inJoint = Math.abs(y - m.p.jointY) <= 1 && x >= m.p.headX0 && x < m.p.headX1;
-        col.copy(z < BED_Z ? bed : inJoint ? jointCol : chalk).multiplyScalar(0.82 + 0.18 * (z / NZ));
+        col.copy(z < BED_Z ? bed : inJoint ? jointCol : rockCol).multiplyScalar(0.82 + 0.18 * (z / NZ));
         mesh.setColorAt(k, col);
       }
       mesh.count = list.length;
@@ -145,11 +184,41 @@ export function ArchLab() {
   const stage = m.currentStage;
   const at = STAGES.findIndex((s) => s.id === stage);
   const reached = (id: Stage) => m.stageHistory.find((h) => h.stage === id);
-  const reset = (jf = jointFactor) => {
+  const powerRatio = wavePower(waveH, waveT) / REFERENCE_WAVE_POWER;
+  const reset = (jf = jointFactor, rk = rock) => {
     setPlaying(false);
-    m.p = { ...m.p, jointFactor: jf };
+    rockRef.current = rk;
+    m.p = archParamsFor(rk, waveRef.current.h, waveRef.current.t, jf);
     m.reset();
     redraw.current();
+  };
+  const setWaves = (h: number, t: number) => {
+    setWaveH(h);
+    setWaveT(t);
+    waveRef.current = { h, t };
+    const np = archParamsFor(rockRef.current, h, t, m.p.jointFactor);
+    m.p = { ...m.p, waveRate: np.waveRate, surgeTop: np.surgeTop };
+  };
+  const [scenario, setScenario] = useState('');
+  const applyScenario = (id: string) => {
+    setScenario(id);
+    const sc = SCENARIOS.find((q) => q.id === id);
+    if (!sc) return;
+    setRock(sc.rock);
+    setJoint(sc.joint);
+    setWaves(sc.h, sc.t);
+    reset(sc.joint, sc.rock);
+    setNote('');
+  };
+  const useWorld = () => {
+    const c = engine.world.coast;
+    setWaves(Math.max(0.5, Math.round(c.waveHeightM * 2) / 2), Math.round(c.wavePeriodS));
+    const k = coastalRock();
+    if (k) setRock(k);
+    reset(jointFactor, k ?? rock);
+    setNote(
+      `From this world: waves ${c.waveHeightM.toFixed(1)} m, ${c.wavePeriodS.toFixed(0)} s; cliffs mostly ${k ? ARCH_ROCKS.find((r) => r.key === k)!.label.toLowerCase() : 'not rock (kept ' + rock + ')'}.`,
+    );
   };
   const done = stage === 'stump' || stage === 'gone';
 
@@ -163,6 +232,61 @@ export function ArchLab() {
           </li>
         ))}
       </ol>
+      <div className="slump-controls">
+        <label className="field">
+          <span className="field-label">Classroom scenario</span>
+          <select value={scenario} onChange={(e) => applyScenario(e.target.value)}>
+            <option value="">Choose…</option>
+            {SCENARIOS.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Rock (restarts)</span>
+          <select
+            value={rock}
+            onChange={(e) => {
+              setRock(e.target.value);
+              reset(jointFactor, e.target.value);
+              setNote('');
+              setScenario('');
+            }}
+          >
+            {ARCH_ROCKS.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Wave height <b>{waveH.toFixed(1)} m</b>
+          </span>
+          <input type="range" min={1} max={12} value={waveH * 2} onChange={(e) => setWaves(+e.target.value / 2, waveT)} />
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Wave period <b>{waveT} s</b> · power {powerRatio.toFixed(1)}× reference
+          </span>
+          <input type="range" min={4} max={14} value={waveT} onChange={(e) => setWaves(waveH, +e.target.value)} />
+        </label>
+        <div className="field">
+          <span className="field-label">&nbsp;</span>
+          <button className="small" onClick={useWorld}>
+            Use this world's coast
+          </button>
+        </div>
+      </div>
+      {note && <p className="hint small tight">{note}</p>}
+      {scenario && (
+        <p className="arch-question">
+          <b>Question:</b> {SCENARIOS.find((q) => q.id === scenario)!.question}
+        </p>
+      )}
       <p className="arch-text" data-testid="arch-stage-text">
         <b>{STAGES[Math.max(0, at)]?.label ?? 'Gone'}:</b> {STAGES[Math.max(0, at)]?.text}
       </p>
@@ -206,15 +330,15 @@ export function ArchLab() {
               value={jointFactor}
               onChange={(e) => {
                 setJoint(+e.target.value);
-                reset(+e.target.value);
+                reset(+e.target.value, rock);
               }}
             />
           </label>
         </div>
       </div>
       <p className="muted small">
-        Guided model: 1 m chalk voxels attacked by waves at sea level (energy fading into caves, rising inside them) and slowly weathered
-        above it; rock with no connection to the seabed falls. Steps are model time, not years. Drag to orbit.
+        Guided model: 1 m rock voxels attacked by waves at sea level (energy fading into caves, rising inside them) and slowly weathered
+        above it; rock with no connection to the seabed, overhangs wider than the rock can span, and faces taller than weak rock can stand all fall. Steps are model time, not years. Drag to orbit.
       </p>
     </Dialog>
   );

@@ -6,22 +6,27 @@
  * underlies everything. A vertical joint (plane of weakness) crosses the headland at y = jointY.
  *
  * Each step:
- *  1. Wave field: open sea = water outside the original headland footprint (energy 1); water cut
- *     into the rock gets 0.8^d, d = distance through water from open sea (caves attenuate); the
- *     spray band up to seaLevel + 5 gets 0.2 × that. The bay shores beside the headland get
- *     BAY_FACTOR of it (refraction spreads energy; bay beaches absorb it). Inside caves and arches (within the
- *     headland footprint) surging water and compressed air attack the ceiling: energy rises up
- *     the void at ×0.6 then ×0.85 per voxel, so arches enlarge upward along their weakness.
+ *  1. Wave field: open sea = water outside the original headland footprint (energy 1) in the attack
+ *     band seaLevel − 1 … seaLevel + surgeTop; water cut into the rock gets 0.8^d, d = distance
+ *     through water from open sea (caves attenuate); a spray band 3 m above gets 0.2 then ×0.6 per
+ *     voxel. The bay shores beside the headland get BAY_FACTOR of it (refraction spreads energy;
+ *     bay beaches absorb it). Inside caves and arches (within the headland footprint) surging water
+ *     and compressed air attack the ceiling: energy rises up the void at ×0.6 then ×0.9 per voxel.
  *  2. Erosion: every solid voxel accumulates damage = Σ over water faces (energy) × erodibility ×
  *     rate, plus a slow subaerial weathering term on faces open to air above the sea. Joint voxels
- *     (a 3-voxel fracture zone) are 5× more erodible; a seeded ±25 % variability breaks symmetry. Damage ≥ 1 removes it.
- *  3. Collapse: solid voxels not connected (6-neighbour) to the seabed layer through solid fall —
- *     an arch whose roof is breached leaves a free-standing stack; a stack whose base is notched
- *     through drops its top, leaving a stump. Fallen volume is ledgered.
+ *     (a 3-voxel fracture zone) are jointFactor× more erodible; a seeded ±25 % variability breaks
+ *     symmetry. Damage ≥ 1 removes it.
+ *  3. Failure: an overhang wider than the rock's maxSpan from a supported voxel falls; weak rock
+ *     taller than standHeight above a neighbouring column slumps; anything not connected to the
+ *     seabed through solid rock falls. An arch whose roof fails leaves a free-standing stack; a
+ *     stack whose base is notched through drops its top, leaving a stump. Fallen volume is ledgered.
  * Stages are detected from geometry (topology), not scripted; the reported stage never goes
  * backwards (the sequence is irreversible), so a later through-passage under a stack does not
  * read as a new arch.
  */
+
+import { MATERIALS } from '../../terrain/materials';
+import { wavePower } from '../../sim/coast/coastSim';
 
 export const NX = 48;
 export const NY = 40;
@@ -45,11 +50,78 @@ export interface ArchParams {
   /** Subaerial weathering damage per exposed face per step. */
   weatherRate: number;
   jointFactor: number;
+  /** Erodibility of the rock relative to chalk (scales wave and weathering damage). */
+  rockFactor: number;
+  /** Longest unsupported overhang the rock can hold in a layer (voxels) — its "beam strength". */
+  maxSpan: number;
+  /** Tallest vertical step the rock stands as (voxels); weak rock above it slumps away. */
+  standHeight: number;
+  /** Top of the wave-attack band above sea level (voxels ≈ wave height in m; 2 = reference). */
+  surgeTop: number;
   seed: number;
 }
 
+/**
+ * Rock types for the lab, from the materials registry: erodibility relative to chalk, and the
+ * unsupported span a roof of that rock can hold (teaching values: massive chalk / sandstone /
+ * igneous rock bridge wide caves; mudstone little; clay none, so it slumps and retreats instead).
+ */
+export const ARCH_ROCKS: { key: string; label: string; rockFactor: number; maxSpan: number; standHeight: number }[] = (
+  [
+    { key: 'chalk', label: 'Chalk / limestone', span: 8, stand: NZ },
+    { key: 'resistant-sed', label: 'Sandstone', span: 8, stand: NZ },
+    { key: 'crystalline', label: 'Granite', span: 12, stand: NZ },
+    { key: 'volcanic', label: 'Basalt', span: 12, stand: NZ },
+    { key: 'weak-sed', label: 'Mudstone', span: 2, stand: 8 },
+    // Stiff clay: critical height of a vertical cut ≈ 4c/γ ≈ 4 m.
+    { key: 'clay', label: 'Clay', span: 0, stand: 4 },
+  ] as const
+).map((r) => {
+  const m = MATERIALS.find((q) => q.key === r.key)!;
+  const chalk = MATERIALS.find((q) => q.key === 'chalk')!;
+  return { key: r.key, label: r.label, rockFactor: m.erodibility / chalk.erodibility, maxSpan: r.span, standHeight: r.stand };
+});
+
+/** Wave power of the lab's reference climate (2 m, 8 s): waveRate applies at this power. */
+export const REFERENCE_WAVE_POWER = wavePower(2, 8);
+
+/**
+ * Lab parameters for a rock type and wave climate. Higher waves attack a taller band (top at
+ * sea level + H) with the power spread over it: damage per voxel ∝ P/H relative to 2 m, 8 s.
+ */
+export function archParamsFor(rockKey: string, waveHeightM: number, wavePeriodS: number, jointFactor: number, seed = 7): ArchParams {
+  const r = ARCH_ROCKS.find((q) => q.key === rockKey) ?? ARCH_ROCKS[0];
+  const d = defaultArchParams();
+  const h = Math.max(0.5, waveHeightM);
+  return {
+    ...d,
+    rockFactor: r.rockFactor,
+    maxSpan: r.maxSpan,
+    standHeight: r.standHeight,
+    jointFactor,
+    surgeTop: Math.max(1, Math.round(h)),
+    waveRate: d.waveRate * (wavePower(h, wavePeriodS) / REFERENCE_WAVE_POWER) * (2 / h),
+    seed,
+  };
+}
+
 export function defaultArchParams(): ArchParams {
-  return { seaLevel: 8, cliffTop: 24, headX0: 16, headX1: 32, headY: 32, jointY: 22, waveRate: 0.06, weatherRate: 0.01, jointFactor: 5, seed: 7 };
+  return {
+    seaLevel: 8,
+    cliffTop: 24,
+    headX0: 16,
+    headX1: 32,
+    headY: 32,
+    jointY: 22,
+    waveRate: 0.06,
+    weatherRate: 0.01,
+    jointFactor: 5,
+    rockFactor: 1,
+    maxSpan: 8,
+    standHeight: NZ,
+    surgeTop: 2,
+    seed: 7,
+  };
 }
 
 const idx = (x: number, y: number, z: number) => (z * NY + y) * NX + x;
@@ -93,7 +165,7 @@ export class ArchModel {
           const bed = z < BED_Z;
           this.solid[i] = mainland || head || bed ? 1 : 0;
           const joint = Math.abs(y - p.jointY) <= 1 && x >= p.headX0 && x < p.headX1;
-          this.erod[i] = (joint ? p.jointFactor : 1) * (0.75 + 0.5 * hash(x, y, z, p.seed));
+          this.erod[i] = p.rockFactor * (joint ? p.jointFactor : 1) * (0.75 + 0.5 * hash(x, y, z, p.seed));
         }
     this.initialVoxels = this.count();
     this.stageHistory = [{ stage: 'headland', step: 0 }];
@@ -120,7 +192,7 @@ export class ArchModel {
     const e = this.energy;
     e.fill(0);
     const zLo = Math.max(BED_Z, p.seaLevel - 1);
-    const zHi = Math.min(NZ - 1, p.seaLevel + 2);
+    const zHi = Math.min(NZ - 1, p.seaLevel + p.surgeTop);
     const dist = new Int16Array(NX * NY * NZ).fill(-1);
     const queue: number[] = [];
     for (let z = zLo; z <= zHi; z++)
@@ -138,7 +210,14 @@ export class ArchModel {
       const z = Math.floor(i / (NX * NY));
       const y = Math.floor((i % (NX * NY)) / NX);
       const x = i % NX;
-      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+      for (const [dx, dy, dz] of [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ]) {
         const xx = x + dx;
         const yy = y + dy;
         const zz = z + dz;
@@ -153,8 +232,7 @@ export class ArchModel {
     // Bays: refraction spreads wave energy and the bay beach absorbs most of what arrives, so the
     // mainland shore outside the headland (y < COAST_Y + 3) gets only BAY_FACTOR of it.
     for (let z = zLo; z <= zHi; z++)
-      for (let y = 0; y < COAST_Y + 3; y++)
-        for (let x = 0; x < NX; x++) if (x < p.headX0 || x >= p.headX1) e[idx(x, y, z)] *= BAY_FACTOR;
+      for (let y = 0; y < COAST_Y + 3; y++) for (let x = 0; x < NX; x++) if (x < p.headX0 || x >= p.headX1) e[idx(x, y, z)] *= BAY_FACTOR;
     // Spray band outside; surge + compressed air rising inside caves/arches (headland footprint).
     for (let z = zHi + 1; z < NZ; z++)
       for (let y = 0; y < NY; y++)
@@ -164,8 +242,8 @@ export class ArchModel {
           const below = e[idx(x, y, z - 1)];
           if (below <= 0) continue;
           const inside = x >= p.headX0 && x < p.headX1 && y >= COAST_Y && y < p.headY;
-          if (inside) e[i] = below * (z === zHi + 1 ? 0.6 : 0.85);
-          else if (z <= p.seaLevel + 5) e[i] = below * (z === zHi + 1 ? 0.2 : 0.6);
+          if (inside) e[i] = below * (z === zHi + 1 ? 0.6 : 0.9);
+          else if (z <= zHi + 3) e[i] = below * (z === zHi + 1 ? 0.2 : 0.6);
         }
   }
 
@@ -182,7 +260,14 @@ export class ArchModel {
           if (!this.solid[i]) continue;
           let wave = 0;
           let air = 0;
-          for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+          for (const [dx, dy, dz] of [
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 1, 0],
+            [0, -1, 0],
+            [0, 0, 1],
+            [0, 0, -1],
+          ]) {
             const xx = x + dx;
             const yy = y + dy;
             const zz = z + dz;
@@ -198,6 +283,8 @@ export class ArchModel {
         }
     for (const i of removed) this.solid[i] = 0;
     this.erodedVoxels += removed.length;
+    this.spanFailure();
+    this.standFailure();
     this.collapse();
     this.step++;
     const raw = this.stage();
@@ -205,6 +292,91 @@ export class ArchModel {
     const st = STAGE_ORDER.indexOf(raw) > STAGE_ORDER.indexOf(cur) ? raw : cur;
     if (st !== cur) this.stageHistory.push({ stage: st, step: this.step });
     return st;
+  }
+
+  /**
+   * Overhang failure, bottom-up layer by layer: a voxel resting on solid rock is an anchor; any other
+   * solid voxel must be within maxSpan steps (through solid, in its layer) of an anchor, or it falls.
+   */
+  private spanFailure() {
+    const span = this.p.maxSpan;
+    const dist = new Int16Array(NX * NY);
+    const queue: number[] = [];
+    let fell = 0;
+    for (let z = 1; z < NZ; z++) {
+      dist.fill(-1);
+      queue.length = 0;
+      for (let k = 0; k < NX * NY; k++) {
+        const i = z * NX * NY + k;
+        if (this.solid[i] && this.solid[i - NX * NY]) {
+          dist[k] = 0;
+          queue.push(k);
+        }
+      }
+      for (let q = 0; q < queue.length; q++) {
+        const k = queue[q];
+        if (dist[k] >= span) continue;
+        const x = k % NX;
+        const y = (k / NX) | 0;
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= NX || yy >= NY) continue;
+          const kk = yy * NX + xx;
+          if (dist[kk] >= 0 || !this.solid[z * NX * NY + kk]) continue;
+          dist[kk] = dist[k] + 1;
+          queue.push(kk);
+        }
+      }
+      for (let k = 0; k < NX * NY; k++) {
+        const i = z * NX * NY + k;
+        if (this.solid[i] && dist[k] < 0) {
+          this.solid[i] = 0;
+          fell++;
+        }
+      }
+    }
+    this.collapsedVoxels += fell;
+  }
+
+  /**
+   * Weak rock cannot stand as a tall vertical face: where a column's top rises more than standHeight
+   * above a neighbouring column's top, the excess slumps away (ledgered as fallen).
+   */
+  private standFailure() {
+    const hMax = this.p.standHeight;
+    if (hMax >= NZ) return;
+    const top = new Int16Array(NX * NY);
+    for (let k = 0; k < NX * NY; k++) {
+      let z = 0;
+      while (z < NZ && this.solid[z * NX * NY + k]) z++;
+      top[k] = z;
+    }
+    let fell = 0;
+    for (let y = 0; y < NY; y++)
+      for (let x = 0; x < NX; x++) {
+        const k = y * NX + x;
+        let low = top[k];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= NX || yy >= NY) continue; // model edge: rock continues
+          low = Math.min(low, top[yy * NX + xx]);
+        }
+        for (let z = low + hMax; z < top[k]; z++) {
+          const i = z * NX * NY + k;
+          if (this.solid[i]) {
+            this.solid[i] = 0;
+            fell++;
+          }
+        }
+      }
+    this.collapsedVoxels += fell;
   }
 
   /** Remove solid voxels not connected to the seabed layer (they fall). */
@@ -224,7 +396,14 @@ export class ArchModel {
       const z = Math.floor(i / (NX * NY));
       const y = Math.floor((i % (NX * NY)) / NX);
       const x = i % NX;
-      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+      for (const [dx, dy, dz] of [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ]) {
         const xx = x + dx;
         const yy = y + dy;
         const zz = z + dz;
@@ -246,7 +425,13 @@ export class ArchModel {
   }
 
   /** Solid voxels above the high-water mark (seaLevel + 2) connected to the mainland, from a mainland seed. */
-  private aboveWaterComponents(): { mainland: Uint8Array; seaward: number; seawardTop: number } {
+  private aboveWaterComponents(): {
+    mainland: Uint8Array;
+    seaward: number;
+    seawardTop: number;
+    /** Isolated voxels ≥ 3 above high water standing next to open water (sheer sides). */
+    seawardSheer: number;
+  } {
     const zW = this.p.seaLevel + 2;
     const comp = new Uint8Array(this.solid.length);
     const queue: number[] = [];
@@ -263,7 +448,14 @@ export class ArchModel {
       const z = Math.floor(i / (NX * NY));
       const y = Math.floor((i % (NX * NY)) / NX);
       const x = i % NX;
-      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+      for (const [dx, dy, dz] of [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ]) {
         const xx = x + dx;
         const yy = y + dy;
         const zz = z + dz;
@@ -277,21 +469,24 @@ export class ArchModel {
     }
     let seaward = 0;
     let seawardTop = 0;
+    let seawardSheer = 0;
     for (let z = zW + 1; z < NZ; z++)
       for (let y = this.p.jointY; y < NY; y++)
         for (let x = 0; x < NX; x++) {
           const i = idx(x, y, z);
           if (this.solid[i] && !comp[i]) {
             seaward++;
+            if (z >= zW + 3 && this.sheer(x, y, z)) seawardSheer++;
             seawardTop = Math.max(seawardTop, z);
           }
         }
-    return { mainland: comp, seaward, seawardTop };
+    return { mainland: comp, seaward, seawardTop, seawardSheer };
   }
 
   /**
    * Arch: at some row y, water passes from the west side to the east side of the headland within
-   * the slab y ± 1 (below seaLevel + 3), rock roofs the passage above high water at that row, and
+   * the slab y ± 1 (below seaLevel + 3) and runs under rock near the middle (not an open slot), rock
+   * roofs the passage above high water at that row, and
    * an above-water seaward block of rock stands beyond it.
    */
   hasArchOpening(): boolean {
@@ -301,7 +496,8 @@ export class ArchModel {
     const mid = (p.headX0 + p.headX1) >> 1;
     for (let y = COAST_Y + 2; y < p.headY - 3; y++) {
       let roof = false;
-      for (let z = zRoof; z < NZ && !roof; z++) for (let x = p.headX0; x < p.headX1 && !roof; x++) if (this.isSolid(x, y, z) && Math.abs(x - mid) < 3) roof = true;
+      for (let z = zRoof; z < NZ && !roof; z++)
+        for (let x = p.headX0; x < p.headX1 && !roof; x++) if (this.isSolid(x, y, z) && Math.abs(x - mid) < 3) roof = true;
       if (!roof) continue;
       let seaward = false;
       for (let yy = y + 2; yy < p.headY && !seaward; yy++) for (let z = p.seaLevel + 3; z < NZ && !seaward; z++) if (this.isSolid(mid, yy, z)) seaward = true;
@@ -310,6 +506,8 @@ export class ArchModel {
       const seen = new Uint8Array(NX * 3 * NZ);
       const key = (x: number, dy: number, z: number) => (z * 3 + dy) * NX + x;
       const q: [number, number, number][] = [];
+      let reached = false;
+      let roofed = false; // the passage runs under rock somewhere near the middle (not an open slot)
       for (let dy = 0; dy < 3; dy++)
         for (let z = BED_Z; z <= zHi; z++)
           if (!this.isSolid(p.headX0 - 1, y - 1 + dy, z)) {
@@ -318,8 +516,16 @@ export class ArchModel {
           }
       for (let k = 0; k < q.length; k++) {
         const [x, dy, z] = q[k];
-        if (x >= p.headX1) return true;
-        for (const [ax, ay, az] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+        if (Math.abs(x - mid) < 3 && this.roofed(x, y - 1 + dy, z)) roofed = true;
+        if (x >= p.headX1) reached = true;
+        for (const [ax, ay, az] of [
+          [1, 0, 0],
+          [-1, 0, 0],
+          [0, 1, 0],
+          [0, -1, 0],
+          [0, 0, 1],
+          [0, 0, -1],
+        ]) {
           const xx = x + ax;
           const dd = dy + ay;
           const zz = z + az;
@@ -329,6 +535,7 @@ export class ArchModel {
           q.push([xx, dd, zz]);
         }
       }
+      if (reached && roofed) return true;
     }
     return false;
   }
@@ -337,6 +544,22 @@ export class ArchModel {
    * Cave depth: the deepest localised penetration of the sea into the headland's side faces —
    * the maximum over rows of the cut depth minus the median cut depth (the general notch).
    */
+  /** A vertical face: some side neighbour of (x, y, z) is open all the way down to sea level. */
+  private sheer(x: number, y: number, z: number): boolean {
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (y + dy < COAST_Y) continue;
+      let open = true;
+      for (let k = this.p.seaLevel; k <= z && open; k++) if (this.isSolid(x + dx, y + dy, k)) open = false;
+      if (open) return true;
+    }
+    return false;
+  }
+
+  private roofed(x: number, y: number, z: number): boolean {
+    for (let zz = z + 1; zz < NZ; zz++) if (this.isSolid(x, y, zz)) return true;
+    return false;
+  }
+
   caveDepth(): number {
     const p = this.p;
     const depths: number[] = [];
@@ -347,6 +570,9 @@ export class ArchModel {
         for (let x = p.headX0; x < p.headX1 && !this.isSolid(x, y, z); x++) w++;
         let e = 0;
         for (let x = p.headX1 - 1; x >= p.headX0 && !this.isSolid(x, y, z); x--) e++;
+        // A cave has a roof: only count a cut whose innermost end has rock above it.
+        if (w > 0 && !this.roofed(p.headX0 + w - 1, y, z)) w = 0;
+        if (e > 0 && !this.roofed(p.headX1 - e, y, z)) e = 0;
         d = Math.max(d, w, e);
       }
       depths.push(d);
@@ -358,7 +584,7 @@ export class ArchModel {
 
   stage(): Stage {
     const p = this.p;
-    const { seaward, seawardTop } = this.aboveWaterComponents();
+    const { seawardSheer } = this.aboveWaterComponents();
     // Anything left of the seaward end of the headland at all?
     let seawardSolid = 0;
     let seawardMaxZ = 0;
@@ -370,7 +596,8 @@ export class ArchModel {
             seawardMaxZ = Math.max(seawardMaxZ, z);
           }
     if (seawardSolid === 0) return 'gone';
-    if (seaward > 0 && seawardTop > p.seaLevel + 2) return 'stack';
+    // Stack: a sheer-sided pillar standing above high water, cut off from the mainland above it.
+    if (seawardSheer > 0) return 'stack';
     if (this.hasArchOpening()) return 'arch';
     // Seaward block no longer reaches above high water and is not joined above it → stump.
     if (seawardMaxZ <= p.seaLevel + 2) return 'stump';

@@ -257,3 +257,4 @@ table.values th:first-child, table.values td:first-child { text-align: left; }
 .fos-chart { margin-top: 8px; cursor: crosshair; }
 .chart-label { font-size: 11px; fill: #4a463f; }
 .chart-tip { font-size: 12px; font-weight: 700; fill: #1d1a16; paint-order: stroke; stroke: #f4f1ea; stroke-width: 3px; }
+.arch-question { margin: 0 0 8px; font-size: 13px; border-left: 3px solid var(--scouts-pink); padding: 2px 0 2px 8px; }
