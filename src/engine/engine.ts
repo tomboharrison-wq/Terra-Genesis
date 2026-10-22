@@ -16,6 +16,7 @@ import { VegetationSim, type VegetationParams } from '../sim/vegetation/vegetati
 import { compareClimate, type ClimateChange, type CompareResult } from '../terrain/biomes';
 import { generatePlates, TectonicsSim, type Plate, type TectonicsParams } from '../sim/tectonics/plates';
 import { earthquake, type QuakeOptions, type QuakeResult } from '../sim/tectonics/earthquake';
+import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -52,6 +53,8 @@ export class Engine {
   vegetation!: VegetationSim;
   /** Plate tectonics (slow cadence, CPU, accelerated tectonic time). */
   tectonics!: TectonicsSim;
+  /** Lava flows from vents (real simulated time, steps with the water solver). */
+  lava!: LavaSim;
   private climateDirty = false;
   private climateClock = 0;
   private seasonDay = -1;
@@ -87,6 +90,9 @@ export class Engine {
     this.glacier = new GlacierSim(world, this.surface, this.climate);
     this.vegetation = new VegetationSim(world, this.surface, this.climate);
     this.tectonics = new TectonicsSim(world, this.surface);
+    this.lava = new LavaSim(world, this.surface);
+    this.lava.airC = this.climate.temperatureC;
+    this.lava.sea = this.water.sea;
     this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
@@ -112,7 +118,17 @@ export class Engine {
   // ---------- water backend ----------
 
   get stepper(): Stepper {
-    return this.gpu ?? this.cpuStepper;
+    const base = this.gpu ?? this.cpuStepper;
+    const lava = this.lava;
+    if (!lava.active) return base;
+    // Lava shares the water clock, sub-stepping inside each water step at its own stable step.
+    return {
+      stableDt: () => Math.min(base.stableDt(), 60),
+      step: (dt) => {
+        base.step(dt);
+        lava.advance(dt);
+      },
+    };
   }
 
   get erosionActive(): boolean {
@@ -178,6 +194,7 @@ export class Engine {
       this.glacierHook(done);
       this.vegetationHook(done);
       this.tectonicsHook(done);
+      this.lavaHook();
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -206,6 +223,7 @@ export class Engine {
       this.glacierHook(d);
       this.vegetationHook(d);
       this.tectonicsHook(d);
+      this.lavaHook();
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -312,6 +330,46 @@ export class Engine {
     this.water.refreshSea();
     this.groundDirty = true;
     this.markRenderDirtyAll();
+  }
+
+  /** Increments whenever lava moves or vents change (renderer redraws the lava region). */
+  lavaRevision = 0;
+  private lavaWasActive = false;
+
+  /** Redraw flowing lava; turn frozen lava into rock on its cadence (pull GPU state first). */
+  private lavaHook() {
+    const lava = this.lava;
+    if (!lava.active && !this.lavaWasActive) return;
+    this.lavaWasActive = lava.active;
+    const region = lava.region;
+    if (region) {
+      this.dirty = unionRect(this.dirty, region);
+      this.emit({ type: 'terrain-changed', rect: region });
+    }
+    this.lavaRevision++;
+    if (!lava.solidifyDue() && lava.active) return;
+    if (this.gpu) this.gpu.syncToCpu();
+    const r = lava.solidify();
+    this.gpu?.uploadWater(); // snow melted under hot lava
+    this.vegetationRevision++;
+    if (r) this.markDirty(r);
+  }
+
+  /** Open a vent at world (xM, yM). */
+  addVent(xM: number, yM: number, rateM3PerS: number, kind: LavaKind, durationS: number): LavaVent {
+    const w = this.world;
+    const x = Math.min(w.width - 1, Math.max(0, Math.round(xM / w.cellSizeM)));
+    const y = Math.min(w.height - 1, Math.max(0, Math.round(yM / w.cellSizeM)));
+    const v = this.lava.addVent(x, y, rateM3PerS, kind, durationS);
+    this.lavaRevision++;
+    this.emit({ type: 'water-params-changed' });
+    return v;
+  }
+
+  removeVent(id: number): void {
+    this.lava.removeVent(id);
+    this.lavaRevision++;
+    this.emit({ type: 'water-params-changed' });
   }
 
   setTectonicsParams(p: Partial<TectonicsParams>): void {

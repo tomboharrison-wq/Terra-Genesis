@@ -16,6 +16,7 @@ const P: Record<string, string> = {
   climate: 'M10 14V4a2 2 0 014 0v10a4 4 0 11-4 0zM12 9v8M17 4h4M17 8h4M17 12h3',
   plates: 'M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3zM9 4v13M15 7v13',
   earthquake: 'M2 12h4l2-6 3 12 3-9 2 5 2-2h4M3 20h18',
+  volcano: 'M2 21h20M5 21l5-11h4l5 11M10 10l-1-3M14 10l1-3M12 9V4M9 4c1-1 2-1 3 0s2 1 3 0',
   landslide: 'M3 20h18M4 20c2-8 5-13 9-14M13 6l2 5 4 2M10 14l2 1M15 17l2 1',
   coast: 'M3 15c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M3 19c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M14 11V5l5 2v4',
   play: 'M7 4l13 8-13 8z',

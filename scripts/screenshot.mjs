@@ -481,6 +481,36 @@ await page.waitForTimeout(400);
 const q2 = await sum();
 check('earthquake deforms the ground for good and undo restores it', q1 !== q0 && /earthquake/.test(qLabel ?? '') && Math.abs(q2 - q0) < 1e-6 * Math.abs(q0) + 1e-3, `Δ=${(q1 - q0).toFixed(1)} undo='${qLabel}' restored Δ=${(q2 - q0).toFixed(4)}`);
 
+// --- Volcano (M08-C01): a vent erupts; lava flows downhill and the volume ledger closes ---
+await page.click('.rail-btn:has-text("Quake")');
+await page.click('.quake-panel button:has-text("Showing shaking")').catch(() => {});
+await page.click('.rail-btn:has-text("Volcano")');
+await page.waitForTimeout(300);
+await page.locator('.volcano-panel input[type=range]').nth(0).fill('7'); // 200 m³/s
+await page.mouse.move(900, 430); // on land, right of the bay
+await page.mouse.down();
+await page.mouse.up();
+await page.waitForTimeout(300);
+const vent = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  const v = e.world.lava.vents[0];
+  return v ? (e.surface[v.y * e.world.width + v.x] > e.world.seaLevelM ? 1 : -1) : 0;
+});
+const lava = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  e.advance(1800);
+  const L = e.lava.ledger;
+  const flow = e.lava.flowingVolume();
+  let cells = 0;
+  for (const h of e.world.lavaDepthM) if (h > 0.1) cells++;
+  return { erupted: L.erupted, closure: Math.abs(L.erupted - flow - L.solidified) / L.erupted, cells };
+});
+await page.click('button[aria-label="Step"]'); // one more step through the UI refreshes the panel
+await page.waitForTimeout(1500);
+await shot('37-lava-flow');
+const vp = await page.textContent('.volcano-panel');
+check('volcano vent erupts lava that spreads with a closed volume ledger', vent === 1 && lava.cells > 3 && Math.abs(lava.erupted - 200 * 1800) < 1 && lava.closure < 1e-4 && /Erupted/.test(vp ?? ''), `vent on land ${vent} ` + JSON.stringify(lava));
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

@@ -5,6 +5,7 @@ import { ProfilePanel } from './ProfilePanel';
 import { ClimatePanel } from './ClimatePanel';
 import { PlatesPanel } from './PlatesPanel';
 import { QuakePanel } from './QuakePanel';
+import { VolcanoPanel } from './VolcanoPanel';
 import { CoastPanel } from './CoastPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
@@ -54,7 +55,7 @@ export function ToolPanel() {
   const coastTool = t.id === 'coast';
   const climateTool = t.id === 'climate';
   const platesTool = t.id === 'plates';
-  const quakeTool = t.id === 'earthquake';
+  const quakeTool = t.id === 'earthquake' || t.id === 'volcano';
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -136,7 +137,8 @@ export function ToolPanel() {
       {coastTool && <CoastPanel />}
       {climateTool && <ClimatePanel />}
       {platesTool && <PlatesPanel />}
-      {quakeTool && <QuakePanel />}
+      {t.id === 'earthquake' && <QuakePanel />}
+      {t.id === 'volcano' && <VolcanoPanel />}
       {(measure || s.profile) && <ProfilePanel />}
       {(water || (!brush && !measure && !events && !coastTool && !climateTool && !platesTool && !quakeTool)) && <WaterPanel />}
       {(water || (!brush && !measure && !coastTool && !climateTool && !platesTool && !quakeTool)) && <ErosionPanel />}

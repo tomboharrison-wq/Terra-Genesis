@@ -2,7 +2,7 @@
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M08 — Volcanoes (M07 tectonics complete)
-Current chunk: M08-C01 — vent + lava flow (see NEXT_TASK)
+Current chunk: M08-C02 — tephra / explosive eruptions (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -12,17 +12,8 @@ Verified working:
   retreat by lithology, grid longshore drift (attached spits, tombolo). Guided labs (src/local/): cave→arch→stack→
   stump voxel lab (rock types, waves, scenarios), coastal slump cycle, one-line shoreline lab (bay-mouth bar +
   lagoon, recurved spits; not coupled to the world map — M05-C04c).
-- M06-C01 climate (src/sim/climate/climate.ts, Engine.setClimateParams, ClimatePanel, temperature/rainfall overlays):
-  T = T0 + season − lapse·z; rain factor = saturating windward uplift × upwind-barrier shadow, mean 1 over land;
-  evap ∝ exp(0.065ΔT), 0 below 0 °C. CPU + GPU (climate texture; GPU evaporation counted in state.a). Format v5.
-- M06-C02 snow: world.snowSweM (format v6); snowfall below 0 °C, degree-day melt; stored volume = water + snow;
-  CPU float64 mirror, GPU snow texture (r pack, g fallen, b melted since sync, folded in float64). White cover.
-- M06-C03 glaciers (src/sim/glacier/glacierSim.ts, Engine.glacierHook, Climate panel): ice + debris fields (v7);
-  linear mass balance about a climate ELA; semi-implicit SIA (CG, dt·D/cs² ≤ 100) moving ice by donor-limited
-  transfers (exact); edge outflow; abrasion ∝ sliding → debris → moraines; meltwater at real-time share.
-- M06-C04 vegetation (src/sim/vegetation/vegetationSim.ts, renderer/treeLayer.ts): cover → suitability (warmth,
-  yearly rain, soil, slope; none in sea/ice/lakes), grow 0.15/yr, die 0.4/yr; erosion × (1 − 0.8c) CPU + GPU
-  (climate tex .a). Green tint + instanced tree symbols. Format v8.
+- M06 climate (src/sim/climate: lapse, seasons, orographic rain/shadow, evap) · snow (snowSweM v6, degree-day) ·
+  glaciers (src/sim/glacier: SIA CG solver, abrasion, moraines, v7) · vegetation (src/sim/vegetation, v8, trees).
 - M06-C05 biome presets (src/terrain/biomes.ts: temperate, alpine, rain-shadow, tundra; static spin-up of starting
   ice + equilibrium plants) and what-if compare (two cloned spin-ups, table + plant-difference overlay).
 - M07-C01 plates (src/sim/tectonics/plates.ts, PlatesPanel, 'plates' overlay + arrows, profile plate strip): plateId
@@ -31,6 +22,9 @@ Verified working:
   C03: subducting side trench, arc vents 2.5 belt widths inboard growing volcanic cones; Subduction lab (SVG).
   C04: Fold lab (src/local/folds) + c–c belts fold strata boundaries (surface unchanged).
   C05: Quake tool (sim/tectonics/earthquake.ts): W&C scaling, fault deformation, shaking overlay, undo incl. strata.
+- M08-C01 lava (src/sim/lava/lavaSim.ts, VolcanoPanel, key V): lavaDepthM/TempC/Kind (v10) + vents; Bingham flux,
+  η,τ ∝ e^{b(Te−T)}, radiation+convection cooling; sub-steps inside each water step (0.5–5 s, ⅛-difference cap);
+  Engine.lavaHook solidifies on 60 s cadence → addTopRock (world.ts) volcanic layer. Glow via lavaGlow attribute.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -38,10 +32,11 @@ Known failures / gaps:
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
 - On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
-- Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea. No glacial U-shaped cross-sections (plan-view SIA).
+- Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea.
+- No glacial U-shapes (plan-view SIA). Lava: no crust insulation, steam or lava–ice melting; map edges are walls.
 
-Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
-forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (191) · build PASS · e2e PASS 37/37 · gpu-check 10/10
+Relevant paths: src/sim/lava/lavaSim.ts, src/engine/engine.ts (stepper, lavaHook), src/app/VolcanoPanel.tsx,
+TerrainScene (lava colour/glow), src/renderer/shaders.ts
+Last checks: typecheck PASS · npm test PASS (196) · build PASS · e2e PASS 38/38 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

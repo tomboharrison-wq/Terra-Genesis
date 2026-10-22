@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-22 M08-C01
+- npm test PASS 196 (+ lava: runs downhill and fills a 6 m hollow, ledger < 1e-4; 3 m andesite slab does not move on 3 % (h_c ≈ 70 m) but creeps on 45 °, basalt spreads; flow cools, stops and becomes volcanic rock — ground rises by the erupted 6000 m³, world valid; 0.5 m sheet cools > 3× faster than 5 m; save/load keeps lava + vents)
+- Browser: 3 h of 200 m³/s basalt on River basin (256², 30 m) = 2.2 s CPU; flow follows the valley.
+
 ## 2026-10-22 M07-C05
 - npm test PASS 191 (+ earthquakes: W&C M7 → 40.7 km, 1.07 m; normal drops the hanging wall (footwall up a little) with strata following; reverse raises; M8.4 strike-slip offsets a ridge on 10 m cells; undo restores bedrock + strata bounds exactly (history now records bounds); strong shaking on steep slopes triggers landslides)
 

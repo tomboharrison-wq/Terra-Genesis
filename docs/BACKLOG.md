@@ -2,8 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M08-C01 | Volcano vent + lava flow (depth/temperature fields, viscosity from temperature, gravity flow) | READY |
-| M08-C02..C04 | Cooling to volcanic rock, shield vs composite, island preset + caldera + erosion | TODO |
+| M08-C02 | Explosive eruptions: tephra/ash fall downwind + cinder near vent (fragmental deposits), eruption style | READY |
+| M08-C03 | Shield vs composite cones (lava-only vs alternating lava + tephra), cone-shape check vs pyramids | TODO |
+| M08-C04 | Underwater vent → island preset, caldera collapse, erosion/plants on new rock | TODO |
+| M08-C01 | Vent tool + Bingham lava flow (T-dependent viscosity/yield, radiative cooling, quench in water) + solidify to volcanic rock layer | DONE |
 | M07-C05 | Earthquake tool (W&C scaling, normal/reverse/strike-slip, shaking map, landslides, undo) | DONE |
 | M07-C04 | Fold mountains: guided fold lab (length + area conserved, thrust, erosion) + map strata folding | DONE |
 | M07-C03 | Subduction trench + arc volcanoes (o–c, o–o islands) + guided subduction cross-section lab | DONE |

@@ -27,6 +27,7 @@ export const TOOLS: ToolDef[] = [
   { group: 'coast', id: 'coast', label: 'Coast', key: 'C', hint: 'Sea level and wave climate. Waves erode cliffs (weak rock fastest, sheltered bays least) and drift sand along the shore.' },
   { group: 'earth', id: 'plates', label: 'Plates', key: 'E', hint: 'Tectonic plates: set each plate moving; colliding plates push up mountains, separating plates open rifts.' },
   { group: 'earth', id: 'earthquake', label: 'Quake', key: 'Q', hint: 'Click the map to set off an earthquake on a fault: choose the fault type, size and direction. The ground moves for good; undo (Ctrl+Z) puts it back.' },
+  { group: 'earth', id: 'volcano', label: 'Volcano', key: 'V', hint: 'Click the map to open a volcanic vent. Lava flows downhill, slows as it cools and sets into new volcanic rock. Press Play to run time.' },
   { group: 'events', id: 'landslide', label: 'Landslide', key: 'L', hint: 'Click a slope to saturate it: steep rock breaks up and debris slides downhill (radius = brush radius). The ground moves for good; undo (Ctrl+Z) puts it back.' },
   { group: 'water', id: 'spring', label: 'Spring', key: '-', hint: 'Click to place a constant inflow (spring or river inlet). Remove springs in the list below.' },
 ];

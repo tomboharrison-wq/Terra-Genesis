@@ -1,3 +1,4 @@
+import { defaultLavaParams, type LavaParams } from '../sim/lava/lavaSim';
 import type { CellRect } from '../utils/rect';
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
@@ -5,7 +6,7 @@ import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacier
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 
-export const WORLD_FORMAT_VERSION = 9;
+export const WORLD_FORMAT_VERSION = 10;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -126,6 +127,12 @@ export interface WorldState {
   plateId: Uint8Array;
   /** Plant cover fraction 0 … 1 (vegetation). */
   vegCover: Float32Array;
+  /** Molten lava thickness on top of the ground (m), ≥ 0. */
+  lavaDepthM: Float32Array;
+  /** Mean lava temperature (°C) where lavaDepthM > 0. */
+  lavaTempC: Float32Array;
+  /** Lava kind per cell (0 basalt, 1 andesite). */
+  lavaKind: Uint8Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
@@ -139,6 +146,8 @@ export interface WorldState {
   vegetation: VegetationParams;
   /** Kinematic plates and boundary deformation (spec E9). */
   tectonics: TectonicsParams;
+  /** Volcanic vents (spec E10). */
+  lava: LavaParams;
   meta: WorldMeta;
 }
 
@@ -179,6 +188,9 @@ export function createWorld(init: WorldInit): WorldState {
     iceThicknessM: new Float32Array(n),
     iceDebrisM: new Float32Array(n),
     vegCover: new Float32Array(n),
+    lavaDepthM: new Float32Array(n),
+    lavaTempC: new Float32Array(n),
+    lavaKind: new Uint8Array(n),
     plateId: new Uint8Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
@@ -186,6 +198,7 @@ export function createWorld(init: WorldInit): WorldState {
     glacier: defaultGlacierParams(),
     vegetation: defaultVegetationParams(),
     tectonics: defaultTectonicsParams(),
+    lava: defaultLavaParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -284,6 +297,9 @@ export function cloneWorld(w: WorldState): WorldState {
     iceThicknessM: w.iceThicknessM.slice(),
     iceDebrisM: w.iceDebrisM.slice(),
     vegCover: w.vegCover.slice(),
+    lavaDepthM: w.lavaDepthM.slice(),
+    lavaTempC: w.lavaTempC.slice(),
+    lavaKind: w.lavaKind.slice(),
     plateId: w.plateId.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
@@ -291,6 +307,7 @@ export function cloneWorld(w: WorldState): WorldState {
     glacier: { ...w.glacier },
     vegetation: { ...w.vegetation },
     tectonics: { ...w.tectonics, plates: w.tectonics.plates.map((q) => ({ ...q })) },
+    lava: { ...w.lava, vents: w.lava.vents.map((v) => ({ ...v })) },
     meta: { ...w.meta },
   };
 }
@@ -316,4 +333,28 @@ export function refreshAllExposed(w: WorldState): void {
 export function setUniformStrata(w: WorldState): void {
   w.strataBoundsM.fill(STRATA_NONE);
   for (let i = 0; i < w.materialId.length; i++) w.strataMaterial.fill(w.materialId[i], i * STRATA_LAYERS, (i + 1) * STRATA_LAYERS);
+}
+
+/**
+ * Lay new rock of lithology `mat` and thickness `thick` (m) on top of the bedrock at cell i.
+ * Layers already eroded away above the exposed one are dropped first; a new top layer is
+ * started unless the exposed layer is already `mat` (then it simply thickens).
+ */
+export function addTopRock(w: WorldState, i: number, thick: number, mat: number): void {
+  const o = i * STRATA_BOUNDS;
+  const m = i * STRATA_LAYERS;
+  const b = w.bedrockElevationM[i];
+  const k = layerAt(w, i, b);
+  if (k > 0) {
+    for (let j = 0; j < STRATA_BOUNDS; j++) w.strataBoundsM[o + j] = j + k < STRATA_BOUNDS ? w.strataBoundsM[o + j + k] : STRATA_NONE;
+    for (let j = 0; j < STRATA_LAYERS; j++) w.strataMaterial[m + j] = w.strataMaterial[m + Math.min(STRATA_LAYERS - 1, j + k)];
+  }
+  if (w.strataMaterial[m] !== mat) {
+    for (let j = STRATA_BOUNDS - 1; j > 0; j--) w.strataBoundsM[o + j] = w.strataBoundsM[o + j - 1];
+    for (let j = STRATA_LAYERS - 1; j > 0; j--) w.strataMaterial[m + j] = w.strataMaterial[m + j - 1];
+    w.strataBoundsM[o] = b;
+    w.strataMaterial[m] = mat;
+  }
+  w.bedrockElevationM[i] = Math.fround(b + thick);
+  refreshExposed(w, i);
 }

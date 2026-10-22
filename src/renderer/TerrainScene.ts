@@ -63,6 +63,11 @@ const B_TRANS = new Color(0xffe627);
 const CMP_LESS = new Color(0xa0522d);
 const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
+// Lava by temperature: cooled crust → dull red → orange → yellow-orange (eruption heat).
+const LAVA_CRUST = new Color(0x2a2422);
+const LAVA_RED = new Color(0x8e1d0c);
+const LAVA_ORANGE = new Color(0xe8551a);
+const LAVA_HOT = new Color(0xffb13b);
 /** Snow water equivalent giving full white cover (≈ 20–30 cm of settled snow). */
 const SNOW_FULL_M = 0.03;
 const WAVE_LO = new Color(0xffe627);
@@ -98,6 +103,7 @@ export class TerrainScene {
   private col = new Float32Array(0);
   private strB = new Float32Array(0);
   private strM = new Float32Array(0);
+  private glow = new Float32Array(0);
   private strataUniforms: StrataUniforms = createStrataUniforms(Array.from({ length: 8 }, (_, k) => new Color().setHex(MATERIALS[k]?.colour ?? 0x808080)));
   private sea: Mesh<PlaneGeometry, ReturnType<typeof createSeaMaterial>> | null = null;
   private skirt: Mesh<BufferGeometry, MeshStandardMaterial> | null = null;
@@ -234,6 +240,7 @@ export class TerrainScene {
     this.col = new Float32Array(n * 3);
     this.strB = new Float32Array(n * 3);
     this.strM = new Float32Array(n * 4);
+    this.glow = new Float32Array(n);
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
@@ -266,6 +273,7 @@ export class TerrainScene {
     geo.setAttribute('color', new BufferAttribute(this.col, 3));
     geo.setAttribute('strataB', new BufferAttribute(this.strB, 3));
     geo.setAttribute('strataM', new BufferAttribute(this.strM, 4));
+    geo.setAttribute('lavaGlow', new BufferAttribute(this.glow, 1));
     this.updateVertices({ x0: 0, y0: 0, x1: W, y1: H }, false);
     const ex = (W - 1) * cs;
     const ey = (H - 1) * cs;
@@ -455,14 +463,15 @@ export class TerrainScene {
     const W = w.width;
     const H = w.height;
     const cs = w.cellSizeM;
-    // Displayed surface = ground + glacier ice.
+    // Displayed surface = ground + glacier ice + molten lava.
     const ground = this.engine.surface;
     const iceT = w.iceThicknessM;
+    const lavaH = w.lavaDepthM;
     const z = this.displayZ;
     for (let y = Math.max(0, rect.y0 - 2); y < Math.min(H, rect.y1 + 2); y++)
       for (let x = Math.max(0, rect.x0 - 2); x < Math.min(W, rect.x1 + 2); x++) {
         const k = y * W + x;
-        z[k] = ground[k] + iceT[k];
+        z[k] = ground[k] + iceT[k] + lavaH[k];
       }
     const r = clampRect(expandRect(rect, 1), W, H);
     if (!r) return;
@@ -525,8 +534,24 @@ export class TerrainScene {
           this.col[o + 2] += (tmp.b - this.col[o + 2]) * a;
           if (ic > 2) for (let k = 0; k < 4; k++) this.strM[i * 4 + k] = 255;
         }
+        const lh = lavaH[i];
+        this.glow[i] = 0;
+        if (lh > 0.01) {
+          // Lava coloured by its simulated temperature; hotter than ~700 °C it glows.
+          const T = w.lavaTempC[i];
+          if (T < 700) tmp.copy(LAVA_CRUST);
+          else if (T < 900) tmp.copy(LAVA_CRUST).lerp(LAVA_RED, (T - 700) / 200);
+          else if (T < 1050) tmp.copy(LAVA_RED).lerp(LAVA_ORANGE, (T - 900) / 150);
+          else tmp.copy(LAVA_ORANGE).lerp(LAVA_HOT, Math.min(1, (T - 1050) / 100));
+          const a = Math.min(1, lh / 0.3);
+          this.col[o] += (tmp.r - this.col[o]) * a;
+          this.col[o + 1] += (tmp.g - this.col[o + 1]) * a;
+          this.col[o + 2] += (tmp.b - this.col[o + 2]) * a;
+          this.glow[i] = a * Math.max(0, Math.min(1, (T - 700) / 450)) ** 2;
+          for (let k = 0; k < 4; k++) this.strM[i * 4 + k] = 255;
+        }
         const swe = w.snowSweM[i];
-        if (swe > 0 && this.terrainOverlay === 'none') {
+        if (swe > 0 && this.terrainOverlay === 'none' && lh <= 0.01) {
           // Snow cover from the simulated snowpack (thin cover lets the ground show through).
           const a = Math.min(1, Math.sqrt(swe / SNOW_FULL_M));
           this.col[o] += (SNOW.r - this.col[o]) * a;
@@ -619,6 +644,10 @@ export class TerrainScene {
       sm.clearUpdateRanges();
       sm.addUpdateRange((start / 3) * 4, (count / 3) * 4);
       sm.needsUpdate = true;
+      const ga = g.getAttribute('lavaGlow') as BufferAttribute;
+      ga.clearUpdateRanges();
+      ga.addUpdateRange(start / 3, count / 3);
+      ga.needsUpdate = true;
     }
   }
 

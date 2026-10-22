@@ -1,3 +1,4 @@
+import { lavaClosure } from '../sim/lava/lavaSim';
 import { Engine } from '../engine/engine';
 import type { WorldState } from '../engine/world';
 import { generateWorld, defaultOptions, type GenerateOptions } from '../terrain/generate';
@@ -114,6 +115,14 @@ export function syncSim() {
           snowmeltM3: L.snowmelt,
         };
       })(),
+      lava: {
+        vents: w.lava.vents.map((v) => ({ ...v })),
+        eruptedM3: engine.lava.ledger.erupted,
+        flowingM3: engine.lava.flowingVolume(),
+        solidifiedM3: engine.lava.ledger.solidified,
+        maxTempC: engine.lava.maxTemp(),
+        closure: lavaClosure(engine.lava),
+      },
       tectonics: (() => {
         const t = w.tectonics;
         const s = engine.tectonics;

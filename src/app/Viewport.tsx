@@ -17,7 +17,7 @@ function currentBrush(): BrushParams | null {
 function ringRadius(): number | null {
   const s = useUi.getState();
   if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain' || s.tool === 'landslide') return s.radiusM;
-  if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'earthquake') return (s.world?.cellSizeM ?? 10) * 2;
+  if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'earthquake' || s.tool === 'volcano') return (s.world?.cellSizeM ?? 10) * 2;
   return null;
 }
 
@@ -40,6 +40,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     waterSpeedMS: Math.hypot(engine.water.vx[i], engine.water.vy[i]),
     ...(w.snowSweM[i] > 0 ? { snowSweM: w.snowSweM[i] } : {}),
     ...(w.iceThicknessM[i] > 0 ? { iceM: w.iceThicknessM[i] } : {}),
+    ...(w.lavaDepthM[i] > 0 ? { lavaM: w.lavaDepthM[i], lavaC: w.lavaTempC[i] } : {}),
     ...(w.vegCover[i] > 0.005 ? { vegPct: 100 * w.vegCover[i] } : {}),
     ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
@@ -82,6 +83,13 @@ export function Viewport() {
       e.stopPropagation();
       e.preventDefault();
       const ui = useUi.getState();
+      if (ui.tool === 'volcano') {
+        const v = ui.volcano;
+        const vent = engine.addVent(hit.xM, hit.yM, v.rateM3PerS, v.kind, v.hours * 3600);
+        syncSim();
+        ui.toast(`Vent ${vent.id} erupting ${v.kind} at ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`, 'success');
+        return;
+      }
       if (ui.tool === 'earthquake') {
         const q = ui.quake;
         const r = engine.earthquake({ xM: hit.xM, yM: hit.yM, mw: q.mw, type: q.type, strikeDeg: q.strikeDeg, landslides: q.landslides });

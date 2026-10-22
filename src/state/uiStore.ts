@@ -4,9 +4,9 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates' | 'earthquake';
+export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates' | 'earthquake' | 'volcano';
 
-export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && t !== 'climate' && t !== 'plates' && t !== 'earthquake' && !t.startsWith('water-') && t !== 'spring';
+export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && t !== 'climate' && t !== 'plates' && t !== 'earthquake' && t !== 'volcano' && !t.startsWith('water-') && t !== 'spring';
 
 /** Transect end points in world metres (x east, y north). */
 export interface ProfileLine {
@@ -64,6 +64,14 @@ export interface SimInfo {
     snowfallM3: number;
     snowmeltM3: number;
   };
+  lava: {
+    vents: { id: number; x: number; y: number; rateM3PerS: number; kind: 'basalt' | 'andesite'; remainingS: number }[];
+    eruptedM3: number;
+    flowingM3: number;
+    solidifiedM3: number;
+    maxTempC: number | null;
+    closure: number;
+  };
   tectonics: {
     enabled: boolean;
     yearsPerSimHour: number;
@@ -118,6 +126,8 @@ export interface HoverInfo {
   temperatureC?: number;
   snowSweM?: number;
   iceM?: number;
+  lavaM?: number;
+  lavaC?: number;
   vegPct?: number;
   rainHereMmH?: number;
   isSea: boolean;
@@ -158,8 +168,15 @@ export interface QuakeSettings {
   shake: boolean;
 }
 
+export interface VolcanoSettings {
+  kind: 'basalt' | 'andesite';
+  rateM3PerS: number;
+  hours: number;
+}
+
 interface UiState {
   tool: ToolId;
+  volcano: VolcanoSettings;
   quake: QuakeSettings;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: { mw: number; type: string; ruptureKm: number; avgSlipM: number; maxUpM: number; maxDownM: number; lateralCells: number; landslides: number } | null;
@@ -197,6 +214,7 @@ let toastId = 0;
 
 export const useUi = create<UiState>((set) => ({
   tool: 'navigate',
+  volcano: { kind: 'basalt', rateM3PerS: 50, hours: 6 },
   quake: { type: 'reverse', mw: 7, strikeDeg: 30, landslides: true, shake: true },
   lastQuake: null,
   radiusM: 300,

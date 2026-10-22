@@ -1,14 +1,12 @@
 # One next executable task
-ID: M08-C01
-Goal: Volcano vent + lava flow (spec E10). Fields (format v10): lavaDepthM, lavaTempC per cell. Vent tool: click
-to place a vent with eruption rate (m³/s), lava type (basaltic fluid ↔ andesitic viscous), duration. Lava flows
-downhill as a viscous gravity current on the terrain: Bingham-like rule — flux between cells only where the
-lava-surface slope exceeds a yield slope; flux ∝ h³·g·slope/(3·viscosity) with viscosity rising steeply as it
-cools (Arrhenius-like); radiative/conductive cooling ∝ (T⁴ − T_air⁴) and crust growth; CPU, explicit, own
-cadence + substeps in real time (seconds–hours). Volume ledger (erupted = flowing + solidified). Rendering: glowing
-orange→dark crust by temperature on the terrain (vertex colour + raised surface by lava depth).
-(C02 will solidify lava into volcanic rock bedrock.)
-Read only: spec E10, src/sim/glacier/glacierSim.ts (flux/limiter patterns), engine hooks, TerrainScene colours.
-Acceptance: lava runs downhill and pools in hollows; viscous lava stops on gentler slopes than fluid lava; a
-cooling flow stops; volume ledger closes; save/load.
+ID: M08-C02
+Goal: Explosive eruptions and fragmental deposits (spec E10). Vent gets an eruption style: effusive (lava only,
+as now) / explosive (tephra) / mixed. Tephra: erupted bulk volume rate split into (a) ballistic cinder within a
+few hundred m of the vent (deposit thickness ∝ exp(−r/r0), r0 ≈ 150–300 m), and (b) fall from a plume of height
+from rate (Mastin 2009: H[km] ≈ 2.0·V̇^0.241, V̇ dense-rock m³/s) carried downwind by the climate wind; thinning
+exp(−r/L) with L growing with plume height (Pyle 1989 thinning). Deposits become loose sediment (erodible) or a
+tuff layer if thick; tephra ledger (erupted = deposited + left map). Ash overlay/colour; plants buried.
+Read only: src/sim/lava/lavaSim.ts (vents, addTopRock), engine lavaHook, climate wind params, VolcanoPanel.
+Acceptance: deposit thins away from vent and is elongated downwind; ledger closes; cinder makes steep cone
+slopes near the angle of repose (talus settle); save/load.
 Done when: tests/typecheck/build/e2e pass, committed + pushed.

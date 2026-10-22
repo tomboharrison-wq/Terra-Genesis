@@ -27,6 +27,8 @@ varying vec3 vTgWorld;
 varying float vTgNormalY;
 attribute vec3 strataB;
 attribute vec4 strataM;
+attribute float lavaGlow;
+varying float vTgGlow;
 flat varying vec3 vTgStrataB;
 flat varying vec4 vTgStrataM;`,
       )
@@ -36,7 +38,8 @@ flat varying vec4 vTgStrataM;`,
 vTgWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
 vTgNormalY = normalize(mat3(modelMatrix) * objectNormal).y;
 vTgStrataB = strataB;
-vTgStrataM = strataM;`,
+vTgStrataM = strataM;
+vTgGlow = lavaGlow;`,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -46,6 +49,7 @@ varying vec3 vTgWorld;
 varying float vTgNormalY;
 flat varying vec3 vTgStrataB;
 flat varying vec4 vTgStrataM;
+varying float vTgGlow;
 uniform float uDetailScale;
 uniform vec3 uMatCol[8];
 uniform float uStrataOn;
@@ -74,6 +78,11 @@ float tgNoise(vec2 p) {
     diffuseColor.rgb *= 1.0 - 0.35 * steep * (1.0 - smoothstep(0.0, uLineW, dl));
   }
 }`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+totalEmissiveRadiance += vec3(1.0, 0.38, 0.08) * vTgGlow * 1.6; // molten lava glows by temperature`,
       );
   };
 }

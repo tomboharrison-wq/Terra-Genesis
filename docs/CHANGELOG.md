@@ -116,3 +116,8 @@
 ## M07-C05 — Earthquakes
 - New Earth → Quake tool (Q): choose the fault type (normal, reverse/thrust or strike-slip), magnitude and direction, then click the map. The rupture length and slip follow real-world averages for that magnitude; one side of the fault drops or rises (or slides sideways), the rock layers move with it, and strong shaking can set off landslides on steep slopes. Undo puts it all back.
 - Show shaking strength colours the map by how strongly the ground shook; an optional short camera shake is for effect only.
+
+## M08-C01 — Volcanoes: lava
+- New Earth → Volcano tool (V): click the map to open a vent and pick runny basalt or sticky andesite, the eruption rate and how long it lasts. Press Play and the lava flows downhill in real time, fills hollows, slows as it cools and sets into a new layer of volcanic rock (soil it buries becomes a rock layer underneath). Hot lava glows, burns plants and melts snow.
+- Sticky lava has a strength: it only moves where it is thick and the slope steep, so it piles up; runny lava spreads in thin sheets. The panel keeps a volume check: erupted = still molten + turned to rock.
+- Hover shows lava thickness and temperature. Saves keep lava and vents (file format v10).

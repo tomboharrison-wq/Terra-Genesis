@@ -2,6 +2,7 @@ import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacierSim';
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
+import { defaultLavaParams, type LavaParams } from '../sim/lava/lavaSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
@@ -15,6 +16,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
+ * v10 adds lavaDepthM, lavaTempC, lavaKind and header.lava. Older files migrate without lava.
  * v9 adds plateId and header.tectonics. Older files migrate with one plate and tectonics off.
  * v8 adds vegCover and header.vegetation. Older files migrate bare.
  * v7 adds iceThicknessM, iceDebrisM and header.glacier. Older files migrate ice-free.
@@ -23,7 +25,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId' | 'lavaDepthM' | 'lavaTempC' | 'lavaKind';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
@@ -38,6 +40,9 @@ const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'iceDebrisM', type: 'f32', perCell: 1 },
   { name: 'vegCover', type: 'f32', perCell: 1 },
   { name: 'plateId', type: 'u8', perCell: 1 },
+  { name: 'lavaDepthM', type: 'f32', perCell: 1 },
+  { name: 'lavaTempC', type: 'f32', perCell: 1 },
+  { name: 'lavaKind', type: 'u8', perCell: 1 },
 ];
 
 export interface FileHeader {
@@ -58,6 +63,7 @@ export interface FileHeader {
   glacier?: GlacierParams;
   vegetation?: VegetationParams;
   tectonics?: TectonicsParams;
+  lava?: LavaParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -92,6 +98,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     glacier: w.glacier,
     vegetation: w.vegetation,
     tectonics: w.tectonics,
+    lava: w.lava,
     fields,
     extras,
   };
@@ -157,12 +164,16 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     iceDebrisM: has('iceDebrisM') ? new Float32Array(get('iceDebrisM')) : new Float32Array(n),
     vegCover: has('vegCover') ? new Float32Array(get('vegCover')) : new Float32Array(n),
     plateId: has('plateId') ? new Uint8Array(get('plateId')) : new Uint8Array(n),
+    lavaDepthM: has('lavaDepthM') ? new Float32Array(get('lavaDepthM')) : new Float32Array(n),
+    lavaTempC: has('lavaTempC') ? new Float32Array(get('lavaTempC')) : new Float32Array(n),
+    lavaKind: has('lavaKind') ? new Uint8Array(get('lavaKind')) : new Uint8Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
     coast: { ...defaultCoastParams(), ...h.coast },
     climate: { ...defaultClimateParams(), ...h.climate },
     glacier: { ...defaultGlacierParams(), ...h.glacier },
     vegetation: { ...defaultVegetationParams(), ...h.vegetation },
     tectonics: { ...defaultTectonicsParams(), ...h.tectonics, plates: (h.tectonics?.plates ?? []).map((q) => ({ ...q })) },
+    lava: { ...defaultLavaParams(), ...h.lava, vents: (h.lava?.vents ?? []).map((v) => ({ ...v })) },
     meta: h.meta,
   };
   if (!has('strataMaterial')) setUniformStrata(world); // v1–v3: one layer = the stored lithology
@@ -178,7 +189,10 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.iceThicknessM.length !== n ||
     world.iceDebrisM.length !== n ||
     world.vegCover.length !== n ||
-    world.plateId.length !== n
+    world.plateId.length !== n ||
+    world.lavaDepthM.length !== n ||
+    world.lavaTempC.length !== n ||
+    world.lavaKind.length !== n
   )
     throw new Error('Field size mismatch');
   return { world, extras: h.extras };
