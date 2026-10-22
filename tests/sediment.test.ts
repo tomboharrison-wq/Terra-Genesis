@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorld, computeSurface, validateWorld, MM_PER_H, type WorldState } from '../src/engine/world';
+import { createWorld, computeSurface, validateWorld, setUniformStrata, MM_PER_H, type WorldState } from '../src/engine/world';
 import { WaterSim } from '../src/sim/water/waterSim';
 import { SedimentSim, sedimentClosure } from '../src/sim/sediment/sedimentSim';
 import { decodeWorld, encodeWorld } from '../src/persistence/format';
@@ -9,6 +9,7 @@ function setup(N: number, cs: number, zf: (x: number, y: number) => number, opts
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) w.bedrockElevationM[y * N + x] = zf(x, y);
   w.looseSedimentThicknessM.fill(opts.loose ?? 0.5);
   w.materialId.fill(opts.mat ?? 2);
+  setUniformStrata(w);
   w.erosion.enabled = true;
   const s = new Float32Array(N * N);
   computeSurface(w, s);

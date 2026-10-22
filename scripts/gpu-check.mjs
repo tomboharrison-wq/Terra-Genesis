@@ -21,8 +21,8 @@ for (const r of res) {
   let extra = '';
   if (r.maxBedDiffM !== undefined) {
     const erRel = Math.abs(r.gpuErodedM3 - r.cpuErodedM3) / Math.max(1, r.cpuErodedM3);
-    ok = ok && r.gpuSedClosure < 1e-3 && erRel < 0.02 && r.maxBedDiffM < 0.05;
-    extra = ` | bed maxΔ ${(r.maxBedDiffM * 1000).toFixed(2)} mm, eroded cpu ${r.cpuErodedM3.toFixed(1)} gpu ${r.gpuErodedM3.toFixed(1)} m³, sed closure cpu ${r.cpuSedClosure.toExponential(2)} gpu ${r.gpuSedClosure.toExponential(2)}`;
+    ok = ok && r.gpuSedClosure < 1e-3 && erRel < 0.02 && r.maxBedDiffM < 0.05 && r.exposedMismatch <= 2;
+    extra = ` | bed maxΔ ${(r.maxBedDiffM * 1000).toFixed(2)} mm, eroded cpu ${r.cpuErodedM3.toFixed(1)} gpu ${r.gpuErodedM3.toFixed(1)} m³, sed closure cpu ${r.cpuSedClosure.toExponential(2)} gpu ${r.gpuSedClosure.toExponential(2)}, exposed-rock mismatches ${r.exposedMismatch}`;
   }
   fail ||= !ok;
   console.log(`${ok ? 'PASS' : 'FAIL'} ${r.name}: maxΔdepth ${(r.maxAbsDiffM * 1000).toFixed(3)} mm, meanΔ ${(r.meanAbsDiffM * 1000).toFixed(4)} mm, stored cpu ${r.cpuStoredM3.toFixed(1)} gpu ${r.gpuStoredM3.toFixed(1)} m³, closure cpu ${r.cpuClosure.toExponential(2)} gpu ${r.gpuClosure.toExponential(2)}, ${r.steps} steps, ${r.gpuMsPerStep.toFixed(3)} ms/step submit${extra}`);

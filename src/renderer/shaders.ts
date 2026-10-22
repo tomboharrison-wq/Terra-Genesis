@@ -1,18 +1,55 @@
 import { Color, DoubleSide, ShaderMaterial, BackSide, type Texture, type MeshStandardMaterial } from 'three';
 
-/** Adds world-space multi-octave value noise to terrain albedo to break vertex-colour smoothness. */
-export function addTerrainDetail(mat: MeshStandardMaterial, scaleM: number): void {
+export interface StrataUniforms {
+  uMatCol: { value: Color[] };
+  uStrataOn: { value: number };
+  uLineW: { value: number };
+}
+
+export function createStrataUniforms(colours: Color[]): StrataUniforms {
+  return { uMatCol: { value: colours }, uStrataOn: { value: 1 }, uLineW: { value: 0.5 } };
+}
+
+/**
+ * Terrain albedo detail: world-space value noise, plus true stratigraphy on steep faces — each
+ * fragment is coloured by the lithology at its own elevation in the cell's strata column
+ * (attributes strataB / strataM), with thin dark lines at layer boundaries.
+ */
+export function addTerrainDetail(mat: MeshStandardMaterial, scaleM: number, strata: StrataUniforms): void {
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uDetailScale = { value: 1 / scaleM };
+    Object.assign(shader.uniforms, strata);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vTgWorld;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvTgWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      .replace(
+        '#include <common>',
+        `#include <common>
+varying vec3 vTgWorld;
+varying float vTgNormalY;
+attribute vec3 strataB;
+attribute vec4 strataM;
+flat varying vec3 vTgStrataB;
+flat varying vec4 vTgStrataM;`,
+      )
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+vTgWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+vTgNormalY = normalize(mat3(modelMatrix) * objectNormal).y;
+vTgStrataB = strataB;
+vTgStrataM = strataM;`,
+      );
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
         `#include <common>
 varying vec3 vTgWorld;
+varying float vTgNormalY;
+flat varying vec3 vTgStrataB;
+flat varying vec4 vTgStrataM;
 uniform float uDetailScale;
+uniform vec3 uMatCol[8];
+uniform float uStrataOn;
+uniform float uLineW;
 float tgHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float tgNoise(vec2 p) {
   vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -26,6 +63,16 @@ float tgNoise(vec2 p) {
   vec2 q = vTgWorld.xz * uDetailScale;
   float n = tgNoise(q) * 0.5 + tgNoise(q * 3.7) * 0.3 + tgNoise(q * 13.1) * 0.2;
   diffuseColor.rgb *= 0.9 + 0.2 * n;
+  float steep = (1.0 - smoothstep(0.5, 0.82, vTgNormalY)) * uStrataOn;
+  if (steep > 0.0) {
+    float y = vTgWorld.y;
+    float m = vTgStrataM.x;
+    if (y < vTgStrataB.x) { m = vTgStrataM.y; if (y < vTgStrataB.y) { m = vTgStrataM.z; if (y < vTgStrataB.z) m = vTgStrataM.w; } }
+    vec3 rock = uMatCol[int(m + 0.5)] * (0.82 + 0.2 * n);
+    diffuseColor.rgb = mix(diffuseColor.rgb, rock, steep * 0.85);
+    float dl = min(abs(y - vTgStrataB.x), min(abs(y - vTgStrataB.y), abs(y - vTgStrataB.z)));
+    diffuseColor.rgb *= 1.0 - 0.35 * steep * (1.0 - smoothstep(0.0, uLineW, dl));
+  }
 }`,
       );
   };

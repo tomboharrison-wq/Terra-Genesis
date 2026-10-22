@@ -1,4 +1,4 @@
-import type { WorldState } from '../../engine/world';
+import { refreshExposed, type WorldState } from '../../engine/world';
 import { MATERIALS } from '../../terrain/materials';
 import type { WaterSim } from '../water/waterSim';
 
@@ -249,6 +249,7 @@ export class SedimentSim {
             const nb = Math.fround(b[i] - want);
             fromRock = b[i] - nb; // exactly what float32 storage removed
             b[i] = nb;
+            refreshExposed(w, i); // cutting through a strata boundary exposes the next layer
           }
           s[i] = si + fromLoose + fromRock;
           eL += fromLoose;

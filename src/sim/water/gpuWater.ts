@@ -1,4 +1,4 @@
-import type { WorldState } from '../../engine/world';
+import { refreshAllExposed, STRATA_BOUNDS, STRATA_LAYERS, type WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import type { WaterSim } from './waterSim';
 import { MIN_TRANSPORT_DEPTH, SLOPE_MAX, SLOPE_MIN, SedimentSim } from '../sediment/sedimentSim';
@@ -7,8 +7,11 @@ import { MATERIALS } from '../../terrain/materials';
 /**
  * WebGL2 port of WaterSim + SedimentSim (same schemes, see waterSim.ts / sedimentSim.ts).
  * Textures (RGBA32F, texel (x, y) = cell (x, y), y north):
- *   bed:    r = bedrock elevation, g = loose sediment thickness, b = suspended sediment (m),
- *           a = bedrock erodibility of the cell's lithology. Surface z = r + g; sea ⇔ z < sea level.
+ *   bed:    r = bedrock elevation, g = loose sediment thickness, b = suspended sediment (m), a unused.
+ *           Surface z = r + g; sea ⇔ z < sea level.
+ *   strataB / strataM (static, uploaded with the ground): layer boundaries (m) and layer lithology
+ *           ids; the sediment pass finds the exposed layer at the current bedrock elevation, so
+ *           erosion through a hard cap immediately meets the weaker rock below.
  *   state:  r = water depth d, g = vx, b = vy (m/s)
  *   flux:   outflow discharge west, east, south, north (m³/s)
  *   acc:    water depth-equivalents since last sync: lost (infiltration+evaporation, split by
@@ -173,6 +176,9 @@ uniform float uKe;         // min(1, erodeK * speedup * dt)
 uniform float uKd;         // min(1, depositK * speedup * dt)
 uniform float uRockF;
 uniform float uKappa;      // creep coefficient (see SedimentSim.creepKappa)
+uniform sampler2D uStrataB; // boundaries (descending), unused = -1e9
+uniform sampler2D uStrataM; // lithology id per layer (as float)
+uniform float uErod[16];   // erodibility by lithology id
 layout(location = 0) out vec4 oBed;
 layout(location = 1) out vec4 oSedA;
 layout(location = 2) out vec4 oSedB;
@@ -186,6 +192,14 @@ float outThrough(ivec2 j, int k) {
   vec4 F = texelFetch(uFlux, j, 0);
   float f = k == 0 ? F.x : k == 1 ? F.y : k == 2 ? F.z : F.w;
   return b.b * f * uDt / (d0 * uCs * uCs);
+}
+
+float exposedErodibility(ivec2 c, float bedrockZ) {
+  vec4 sb = texelFetch(uStrataB, c, 0);
+  vec4 sm = texelFetch(uStrataM, c, 0);
+  float m = sm.x;
+  if (bedrockZ < sb.x) { m = sm.y; if (bedrockZ < sb.y) { m = sm.z; if (bedrockZ < sb.z) m = sm.w; } }
+  return uErod[int(m + 0.5)];
 }
 
 // Creep loss of cell i to neighbour j (negative = gain), from start-of-step values.
@@ -261,7 +275,7 @@ void main() {
       demand -= fromLoose;
       float fromRock = 0.0;
       if (demand > 0.0) {
-        float nb = bedrock - demand * B.a * uRockF;
+        float nb = bedrock - demand * exposedErodibility(c, bedrock) * uRockF;
         fromRock = bedrock - nb; // exact float32 change actually applied
         bedrock = nb;
       }
@@ -296,6 +310,9 @@ export class GpuWater implements Stepper {
   private acc: Pair;
   private sedA: Pair;
   private sedB: Pair;
+  private strataB: WebGLTexture;
+  private strataM: WebGLTexture;
+  private erodTable = new Float32Array(16);
   private fbStateAcc: [WebGLFramebuffer, WebGLFramebuffer];
   private fbFlux: [WebGLFramebuffer, WebGLFramebuffer];
   private fbBed: [WebGLFramebuffer, WebGLFramebuffer];
@@ -335,6 +352,9 @@ export class GpuWater implements Stepper {
     this.acc = pair();
     this.sedA = pair();
     this.sedB = pair();
+    this.strataB = this.tex();
+    this.strataM = this.tex();
+    for (const m of MATERIALS) if (m.id < 16) this.erodTable[m.id] = m.erodibility;
     this.fbStateAcc = [this.fb([this.state[0], this.acc[0]]), this.fb([this.state[1], this.acc[1]])];
     this.fbFlux = [this.fb([this.flux[0]]), this.fb([this.flux[1]])];
     this.fbBed = [this.fb([this.bed[0], this.sedA[0], this.sedB[0]]), this.fb([this.bed[1], this.sedA[1], this.sedB[1]])];
@@ -421,21 +441,24 @@ export class GpuWater implements Stepper {
 
   // ---------- CPU ↔ GPU ----------
 
-  /** Upload bedrock, loose and suspended sediment, and lithology erodibility (after CPU edits). */
+  /** Upload bedrock, loose and suspended sediment, and the strata columns (after CPU edits). */
   uploadGround(): void {
     this.sim.refreshSea();
     const w = this.world;
     const n = this.W * this.H;
     const g = new Float32Array(n * 4);
-    const erod = new Float32Array(256);
-    for (const m of MATERIALS) erod[m.id] = m.erodibility;
+    const sb = new Float32Array(n * 4);
+    const sm = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
       g[i * 4] = w.bedrockElevationM[i];
       g[i * 4 + 1] = w.looseSedimentThicknessM[i];
       g[i * 4 + 2] = w.sedimentSuspendedM[i];
-      g[i * 4 + 3] = erod[w.materialId[i]];
+      for (let k = 0; k < STRATA_BOUNDS && k < 4; k++) sb[i * 4 + k] = w.strataBoundsM[i * STRATA_BOUNDS + k];
+      for (let k = 0; k < STRATA_LAYERS && k < 4; k++) sm[i * 4 + k] = w.strataMaterial[i * STRATA_LAYERS + k];
     }
     this.write(this.bed[this.b], g);
+    this.write(this.strataB, sb);
+    this.write(this.strataM, sm);
     const zero = new Float32Array(n * 4);
     this.write(this.sedA[this.b], zero);
     this.write(this.sedB[this.b], zero);
@@ -528,6 +551,7 @@ export class GpuWater implements Stepper {
       const zero = new Float32Array(n * 4);
       this.write(this.sedA[this.b], zero);
       this.write(this.sedB[this.b], zero);
+      refreshAllExposed(w);
       this.sim.refreshSea();
       bedChanged = true;
     }
@@ -640,6 +664,9 @@ export class GpuWater implements Stepper {
       gl.uniform1f(this.uni(this.sediment, 'uKd'), Math.min(1, e.depositK * e.speedup * dt));
       gl.uniform1f(this.uni(this.sediment, 'uRockF'), e.bedrockFactor);
       gl.uniform1f(this.uni(this.sediment, 'uKappa'), SedimentSim.creepKappa(w, dt));
+      this.bindTex(this.sediment, 'uStrataB', 6, this.strataB);
+      this.bindTex(this.sediment, 'uStrataM', 7, this.strataM);
+      gl.uniform1fv(this.uni(this.sediment, 'uErod[0]'), this.erodTable);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBed[b1]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.b = b1;
@@ -653,7 +680,7 @@ export class GpuWater implements Stepper {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.sedA, ...this.sedB]) gl.deleteTexture(t);
+    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.sedA, ...this.sedB, this.strataB, this.strataM]) gl.deleteTexture(t);
     for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed]) gl.deleteFramebuffer(fb);
     for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment]) gl.deleteProgram(pr.p);
     gl.deleteVertexArray(this.vao);

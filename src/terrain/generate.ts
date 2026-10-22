@@ -1,4 +1,4 @@
-import { createWorld, MM_PER_H, type WorldState } from '../engine/world';
+import { createWorld, MM_PER_H, STRATA_BOUNDS, STRATA_LAYERS, refreshAllExposed, setUniformStrata, type WorldState } from '../engine/world';
 import { Noise2D } from '../utils/noise';
 import { deriveSeed } from '../utils/rng';
 import { clamp, smoothstep } from '../utils/math';
@@ -248,6 +248,11 @@ export function generateWorld(o: GenerateOptions): WorldState {
     }
   }
 
+  // Stratigraphy: single-layer columns by default; the plateau gets real horizontal strata.
+  setUniformStrata(world);
+  if (o.presetId === 'plateau') applyPlateauStrata(world, o, nd);
+  refreshAllExposed(world);
+
   // Drainage conditioning: fill closed hollows with alluvium so rain organises into rivers.
   if (o.drainage !== false && o.presetId !== 'flat') {
     // 0.2 % down-valley gradient on filled ground: alluvial plains slope gently to their outlet.
@@ -260,4 +265,32 @@ export function generateWorld(o: GenerateOptions): WorldState {
     }
   }
   return world;
+}
+
+/**
+ * Layered plateau: resistant sandstone cap over weak mudstone over clay, with a gentle dip and
+ * slight undulation, so erosion through the cap exposes weaker rock and scarps retreat.
+ */
+function applyPlateauStrata(w: WorldState, o: GenerateOptions, n: Noise2D) {
+  const R = o.reliefM;
+  const size = w.width;
+  const inv = 1 / (size - 1);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const u = x * inv;
+      const v = y * inv;
+      const undulate = 0.015 * R * n.fbm(u * 2.5 + 11, v * 2.5 - 4, 3);
+      const dip = 0.04 * R * (u - 0.5);
+      const ob = i * STRATA_BOUNDS;
+      w.strataBoundsM[ob] = 0.6 * R + dip + undulate; // base of cap rock
+      w.strataBoundsM[ob + 1] = 0.25 * R + dip + undulate; // base of mudstone
+      w.strataBoundsM[ob + 2] = -1e9;
+      const om = i * STRATA_LAYERS;
+      w.strataMaterial[om] = SANDSTONE;
+      w.strataMaterial[om + 1] = MUDSTONE;
+      w.strataMaterial[om + 2] = CLAY;
+      w.strataMaterial[om + 3] = CLAY;
+    }
+  }
 }

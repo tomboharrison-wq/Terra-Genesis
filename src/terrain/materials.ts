@@ -18,8 +18,8 @@ export interface MaterialDef {
 export const MATERIALS: readonly MaterialDef[] = [
   { id: 0, key: 'crystalline', name: 'Hard crystalline (granite)', kind: 'bedrock', colour: 0x8a8580, erodibility: 0.1, densityKgPerM3: 2700 },
   { id: 1, key: 'resistant-sed', name: 'Resistant sedimentary (sandstone)', kind: 'bedrock', colour: 0xa98f6c, erodibility: 0.4, densityKgPerM3: 2400 },
-  { id: 2, key: 'weak-sed', name: 'Weak sedimentary (mudstone)', kind: 'bedrock', colour: 0x8c7a66, erodibility: 1.0, densityKgPerM3: 2300 },
-  { id: 3, key: 'clay', name: 'Clay', kind: 'bedrock', colour: 0x9a7d62, erodibility: 1.6, densityKgPerM3: 1900 },
+  { id: 2, key: 'weak-sed', name: 'Weak sedimentary (mudstone)', kind: 'bedrock', colour: 0x77777a, erodibility: 1.0, densityKgPerM3: 2300 },
+  { id: 3, key: 'clay', name: 'Clay', kind: 'bedrock', colour: 0x94664c, erodibility: 1.6, densityKgPerM3: 1900 },
   { id: 4, key: 'chalk', name: 'Chalk / limestone', kind: 'bedrock', colour: 0xbdb7a4, erodibility: 0.6, densityKgPerM3: 2200 },
   { id: 5, key: 'volcanic', name: 'Volcanic rock (basalt)', kind: 'bedrock', colour: 0x4b4744, erodibility: 0.25, densityKgPerM3: 2900 },
 ];

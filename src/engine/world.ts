@@ -1,6 +1,12 @@
 import type { CellRect } from '../utils/rect';
 
-export const WORLD_FORMAT_VERSION = 3;
+export const WORLD_FORMAT_VERSION = 4;
+
+/** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
+export const STRATA_LAYERS = 4;
+export const STRATA_BOUNDS = STRATA_LAYERS - 1;
+/** Boundary value meaning "no boundary" (layer continues downward indefinitely). */
+export const STRATA_NONE = -1e9;
 
 export type BoundaryMode = 'open' | 'closed';
 
@@ -79,8 +85,20 @@ export interface WorldState {
   simTimeSeconds: number;
   bedrockElevationM: Float32Array;
   looseSedimentThicknessM: Float32Array;
-  /** Bedrock lithology id, see terrain/materials.ts. */
+  /**
+   * Exposed bedrock lithology id (terrain/materials.ts). DERIVED from the strata column at the
+   * current bedrock elevation — refresh with refreshExposed() after bedrock or strata changes.
+   */
   materialId: Uint8Array;
+  /**
+   * Stratigraphic column per cell, by absolute elevation (m): STRATA_BOUNDS descending
+   * boundaries; layer 0 lies above boundary 0, layer k between boundaries k−1 and k, the last
+   * layer below the last boundary. Unused boundaries = STRATA_NONE. Erosion lowering bedrock
+   * through a boundary exposes the next layer; thickness can never go negative.
+   */
+  strataBoundsM: Float32Array;
+  /** Lithology of each layer, STRATA_LAYERS per cell (top first). */
+  strataMaterial: Uint8Array;
   /** Surface water depth above the ground surface (m), ≥ 0. Zero on sea cells (sea is a fixed-head sink). */
   waterDepthM: Float32Array;
   /** Pipe-model outflow per cell, 4 per cell [west, east, south, north] (m³/s), ≥ 0. */
@@ -119,6 +137,8 @@ export function createWorld(init: WorldInit): WorldState {
     bedrockElevationM: new Float32Array(n),
     looseSedimentThicknessM: new Float32Array(n),
     materialId: new Uint8Array(n),
+    strataBoundsM: new Float32Array(n * STRATA_BOUNDS).fill(STRATA_NONE),
+    strataMaterial: new Uint8Array(n * STRATA_LAYERS),
     waterDepthM: new Float32Array(n),
     waterFluxM3PerS: new Float32Array(n * 4),
     water: defaultWaterParams(),
@@ -162,6 +182,17 @@ export function validateWorld(w: WorldState): string[] {
   if (w.bedrockElevationM.length !== n) errs.push('bedrock length mismatch');
   if (w.looseSedimentThicknessM.length !== n) errs.push('sediment length mismatch');
   if (w.materialId.length !== n) errs.push('material length mismatch');
+  if (w.strataBoundsM.length !== n * STRATA_BOUNDS) errs.push('strata bounds length mismatch');
+  if (w.strataMaterial.length !== n * STRATA_LAYERS) errs.push('strata material length mismatch');
+  for (let i = 0; i < n; i++) {
+    const o = i * STRATA_BOUNDS;
+    for (let k = 1; k < STRATA_BOUNDS; k++)
+      if (w.strataBoundsM[o + k] > w.strataBoundsM[o + k - 1]) {
+        errs.push(`strata boundaries not descending at ${i}`);
+        i = n;
+        break;
+      }
+  }
   if (w.waterDepthM.length !== n) errs.push('water length mismatch');
   if (w.waterFluxM3PerS.length !== n * 4) errs.push('flux length mismatch');
   if (w.sedimentSuspendedM.length !== n) errs.push('suspended length mismatch');
@@ -201,6 +232,8 @@ export function cloneWorld(w: WorldState): WorldState {
     bedrockElevationM: w.bedrockElevationM.slice(),
     looseSedimentThicknessM: w.looseSedimentThicknessM.slice(),
     materialId: w.materialId.slice(),
+    strataBoundsM: w.strataBoundsM.slice(),
+    strataMaterial: w.strataMaterial.slice(),
     waterDepthM: w.waterDepthM.slice(),
     waterFluxM3PerS: w.waterFluxM3PerS.slice(),
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
@@ -208,4 +241,27 @@ export function cloneWorld(w: WorldState): WorldState {
     erosion: { ...w.erosion },
     meta: { ...w.meta },
   };
+}
+
+/** Index of the strata layer containing bedrock elevation e at cell i. */
+export function layerAt(w: WorldState, i: number, e: number): number {
+  const o = i * STRATA_BOUNDS;
+  let k = 0;
+  while (k < STRATA_BOUNDS && e < w.strataBoundsM[o + k]) k++;
+  return k;
+}
+
+/** Recompute the exposed lithology of one cell from its strata column. */
+export function refreshExposed(w: WorldState, i: number): void {
+  w.materialId[i] = w.strataMaterial[i * STRATA_LAYERS + layerAt(w, i, w.bedrockElevationM[i])];
+}
+
+export function refreshAllExposed(w: WorldState): void {
+  for (let i = 0; i < w.materialId.length; i++) refreshExposed(w, i);
+}
+
+/** Make every cell a single-layer column of its current exposed lithology. */
+export function setUniformStrata(w: WorldState): void {
+  w.strataBoundsM.fill(STRATA_NONE);
+  for (let i = 0; i < w.materialId.length; i++) w.strataMaterial.fill(w.materialId[i], i * STRATA_LAYERS, (i + 1) * STRATA_LAYERS);
 }

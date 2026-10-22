@@ -1,8 +1,11 @@
-import type { WorldState } from '../engine/world';
+import { refreshExposed, STRATA_LAYERS, type WorldState } from '../engine/world';
 import type { CellRect } from '../utils/rect';
 import { unionRect } from '../utils/rect';
 
-/** One undoable edit: sparse per-cell before/after values of the physical fields. */
+/**
+ * One undoable edit: sparse per-cell before/after values of the physical fields.
+ * `material` holds the STRATA_LAYERS strata lithologies of each cell (exposed lithology is derived).
+ */
 export interface EditCommand {
   label: string;
   indices: Int32Array;
@@ -34,7 +37,7 @@ export class StrokeRecorder {
         this.idx.push(i);
         this.b.push(w.bedrockElevationM[i]);
         this.s.push(w.looseSedimentThicknessM[i]);
-        this.m.push(w.materialId[i]);
+        for (let k = 0; k < STRATA_LAYERS; k++) this.m.push(w.strataMaterial[i * STRATA_LAYERS + k]);
       }
     }
     this.rect = unionRect(this.rect, r);
@@ -46,20 +49,17 @@ export class StrokeRecorder {
     const keep: number[] = [];
     for (let k = 0; k < this.idx.length; k++) {
       const i = this.idx[k];
-      if (
-        w.bedrockElevationM[i] !== Math.fround(this.b[k]) ||
-        w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) ||
-        w.materialId[i] !== this.m[k]
-      )
-        keep.push(k);
+      let strataChanged = false;
+      for (let l = 0; l < STRATA_LAYERS; l++) if (w.strataMaterial[i * STRATA_LAYERS + l] !== this.m[k * STRATA_LAYERS + l]) strataChanged = true;
+      if (w.bedrockElevationM[i] !== Math.fround(this.b[k]) || w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) || strataChanged) keep.push(k);
     }
     if (!keep.length || !this.rect) return null;
     const n = keep.length;
     const cmd: EditCommand = {
       label: this.label,
       indices: new Int32Array(n),
-      before: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n) },
-      after: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n) },
+      before: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS) },
+      after: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS) },
       rect: this.rect,
     };
     keep.forEach((k, j) => {
@@ -67,10 +67,10 @@ export class StrokeRecorder {
       cmd.indices[j] = i;
       cmd.before.bedrock[j] = this.b[k];
       cmd.before.sediment[j] = this.s[k];
-      cmd.before.material[j] = this.m[k];
+      for (let l = 0; l < STRATA_LAYERS; l++) cmd.before.material[j * STRATA_LAYERS + l] = this.m[k * STRATA_LAYERS + l];
       cmd.after.bedrock[j] = w.bedrockElevationM[i];
       cmd.after.sediment[j] = w.looseSedimentThicknessM[i];
-      cmd.after.material[j] = w.materialId[i];
+      for (let l = 0; l < STRATA_LAYERS; l++) cmd.after.material[j * STRATA_LAYERS + l] = w.strataMaterial[i * STRATA_LAYERS + l];
     });
     return cmd;
   }
@@ -82,7 +82,8 @@ function applyValues(w: WorldState, cmd: EditCommand, which: 'before' | 'after')
     const i = cmd.indices[j];
     w.bedrockElevationM[i] = v.bedrock[j];
     w.looseSedimentThicknessM[i] = v.sediment[j];
-    w.materialId[i] = v.material[j];
+    for (let l = 0; l < STRATA_LAYERS; l++) w.strataMaterial[i * STRATA_LAYERS + l] = v.material[j * STRATA_LAYERS + l];
+    refreshExposed(w, i);
   }
 }
 

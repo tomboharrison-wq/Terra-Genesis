@@ -1,4 +1,4 @@
-import type { WorldState } from '../engine/world';
+import { layerAt, refreshExposed, STRATA_LAYERS, type WorldState } from '../engine/world';
 import { clampRect, type CellRect } from '../utils/rect';
 
 export type BrushKind = 'raise' | 'lower' | 'smooth' | 'flatten' | 'paint' | 'add-sediment' | 'remove-sediment';
@@ -108,7 +108,8 @@ export function applyBrush(
           break;
         }
         case 'paint':
-          if (wgt >= 0.35 && p.materialId !== undefined) w.materialId[i] = p.materialId;
+          // Paint replaces the lithology of the exposed layer (down to that layer's base).
+          if (wgt >= 0.35 && p.materialId !== undefined) w.strataMaterial[i * STRATA_LAYERS + layerAt(w, i, w.bedrockElevationM[i])] = p.materialId;
           break;
         case 'add-sediment':
           w.looseSedimentThicknessM[i] += p.rate * dt * wgt;
@@ -120,6 +121,7 @@ export function applyBrush(
         }
       }
       surface[i] = w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
+      refreshExposed(w, i);
     }
   }
   return rect;

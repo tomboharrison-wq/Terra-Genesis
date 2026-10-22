@@ -1,4 +1,4 @@
-import { WORLD_FORMAT_VERSION, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
+import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
  * Terra Genesis world file (.tgw), format version 1:
@@ -9,10 +9,11 @@ import { WORLD_FORMAT_VERSION, defaultErosionParams, defaultWaterParams, type Er
  * The whole file is gzip-compressed on disk / in IndexedDB (see compress/decompress).
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
+ * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
@@ -20,6 +21,8 @@ const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'waterDepthM', type: 'f32', perCell: 1 },
   { name: 'waterFluxM3PerS', type: 'f32', perCell: 4 },
   { name: 'sedimentSuspendedM', type: 'f32', perCell: 1 },
+  { name: 'strataBoundsM', type: 'f32', perCell: STRATA_BOUNDS },
+  { name: 'strataMaterial', type: 'u8', perCell: STRATA_LAYERS },
 ];
 
 export interface FileHeader {
@@ -117,6 +120,8 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     bedrockElevationM: new Float32Array(get('bedrockElevationM')),
     looseSedimentThicknessM: new Float32Array(get('looseSedimentThicknessM')),
     materialId: new Uint8Array(get('materialId')),
+    strataBoundsM: has('strataBoundsM') ? new Float32Array(get('strataBoundsM')) : new Float32Array(n * STRATA_BOUNDS),
+    strataMaterial: has('strataMaterial') ? new Uint8Array(get('strataMaterial')) : new Uint8Array(n * STRATA_LAYERS),
     // v1 → v2 migration: worlds without water start dry with default hydrology parameters.
     waterDepthM: has('waterDepthM') ? new Float32Array(get('waterDepthM')) : new Float32Array(n),
     waterFluxM3PerS: has('waterFluxM3PerS') ? new Float32Array(get('waterFluxM3PerS')) : new Float32Array(n * 4),
@@ -125,7 +130,10 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     erosion: { ...defaultErosionParams(), ...h.erosion },
     meta: h.meta,
   };
+  if (!has('strataMaterial')) setUniformStrata(world); // v1–v3: one layer = the stored lithology
   if (
+    world.strataBoundsM.length !== n * STRATA_BOUNDS ||
+    world.strataMaterial.length !== n * STRATA_LAYERS ||
     world.bedrockElevationM.length !== n ||
     world.materialId.length !== n ||
     world.waterDepthM.length !== n ||

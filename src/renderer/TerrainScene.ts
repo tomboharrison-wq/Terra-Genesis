@@ -32,7 +32,9 @@ import type { Engine } from '../engine/engine';
 import { raycastHeightfield, sampleBilinear, type RayHit } from '../terrain/heightfield';
 import { expandRect, clampRect, type CellRect } from '../utils/rect';
 import { terrainColour } from './palette';
-import { addTerrainDetail, createSeaMaterial, createSkyMaterial } from './shaders';
+import { addTerrainDetail, createSeaMaterial, createSkyMaterial, createStrataUniforms, type StrataUniforms } from './shaders';
+import { MATERIALS } from '../terrain/materials';
+import { STRATA_BOUNDS, STRATA_LAYERS } from '../engine/world';
 import { WaterLayer, type WaterView } from './waterLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
@@ -69,6 +71,9 @@ export class TerrainScene {
   private pos = new Float32Array(0);
   private nrm = new Float32Array(0);
   private col = new Float32Array(0);
+  private strB = new Float32Array(0);
+  private strM = new Float32Array(0);
+  private strataUniforms: StrataUniforms = createStrataUniforms(Array.from({ length: 8 }, (_, k) => new Color().setHex(MATERIALS[k]?.colour ?? 0x808080)));
   private sea: Mesh<PlaneGeometry, ReturnType<typeof createSeaMaterial>> | null = null;
   private skirt: Mesh<BufferGeometry, MeshStandardMaterial> | null = null;
   private waterSkirt: Mesh<BufferGeometry, MeshStandardMaterial> | null = null;
@@ -186,6 +191,8 @@ export class TerrainScene {
     this.pos = new Float32Array(n * 3);
     this.nrm = new Float32Array(n * 3);
     this.col = new Float32Array(n * 3);
+    this.strB = new Float32Array(n * 3);
+    this.strM = new Float32Array(n * 4);
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
@@ -216,11 +223,14 @@ export class TerrainScene {
     geo.setAttribute('position', new BufferAttribute(this.pos, 3));
     geo.setAttribute('normal', new BufferAttribute(this.nrm, 3));
     geo.setAttribute('color', new BufferAttribute(this.col, 3));
+    geo.setAttribute('strataB', new BufferAttribute(this.strB, 3));
+    geo.setAttribute('strataM', new BufferAttribute(this.strM, 4));
     this.updateVertices({ x0: 0, y0: 0, x1: W, y1: H }, false);
     const ex = (W - 1) * cs;
     const ey = (H - 1) * cs;
     geo.boundingSphere = new Sphere(new Vector3(ex / 2, (zmin + zmax) / 2, -ey / 2), Math.hypot(ex, ey, zmax - zmin) / 2 + this.reliefM);
-    addTerrainDetail(this.terrainMat, Math.max(cs * 1.5, 6));
+    this.strataUniforms.uLineW.value = Math.max(0.3, this.reliefM * 0.0015);
+    addTerrainDetail(this.terrainMat, Math.max(cs * 1.5, 6), this.strataUniforms);
     this.terrainMat.needsUpdate = true;
     this.terrain = new Mesh(geo, this.terrainMat);
     this.terrain.castShadow = true;
@@ -402,6 +412,8 @@ export class TerrainScene {
         const inv = 1 / Math.sqrt(dzdx * dzdx + dzdy * dzdy + 1);
         const o = i * 3;
         this.pos[o + 1] = z[i];
+        for (let k = 0; k < 3; k++) this.strB[o + k] = k < STRATA_BOUNDS ? w.strataBoundsM[i * STRATA_BOUNDS + k] : -1e9;
+        for (let k = 0; k < 4; k++) this.strM[i * 4 + k] = w.strataMaterial[i * STRATA_LAYERS + Math.min(k, STRATA_LAYERS - 1)];
         this.nrm[o] = -dzdx * inv;
         this.nrm[o + 1] = inv;
         this.nrm[o + 2] = dzdy * inv;
@@ -439,12 +451,16 @@ export class TerrainScene {
       const g = this.terrain.geometry;
       const start = r.y0 * W * 3;
       const count = (r.y1 - r.y0) * W * 3;
-      for (const name of ['position', 'normal', 'color'] as const) {
+      for (const name of ['position', 'normal', 'color', 'strataB'] as const) {
         const a = g.getAttribute(name) as BufferAttribute;
         a.clearUpdateRanges();
         a.addUpdateRange(start, count);
         a.needsUpdate = true;
       }
+      const sm = g.getAttribute('strataM') as BufferAttribute;
+      sm.clearUpdateRanges();
+      sm.addUpdateRange((start / 3) * 4, (count / 3) * 4);
+      sm.needsUpdate = true;
     }
   }
 
@@ -609,6 +625,7 @@ export class TerrainScene {
   setTerrainOverlay(o: TerrainOverlay) {
     if (o === this.terrainOverlay) return;
     this.terrainOverlay = o;
+    this.strataUniforms.uStrataOn.value = o === 'none' ? 1 : 0;
     const w = this.engine.world;
     this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
   }

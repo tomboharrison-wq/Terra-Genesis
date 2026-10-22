@@ -1,4 +1,4 @@
-import { createWorld, computeSurface, cloneWorld, MM_PER_H, type WorldState } from '../../engine/world';
+import { createWorld, computeSurface, cloneWorld, refreshAllExposed, setUniformStrata, MM_PER_H, STRATA_BOUNDS, STRATA_LAYERS, type WorldState } from '../../engine/world';
 import { WaterSim } from './waterSim';
 import { SedimentSim, sedimentClosure } from '../sediment/sedimentSim';
 import { GpuWater } from './gpuWater';
@@ -21,6 +21,8 @@ export interface SelfTestCase {
   gpuSedClosure?: number;
   cpuErodedM3?: number;
   gpuErodedM3?: number;
+  /** Cells whose exposed lithology differs CPU vs GPU. */
+  exposedMismatch?: number;
 }
 
 function fixture(name: string): WorldState {
@@ -39,7 +41,23 @@ function fixture(name: string): WorldState {
       const w = mk(48, 10, (x) => x * 0.8);
       w.looseSedimentThicknessM.fill(0.5);
       w.materialId.fill(2);
+      setUniformStrata(w);
       w.erosion.enabled = true;
+      w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
+      return w;
+    }
+    case 'caprock': {
+      // 5 cm resistant sandstone cap over clay: erosion must switch lithology mid-run.
+      const w = mk(48, 10, (x) => x * 0.8);
+      for (let i = 0; i < 48 * 48; i++) {
+        w.strataBoundsM.fill(-1e9, i * STRATA_BOUNDS, (i + 1) * STRATA_BOUNDS);
+        w.strataBoundsM[i * STRATA_BOUNDS] = (i % 48) * 0.8 - 0.05;
+        w.strataMaterial.fill(3, i * STRATA_LAYERS, (i + 1) * STRATA_LAYERS);
+        w.strataMaterial[i * STRATA_LAYERS] = 1;
+      }
+      refreshAllExposed(w);
+      w.erosion.enabled = true;
+      w.erosion.speedup = 50;
       w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
       return w;
     }
@@ -74,7 +92,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -117,6 +135,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
           cpuSedClosure: sedimentClosure(cpuSed.ledger, cpuSed.suspendedVolume()),
           gpuSedClosure: sedimentClosure(gSed.ledger, gSed.suspendedVolume()),
           cpuErodedM3: cpuSed.ledger.erodedLoose + cpuSed.ledger.erodedBedrock,
+          exposedMismatch: wc.materialId.reduce((a, m, i) => a + (m !== wg.materialId[i] ? 1 : 0), 0),
           gpuErodedM3: gSed.ledger.erodedLoose + gSed.ledger.erodedBedrock,
         }
       : {};
