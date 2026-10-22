@@ -80,3 +80,9 @@
 - With climate on, rain falls as snow wherever it is below 0 °C and builds a snowpack; above 0 °C it melts (adjustable melt rate per °C per day) into streams.
 - Snow shows as white on the map from the simulated snowpack; the inspector shows snow depth (as water), and the Climate panel shows snow stored, area covered, fallen and melted.
 - Snow is counted as stored water, so the water budget still balances; it runs on both the GPU and CPU and is saved with the world.
+
+## M06-C03 — Glaciers
+- Glaciers (Climate panel → Glaciers): ice builds above the snowline (equilibrium line, set by the climate), flows downhill under its own weight, and melts below it, feeding meltwater to the rivers.
+- Sliding ice erodes its bed; the rock is carried in the ice and dropped as moraines where the ice melts away. Ice is drawn as blue-white (grey where it carries debris) and raises the visible surface.
+- Glacier time runs faster than water time (default 10 years per simulated hour) and is shown with any lag; ice volume, area, thickness, sliding speed, erosion and moraine readouts; saved with the world.
+- Honest limit: map-scale ice flow deepens the centre of a V-shaped valley rather than carving a U; a guided U-valley/corrie lab is planned.

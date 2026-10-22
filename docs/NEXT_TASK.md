@@ -1,12 +1,13 @@
 # One next executable task
-ID: M06-C03
-Goal: Glaciers (spec E8). Ice thickness field (m, format v7). Snowpack older than a season / deeper than a
-threshold converts to ice (firn); ice flows by a shallow-ice approximation: flux q = −(2A/(n+2))(ρg)^n H^{n+2}
-|∇s|^{n−1}∇s (n = 3, A ≈ 2.4e-24 Pa⁻³ s⁻¹) on the surface s = bed + ice, explicit with a diffusive CFL; melt
-(degree-day) at the margins returns water to hydrology. Glacial erosion: bed lowering = K_g · sliding speed
-(abrasion), with geomorphic speedup, debris to loose sediment at the snout. Ice rendering; ice volume ledger.
-Read only: spec E8, src/sim/climate/climate.ts, waterSim snow code, sedimentSim erosion bookkeeping.
-Acceptance: ice slab on a slope flows downhill conserving volume; equilibrium-line behaviour (accumulates above,
-melts below); U-shaped cross-valley profile emerges from a V under long glacial erosion (guided test); water+ice
-ledger closes; CPU first (GPU later chunk if needed for speed).
-Done when: tests/typecheck/build/e2e pass, committed + pushed.
+ID: M06-C04
+Goal: Vegetation (spec E7/E8 neighbours; Part J M06-C04). Per-cell vegetation cover fraction (0–1, format v8)
+growing towards a suitability set by temperature (growing season above ~5 °C), water availability (rain
+factor × map rain, standing water, not under snow/ice/sea) and slope/soil (needs loose sediment); logistic
+growth / dieback on a slow cadence in geomorphic time. Vegetation reduces erosion (erodeK × (1 − 0.8·cover))
+and rain-splash weathering, and is rendered: greener terrain colour + instanced trees/shrubs where cover is
+high (InstancedMesh, density from cover, deterministic placement). Inspector + panel readouts, overlay.
+Read only: src/sim/climate/climate.ts, src/sim/sediment/sedimentSim.ts (erodeK use), gpuWater sediment pass
+(uniform → texture factor), TerrainScene colours.
+Acceptance: cover grows where warm + wet, absent above the treeline / on bare rock / under ice; erosion lower
+under vegetation (CPU + GPU test); old files load bare; instanced trees match cover.
+Done when: tests/typecheck/build/e2e/gpu-check pass, committed + pushed.

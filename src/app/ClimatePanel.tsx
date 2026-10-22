@@ -15,6 +15,7 @@ export function ClimatePanel() {
   const set = useUi((s) => s.set);
   if (!sim) return null;
   const c = sim.climate;
+  const g = sim.glacier;
   const on = c.enabled;
   const setC = engine.setClimateParams.bind(engine);
   const seasonal = -c.seasonalAmpC * Math.cos(2 * Math.PI * c.seasonPhase);
@@ -86,6 +87,35 @@ export function ClimatePanel() {
           <b>{c.snowM3 >= 1e6 ? `${(c.snowM3 / 1e6).toFixed(2)} million` : Math.round(c.snowM3).toLocaleString()} m³</b> of water, covering{' '}
           {c.snowCoverPct.toFixed(0)}% of the land. Fallen so far {Math.round(c.snowfallM3).toLocaleString()} m³, melted{' '}
           {Math.round(c.snowmeltM3).toLocaleString()} m³.
+        </p>
+        <h3>Glaciers</h3>
+        <label className="field check">
+          <input type="checkbox" checked={g.enabled} onChange={(e) => engine.setGlacierParams({ enabled: e.target.checked })} />
+          <span>Glaciers grow above the snowline, flow downhill and erode their beds</span>
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Snowline (equilibrium line) <b>{Math.round(g.elaM)} m</b>
+          </span>
+          <input type="range" min={-16} max={2} step={0.5} value={g.elaTempC} onChange={(e) => engine.setGlacierParams({ elaTempC: +e.target.value })} />
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Glacier time <b>{g.yearsPerSimHour} years per simulated hour</b>
+          </span>
+          <input type="range" min={0} max={100} value={Math.round(Math.log10(g.yearsPerSimHour) * 33.3)} onChange={(e) => engine.setGlacierParams({ yearsPerSimHour: Math.max(1, Math.round(Math.pow(10, +e.target.value / 33.3))) })} />
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Erosion by ice <b>{(g.abrasionK * 1e4).toFixed(1)} m per 10 km of sliding</b>
+          </span>
+          <input type="range" min={0} max={50} value={Math.round(g.abrasionK * 1e4 * 5)} onChange={(e) => engine.setGlacierParams({ abrasionK: +e.target.value / 5 / 1e4 })} />
+        </label>
+        <p className="hint small tight">
+          Ice {g.iceM3 >= 1e6 ? `${(g.iceM3 / 1e9).toFixed(3)} km³` : `${Math.round(g.iceM3).toLocaleString()} m³`} over {g.iceAreaPct.toFixed(0)}% of the land, up to{' '}
+          {Math.round(g.maxIceM)} m thick, sliding up to {Math.round(g.maxSlideMPerYr)} m/yr. After {g.years.toFixed(0)} glacier years
+          {g.lagYears > 0.5 ? ` (${g.lagYears.toFixed(0)} behind: very fast ice limits the time step)` : ''}: eroded{' '}
+          {Math.round(g.erodedM3).toLocaleString()} m³, {Math.round(g.morainedM3).toLocaleString()} m³ dropped as moraine.
         </p>
         <h3>Wind and rain shadow</h3>
         <div className="compass-row">

@@ -1,8 +1,9 @@
 import type { CellRect } from '../utils/rect';
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
+import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacierSim';
 
-export const WORLD_FORMAT_VERSION = 6;
+export const WORLD_FORMAT_VERSION = 7;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -115,6 +116,10 @@ export interface WorldState {
   water: WaterParams;
   /** Snowpack as snow water equivalent (m of water), ≥ 0. Counts as stored water. */
   snowSweM: Float32Array;
+  /** Glacier ice thickness on top of the ground surface (m of ice), ≥ 0. */
+  iceThicknessM: Float32Array;
+  /** Rock debris carried in the ice (m of rock over the cell), ≥ 0. */
+  iceDebrisM: Float32Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
@@ -122,6 +127,8 @@ export interface WorldState {
   coast: CoastParams;
   /** Climate: temperature, season, wind, orographic rain (spec E7). */
   climate: ClimateParams;
+  /** Glacier mass balance, flow and erosion parameters (spec E8). */
+  glacier: GlacierParams;
   meta: WorldMeta;
 }
 
@@ -159,9 +166,12 @@ export function createWorld(init: WorldInit): WorldState {
     water: defaultWaterParams(),
     sedimentSuspendedM: new Float32Array(n),
     snowSweM: new Float32Array(n),
+    iceThicknessM: new Float32Array(n),
+    iceDebrisM: new Float32Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
     climate: defaultClimateParams(),
+    glacier: defaultGlacierParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -257,9 +267,12 @@ export function cloneWorld(w: WorldState): WorldState {
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
     sedimentSuspendedM: w.sedimentSuspendedM.slice(),
     snowSweM: w.snowSweM.slice(),
+    iceThicknessM: w.iceThicknessM.slice(),
+    iceDebrisM: w.iceDebrisM.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
     climate: { ...w.climate },
+    glacier: { ...w.glacier },
     meta: { ...w.meta },
   };
 }

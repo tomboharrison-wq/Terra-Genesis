@@ -64,6 +64,22 @@ export interface SimInfo {
     snowfallM3: number;
     snowmeltM3: number;
   };
+  glacier: {
+    enabled: boolean;
+    yearsPerSimHour: number;
+    elaTempC: number;
+    abrasionK: number;
+    slidingFactor: number;
+    elaM: number;
+    iceM3: number;
+    iceAreaPct: number;
+    maxIceM: number;
+    maxSlideMPerYr: number;
+    erodedM3: number;
+    morainedM3: number;
+    years: number;
+    lagYears: number;
+  };
   sed: { weathered: number; rockfall: number; erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
 }
 
@@ -82,6 +98,7 @@ export interface HoverInfo {
   /** Climate on: local temperature (°C) and rainfall (mm/h). */
   temperatureC?: number;
   snowSweM?: number;
+  iceM?: number;
   rainHereMmH?: number;
   isSea: boolean;
 }

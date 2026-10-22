@@ -29,6 +29,11 @@ export function StatusBar() {
             <span>
               <b>Rock</b> {hover.materialName}
             </span>
+            {hover.iceM !== undefined && (
+              <span title="Glacier ice thickness">
+                <b>Ice</b> {hover.iceM < 10 ? hover.iceM.toFixed(1) : Math.round(hover.iceM)} m
+              </span>
+            )}
             {hover.snowSweM !== undefined && (
               <span title="Snowpack as water equivalent (fresh snow is roughly ten times deeper)">
                 <b>Snow</b> {(hover.snowSweM * 1000).toFixed(0)} mm water

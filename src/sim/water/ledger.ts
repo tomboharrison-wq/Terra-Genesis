@@ -2,6 +2,8 @@
 export interface WaterLedger {
   rainIn: number;
   sourceIn: number;
+  /** Glacier meltwater reaching the rivers (real-time share of accelerated ice melt). */
+  glacierMeltIn: number;
   /** Added/removed by user tools (rain brush, drain brush). */
   toolIn: number;
   toolOut: number;
@@ -19,11 +21,11 @@ export interface WaterLedger {
 }
 
 export function emptyLedger(initialStored = 0): WaterLedger {
-  return { rainIn: 0, sourceIn: 0, toolIn: 0, toolOut: 0, infiltrated: 0, evaporated: 0, edgeOut: 0, seaOut: 0, initialStored, snowfall: 0, snowmelt: 0 };
+  return { rainIn: 0, glacierMeltIn: 0, sourceIn: 0, toolIn: 0, toolOut: 0, infiltrated: 0, evaporated: 0, edgeOut: 0, seaOut: 0, initialStored, snowfall: 0, snowmelt: 0 };
 }
 
 export function ledgerIn(l: WaterLedger) {
-  return l.rainIn + l.sourceIn + l.toolIn;
+  return l.rainIn + l.sourceIn + l.toolIn + l.glacierMeltIn;
 }
 
 export function ledgerOut(l: WaterLedger) {

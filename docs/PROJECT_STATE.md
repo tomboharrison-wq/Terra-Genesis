@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M06 — Climate, snow, glaciers, vegetation (C01–C02 done)
-Current chunk: M06-C03 — glaciers (see NEXT_TASK)
+Current milestone: M06 — Climate, snow, glaciers, vegetation (C01–C03 done)
+Current chunk: M06-C04 — vegetation (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -17,6 +17,9 @@ Verified working:
   evap ∝ exp(0.065ΔT), 0 below 0 °C. CPU + GPU (climate texture; GPU evaporation counted in state.a). Format v5.
 - M06-C02 snow: world.snowSweM (format v6); snowfall below 0 °C, degree-day melt; stored volume = water + snow;
   CPU float64 mirror, GPU snow texture (r pack, g fallen, b melted since sync, folded in float64). White cover.
+- M06-C03 glaciers (src/sim/glacier/glacierSim.ts, Engine.glacierHook, Climate panel): ice + debris fields (v7);
+  linear mass balance about a climate ELA; semi-implicit SIA (CG, dt·D/cs² ≤ 100) moving ice by donor-limited
+  transfers (exact); edge outflow; abrasion ∝ sliding → debris → moraines; meltwater at real-time share.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -24,10 +27,10 @@ Known failures / gaps:
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
 - On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
-- Inland cells below sea level count as sea.
+- Inland cells below sea level count as sea. Glaciers do not carve U-shaped cross-sections (plan-view SIA).
 
 Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
 forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (144) · build PASS · e2e PASS 29/29 · gpu-check 9/9
+Last checks: typecheck PASS · npm test PASS (150) · build PASS · e2e PASS 30/30 · gpu-check 9/9
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

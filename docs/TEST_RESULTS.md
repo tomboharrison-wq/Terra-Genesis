@@ -1,5 +1,11 @@
 # Test results (latest first)
 
+## 2026-10-22 M06-C03
+- npm test PASS 150 (+ glaciers: slab flows downhill with volume conserved 1e-5; ice accumulates above the ELA, snout flows below it, ledger closes; abrasion lowers the bed, debris dropped as moraine, debris ledger closes; erosion confined to the ice and greatest on the centre line; engine meltwater input keeps the water budget; save/load)
+- Measured: explicit SIA reached only 0.3 glacier yr per 40 ms update on the 128² mountain world → semi-implicit CG (~5 yr/update). Loose CG tolerance broke conservation (5 %) → ice moved by donor-limited transfers of the implicit fluxes (1e-9). Unbounded dt·D gave 1100 m ice spikes (CG not converged) → dt·D/cs² ≤ 100 (0 unconverged, max ice ~190 m).
+- Not achieved: U-shaped cross-sections (centre deepens faster) → guided lab M06-C03b.
+- e2e 30/30 (+ GPU mountain world, 20 yr/h requested: 61 yr achieved + 59 yr lag reported, ice closure 1.8e-9, water 6.8e-6). Default lowered to 10 yr/h. Fixed flaky smooth-stroke check (select tool by clicking the rail).
+
 ## 2026-10-22 M06-C02
 - npm test PASS 144 (+ snow: cold plateau gets ≈10 mm SWE/h while lowland rains; 4 mm/°C/day at +5 °C melts exactly 20 mm/day; a seasonal year builds and melts a plateau pack (snowmelt > ½ snowfall); climate off → no snow; drowned snow ledgered to sea; save/load)
 - gpu-check 9/9 (+ snow-ridge: snow cpu 274164.9 gpu 274164.9 m³, melted 29737.5 both)

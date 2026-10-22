@@ -64,7 +64,7 @@ float tgNoise(vec2 p) {
   float n = tgNoise(q) * 0.5 + tgNoise(q * 3.7) * 0.3 + tgNoise(q * 13.1) * 0.2;
   diffuseColor.rgb *= 0.9 + 0.2 * n;
   float steep = (1.0 - smoothstep(0.5, 0.82, vTgNormalY)) * uStrataOn;
-  if (steep > 0.0) {
+  if (steep > 0.0 && vTgStrataM.x < 200.0) { // 255 = glacier ice: no rock strata
     float y = vTgWorld.y;
     float m = vTgStrataM.x;
     if (y < vTgStrataB.x) { m = vTgStrataM.y; if (y < vTgStrataB.y) { m = vTgStrataM.z; if (y < vTgStrataB.z) m = vTgStrataM.w; } }

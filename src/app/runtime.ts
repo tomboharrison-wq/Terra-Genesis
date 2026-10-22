@@ -114,6 +114,35 @@ export function syncSim() {
           snowmeltM3: L.snowmelt,
         };
       })(),
+      glacier: (() => {
+        const g = engine.glacier;
+        const p = w.glacier;
+        let area = 0;
+        let land = 0;
+        let maxIce = 0;
+        for (let i = 0; i < w.iceThicknessM.length; i++) {
+          if (engine.surface[i] >= w.seaLevelM) land++;
+          if (w.iceThicknessM[i] > 1) area++;
+          if (w.iceThicknessM[i] > maxIce) maxIce = w.iceThicknessM[i];
+        }
+        const c = w.climate;
+        return {
+          enabled: p.enabled,
+          yearsPerSimHour: p.yearsPerSimHour,
+          elaTempC: p.elaTempC,
+          abrasionK: p.abrasionK,
+          slidingFactor: p.slidingFactor,
+          elaM: w.seaLevelM + ((c.seaLevelTempC - p.elaTempC) / c.lapseRateCPerKm) * 1000,
+          iceM3: g.iceVolume(),
+          iceAreaPct: land ? (100 * area) / land : 0,
+          maxIceM: maxIce,
+          maxSlideMPerYr: g.maxSlideMPerYr,
+          erodedM3: g.ledger.eroded,
+          morainedM3: g.ledger.deposited,
+          years: g.ledger.timeS / (365.25 * 86400),
+          lagYears: g.ledger.lagS / (365.25 * 86400),
+        };
+      })(),
       sed: (() => {
         const S = engine.sediment.ledger;
         const susp = engine.sediment.suspendedVolume();

@@ -50,6 +50,8 @@ const TEMP_WARM = new Color(0xc8402a);
 const RAIN_LO = new Color(0xb4c6d3);
 const RAIN_HI = new Color(0x0a3a6b);
 const SNOW = new Color(0xf2f4f7);
+const ICE = new Color(0xcfe2ee);
+const ICE_DIRTY = new Color(0x8d8f8c);
 /** Snow water equivalent giving full white cover (≈ 20–30 cm of settled snow). */
 const SNOW_FULL_M = 0.03;
 const WAVE_LO = new Color(0xffe627);
@@ -94,6 +96,7 @@ export class TerrainScene {
   private waterView: WaterView = 'water';
   private terrainOverlay: TerrainOverlay = 'none';
   private snowTimer = 0;
+  private displayZ = new Float32Array(0);
   private snowRev = -1;
   private hadSnow = false;
   private heightTex: DataTexture | null = null;
@@ -191,6 +194,7 @@ export class TerrainScene {
   // ---------- world → GPU ----------
 
   private buildWorld(resetCamera: boolean) {
+    this.displayZ = new Float32Array(this.engine.world.width * this.engine.world.height);
     const w = this.engine.world;
     const W = w.width;
     const H = w.height;
@@ -427,7 +431,15 @@ export class TerrainScene {
     const W = w.width;
     const H = w.height;
     const cs = w.cellSizeM;
-    const z = this.engine.surface;
+    // Displayed surface = ground + glacier ice.
+    const ground = this.engine.surface;
+    const iceT = w.iceThicknessM;
+    const z = this.displayZ;
+    for (let y = Math.max(0, rect.y0 - 2); y < Math.min(H, rect.y1 + 2); y++)
+      for (let x = Math.max(0, rect.x0 - 2); x < Math.min(W, rect.x1 + 2); x++) {
+        const k = y * W + x;
+        z[k] = ground[k] + iceT[k];
+      }
     const r = clampRect(expandRect(rect, 1), W, H);
     if (!r) return;
     const sea = w.seaLevelM;
@@ -469,6 +481,17 @@ export class TerrainScene {
           this.col,
           o,
         );
+        const ic = iceT[i];
+        if (ic > 0.5) {
+          // Glacier ice: blue-white, greyer where it carries rock debris; no rock strata drawn on it.
+          const debris = Math.min(1, w.iceDebrisM[i] / Math.max(0.5, ic * 0.02));
+          const a = Math.min(1, ic / 5);
+          tmp.copy(ICE).lerp(ICE_DIRTY, debris);
+          this.col[o] += (tmp.r - this.col[o]) * a;
+          this.col[o + 1] += (tmp.g - this.col[o + 1]) * a;
+          this.col[o + 2] += (tmp.b - this.col[o + 2]) * a;
+          if (ic > 2) for (let k = 0; k < 4; k++) this.strM[i * 4 + k] = 255;
+        }
         const swe = w.snowSweM[i];
         if (swe > 0 && this.terrainOverlay === 'none') {
           // Snow cover from the simulated snowpack (thin cover lets the ground show through).
@@ -505,7 +528,7 @@ export class TerrainScene {
         } else if (overlay) {
           // Diverging change map: red = lowered (eroded), blue = raised (deposited);
           // neutral within ±5 cm, log scale 5 cm … 10 m.
-          const dz = z[i] - ref[i];
+          const dz = ground[i] - ref[i];
           const t = Math.min(1, Math.max(0, Math.log10(Math.abs(dz) / 0.05) / Math.log10(200)));
           if (Math.abs(dz) >= 0.05) {
             const c = dz < 0 ? ERODE_RGB : DEPOSIT_RGB;

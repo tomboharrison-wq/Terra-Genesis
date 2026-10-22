@@ -11,6 +11,7 @@ import { triggerLandslide, type LandslideResult } from '../sim/slopes/landslide'
 import { CoastSim, type CoastParams } from '../sim/coast/coastSim';
 import { SimClock, type Stepper } from './clock';
 import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate';
+import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -41,6 +42,8 @@ export class Engine {
   coast!: CoastSim;
   /** Climate fields (temperature, rain / evaporation factors) derived from world.climate. */
   climate!: ClimateField;
+  /** Glaciers (slow cadence, CPU, accelerated glacier time). */
+  glacier!: GlacierSim;
   private climateDirty = false;
   private climateClock = 0;
   private seasonDay = -1;
@@ -73,6 +76,8 @@ export class Engine {
     this.climate = new ClimateField(world.width * world.height);
     this.climate.compute(world, this.surface);
     this.water.climate = this.climate;
+    this.glacier = new GlacierSim(world, this.surface, this.climate);
+    this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
     this.referenceSurface = this.surface.slice();
@@ -158,6 +163,7 @@ export class Engine {
       this.waterRevision++;
       this.advanceSeason(done);
       this.coastHook(done);
+      this.glacierHook(done);
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -183,6 +189,7 @@ export class Engine {
       done += d;
       this.advanceSeason(d);
       this.coastHook(d);
+      this.glacierHook(d);
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -241,6 +248,34 @@ export class Engine {
       this.seasonDay = day;
       if (c.enabled) this.refreshClimate(false);
     }
+  }
+
+  /** Run glaciers when their cadence is due (pull GPU state, update, push water and ground back). */
+  private glacierHook(simSeconds: number) {
+    if (!this.glacier.accumulate(simSeconds)) return;
+    if (this.gpu) this.gpu.syncToCpu();
+    const melt = this.glacier.update();
+    if (!melt) return;
+    const d = this.world.waterDepthM;
+    const A = this.world.cellSizeM * this.world.cellSizeM;
+    let added = 0;
+    for (let i = 0; i < melt.length; i++)
+      if (melt[i] > 0 && !this.water.sea[i]) {
+        const nd = Math.fround(d[i] + melt[i]);
+        added += nd - d[i];
+        d[i] = nd;
+      }
+    this.water.ledger.glacierMeltIn += added * A;
+    this.water.refreshSea();
+    this.gpu?.uploadWater();
+    this.groundDirty = true;
+    this.climateDirty = true;
+    this.markRenderDirtyAll();
+  }
+
+  setGlacierParams(p: Partial<GlacierParams>): void {
+    Object.assign(this.world.glacier, p);
+    this.emit({ type: 'water-params-changed' });
   }
 
   setCoastParams(p: Partial<CoastParams>): void {

@@ -1,5 +1,6 @@
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
+import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacierSim';
 import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
@@ -12,12 +13,13 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
+ * v7 adds iceThicknessM, iceDebrisM and header.glacier. Older files migrate ice-free.
  * v6 adds snowSweM (snowpack). Older files migrate with no snow.
  * v5 adds header.climate. Older files migrate with climate off (uniform rain, as they ran).
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
@@ -28,6 +30,8 @@ const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'strataBoundsM', type: 'f32', perCell: STRATA_BOUNDS },
   { name: 'strataMaterial', type: 'u8', perCell: STRATA_LAYERS },
   { name: 'snowSweM', type: 'f32', perCell: 1 },
+  { name: 'iceThicknessM', type: 'f32', perCell: 1 },
+  { name: 'iceDebrisM', type: 'f32', perCell: 1 },
 ];
 
 export interface FileHeader {
@@ -45,6 +49,7 @@ export interface FileHeader {
   erosion?: ErosionParams;
   coast?: CoastParams;
   climate?: ClimateParams;
+  glacier?: GlacierParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -76,6 +81,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     erosion: w.erosion,
     coast: w.coast,
     climate: w.climate,
+    glacier: w.glacier,
     fields,
     extras,
   };
@@ -137,9 +143,12 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
     sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
     snowSweM: has('snowSweM') ? new Float32Array(get('snowSweM')) : new Float32Array(n),
+    iceThicknessM: has('iceThicknessM') ? new Float32Array(get('iceThicknessM')) : new Float32Array(n),
+    iceDebrisM: has('iceDebrisM') ? new Float32Array(get('iceDebrisM')) : new Float32Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
     coast: { ...defaultCoastParams(), ...h.coast },
     climate: { ...defaultClimateParams(), ...h.climate },
+    glacier: { ...defaultGlacierParams(), ...h.glacier },
     meta: h.meta,
   };
   if (!has('strataMaterial')) setUniformStrata(world); // v1–v3: one layer = the stored lithology
@@ -151,7 +160,9 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.waterDepthM.length !== n ||
     world.waterFluxM3PerS.length !== n * 4 ||
     world.sedimentSuspendedM.length !== n ||
-    world.snowSweM.length !== n
+    world.snowSweM.length !== n ||
+    world.iceThicknessM.length !== n ||
+    world.iceDebrisM.length !== n
   )
     throw new Error('Field size mismatch');
   return { world, extras: h.extras };

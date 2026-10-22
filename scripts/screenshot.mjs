@@ -60,8 +60,9 @@ await page.keyboard.press('Control+Shift+z');
 await page.waitForTimeout(200);
 check('redo reapplies', Math.abs((await sum()) - s1) < 1e-3 * Math.abs(s1) + 1e-3);
 
-// Smooth stroke
-await page.keyboard.press('4');
+// Smooth stroke (select by clicking the rail: a key press alone occasionally raced the stroke)
+await page.click('.rail-btn:has-text("Smooth")');
+await page.waitForFunction(() => document.querySelector('.rail-btn.active')?.textContent?.includes('Smooth'));
 await page.waitForTimeout(300);
 await page.mouse.move(720, 520);
 await page.waitForTimeout(300);
@@ -326,6 +327,30 @@ const sn = await eng(() => {
 await page.waitForTimeout(1500);
 await shot('28-snow');
 check('snow: cold spell builds a snowpack, warm spell melts it (' + sn.backend + ')', sn.cold > 1e4 && sn.warm < sn.cold && sn.melt > 0 && sn.c1 < 1e-4 && sn.c2 < 1e-4, `snow ${sn.cold.toFixed(0)} → ${sn.warm.toFixed(0)} m³, closure ${sn.c1.toExponential(1)} / ${sn.c2.toExponential(1)}`);
+
+// --- Glaciers (M06-C03): ice grows above the snowline on the mountain world and flows ---
+await page.click('.climate-panel label.check:has-text("Glaciers grow") input');
+const gl = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  e.setClimateParams({ seaLevelTempC: 6, seasonalAmpC: 0 });
+  e.setGlacierParams({ yearsPerSimHour: 20, elaTempC: -2 });
+  e.glacier.resetLedger();
+  e.water.resetLedger();
+  const t0 = performance.now();
+  e.advance(6 * 3600);
+  const ms = performance.now() - t0;
+  const L = e.glacier.ledger;
+  const ice = e.glacier.iceVolume();
+  const iceClosure = Math.abs(ice - (L.initialIce + L.accumulated - L.ablated - L.calved - L.exported)) / Math.max(1, L.initialIce + L.accumulated);
+  const W = e.water.ledger;
+  const stored = e.water.storedVolume();
+  const inn = W.initialStored + W.rainIn + W.sourceIn + W.toolIn + W.glacierMeltIn;
+  const wClosure = Math.abs(inn - (W.infiltrated + W.evaporated + W.seaOut + W.edgeOut + W.toolOut) - stored) / inn;
+  return { ice, iceClosure, wClosure, years: L.timeS / 3.15576e7, lag: L.lagS / 3.15576e7, ms, melt: W.glacierMeltIn };
+});
+await page.waitForTimeout(1500);
+await shot('29-glaciers');
+check('glaciers grow, conserve ice and keep the water budget', gl.ice > 1e5 && gl.years > 30 && Math.abs(gl.years + gl.lag - 120) < 1 && gl.iceClosure < 1e-6 && gl.wClosure < 1e-4, `ice ${(gl.ice / 1e6).toFixed(2)} M m³ after ${gl.years.toFixed(0)} yr (lag ${gl.lag.toFixed(0)} yr), ice closure ${gl.iceClosure.toExponential(1)}, water ${gl.wClosure.toExponential(1)}, ${gl.ms.toFixed(0)} ms`);
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
