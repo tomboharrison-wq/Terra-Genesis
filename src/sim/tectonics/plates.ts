@@ -15,9 +15,20 @@ import { settleSlopes } from '../../terrain/settle';
  *   convergent: uplift = upliftFactor · c · exp(−(d/w)²) on both sides — but where an oceanic plate
  *     meets a continental one the oceanic side sinks into a trench (−trenchFactor · c · …, narrower)
  *     and the continental side rises (a simple stand-in for subduction; detailed in M07-C03);
- *   divergent: subsidence = −riftFactor · |c| · exp(−(d/w_r)²) (a rift / spreading valley);
- *   transform: no vertical change (horizontal offset is M07-C02).
- *   w = beltWidthM (continental–continental ×1.5), w_r = 0.5·w.
+ *   transform: no vertical change — instead slip accumulates (tangential relative speed × time) and
+ *     each whole cell of slip shifts the higher-id plate one cell along the fault (dominant axis of
+ *     the fault tangent): every column field moves (rock, strata, soil, water, snow, ice, plants), so
+ *     ridges and rivers crossing the fault are offset. Within the plate it is an exact move; at the
+ *     leading end of each strip a column leaves, the trailing cell is extended — booked as
+ *     edgeExchange.
+ *   subduction (oceanic under continental, or the lower-id of two oceanic plates): trench on the
+ *     sinking side; on the overriding plate vents are spaced along a line ARC_DISTANCE × w inboard
+ *     (the ~100 km slab-depth rule, scaled), and volcanic cones grow there (arcFactor · c, conical,
+ *     radius 0.45 w) as a new volcanic top layer — ledgered as volcanic addition. Oceanic–oceanic
+ *     arcs grow islands.
+ *   divergent: fault-bounded blocks — graben (d < w/4) at the full rate, steps at 0.6 and 0.3, a
+ *     shoulder rising at 0.12 — so rifts grow normal-fault scarps.
+ *   w = beltWidthM (continental–continental ×1.5).
  * Applied as exact float32 bedrock changes (strata boundaries shifted with the rock); the ledger
  * books uplifted and subsided volume. Rock pushed steeper than its lithology can stand then
  * collapses into talus (the generator's slope-settling rules, mass conserved) — so belts become
@@ -47,17 +58,26 @@ export interface TectonicsParams {
   upliftFactor: number;
   trenchFactor: number;
   riftFactor: number;
+  /** Peak volcanic growth per unit convergence at arc vents. */
+  arcFactor: number;
   intervalS: number;
 }
 
 export function defaultTectonicsParams(): TectonicsParams {
-  return { enabled: false, plates: [], yearsPerSimHour: 20000, beltWidthM: 1500, upliftFactor: 0.2, trenchFactor: 0.4, riftFactor: 0.25, intervalS: 600 };
+  return { enabled: false, plates: [], yearsPerSimHour: 20000, beltWidthM: 1500, upliftFactor: 0.2, trenchFactor: 0.4, riftFactor: 0.25, arcFactor: 0.25, intervalS: 600 };
 }
 
 export interface TectonicsLedger {
   uplifted: number;
   subsided: number;
   years: number;
+  /** Lateral slip on transform faults (m, summed over faults) and cell shifts applied. */
+  slipM: number;
+  shifts: number;
+  /** Ground volume that left (−) / entered (+) at the ends of shifted strips (m³). */
+  edgeExchange: number;
+  /** Volcanic rock added at arc vents (m³). */
+  volcanic: number;
 }
 
 /** Plate palette (overlay): distinct, mid-tone hues. */
@@ -157,6 +177,23 @@ function mergeFragments(w: WorldState, n: number, minCells: number) {
   }
 }
 
+/** Which plate sinks where two converge: oceanic under continental; of two oceanic, the lower id. */
+function subducts(a: Plate, b: Plate): boolean {
+  if (a.kind === 'oceanic' && b.kind === 'continental') return true;
+  if (a.kind === 'oceanic' && b.kind === 'oceanic') return a.id < b.id;
+  return false;
+}
+
+/** Arc volcanoes sit this many belt widths inboard of the trench (scaled ~100 km slab-depth rule). */
+export const ARC_DISTANCE = 2.5;
+const VOLCANIC = 5;
+
+function cellHash(i: number): number {
+  let h = Math.imul(i ^ 0x27d4eb2d, 0x85ebca6b);
+  h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
+
 const NB: [number, number][] = [
   [1, 0],
   [-1, 0],
@@ -165,7 +202,9 @@ const NB: [number, number][] = [
 ];
 
 export class TectonicsSim {
-  ledger: TectonicsLedger = { uplifted: 0, subsided: 0, years: 0 };
+  ledger: TectonicsLedger = { uplifted: 0, subsided: 0, years: 0, slipM: 0, shifts: 0, edgeExchange: 0, volcanic: 0 };
+  /** Slip not yet applied as a whole-cell shift, per plate pair 'a-b' (m, + along the tangent). */
+  pendingSlip = new Map<string, number>();
   /** Boundary type per cell (0 none, 1 convergent, 2 divergent, 3 transform), from the last classify(). */
   boundary: Uint8Array;
   /** Vertical rate per cell (m/yr) from the last rates() call. */
@@ -287,6 +326,7 @@ export class TectonicsSim {
     }
     const r = this.rate;
     r.fill(0);
+    const arcCand: number[] = [];
     for (let i = 0; i < n; i++) {
       const b = near[i];
       if (b < 0) continue;
@@ -299,16 +339,61 @@ export class TectonicsSim {
       if (type === 1) {
         const cc = me.kind === 'continental' && them.kind === 'continental';
         const wid = p.beltWidthM * (cc ? 1.5 : 1);
-        if (me.kind === 'oceanic' && them.kind === 'continental') {
-          r[i] = -p.trenchFactor * c * Math.exp(-((d / (0.5 * wid)) ** 2)); // trench on the oceanic side
+        if (subducts(me, them)) {
+          r[i] = -p.trenchFactor * c * Math.exp(-((d / (0.5 * wid)) ** 2)); // trench on the sinking side
         } else {
-          r[i] = p.upliftFactor * c * Math.exp(-((d / wid) ** 2)) * (me.kind === 'continental' && them.kind === 'oceanic' ? 1.3 : 1);
+          // Overriding plate edge / collision belt (an oceanic overriding plate rises less).
+          const k = me.kind === 'continental' && them.kind === 'oceanic' ? 1.3 : me.kind === 'oceanic' ? 0.5 : 1;
+          r[i] = p.upliftFactor * c * Math.exp(-((d / wid) ** 2)) * k;
+          if (subducts(them, me)) arcCand.push(i);
         }
       } else if (type === 2) {
-        r[i] = -p.riftFactor * Math.abs(c) * Math.exp(-((d / (0.5 * p.beltWidthM)) ** 2));
+        // Fault-bounded blocks: graben, two step blocks, raised shoulder (normal-fault scarps between).
+        const blk = Math.floor(d / (0.25 * p.beltWidthM));
+        const f = blk === 0 ? 1 : blk === 1 ? 0.6 : blk === 2 ? 0.3 : blk === 3 ? -0.12 : 0;
+        r[i] = -p.riftFactor * Math.abs(c) * f;
       }
     }
+    this.arcVolcanoes(arcCand, dist, near, conv);
     return r;
+  }
+
+  /** Volcanic vents on the overriding plate, ARC_DISTANCE × belt width inboard of a subduction trench. */
+  vents: number[] = [];
+  /** Volcanic growth rate per cell (m/yr) from the last rates() call. */
+  arcRate = new Float32Array(0);
+
+  private arcVolcanoes(cand: number[], dist: Float32Array, near: Int32Array, conv: Float32Array) {
+    const w = this.world;
+    const W = w.width;
+    const cs = w.cellSizeM;
+    const p = this.params;
+    if (this.arcRate.length !== W * w.height) this.arcRate = new Float32Array(W * w.height);
+    const a = this.arcRate;
+    a.fill(0);
+    const arcD = ARC_DISTANCE * p.beltWidthM;
+    const spacing = 1.2 * p.beltWidthM;
+    const R = Math.max(1.5 * cs, 0.45 * p.beltWidthM);
+    const band = cand.filter((i) => Math.abs(dist[i] - arcD) <= 0.75 * cs);
+    band.sort((i, j) => cellHash(i) - cellHash(j));
+    const vents: number[] = [];
+    for (const i of band) {
+      const x = i % W;
+      const y = (i / W) | 0;
+      if (vents.every((v) => Math.hypot(x - (v % W), y - ((v / W) | 0)) * cs >= spacing)) vents.push(i);
+    }
+    this.vents = vents;
+    const rc = Math.ceil(R / cs);
+    for (const v of vents) {
+      const vx = v % W;
+      const vy = (v / W) | 0;
+      const rate = p.arcFactor * Math.max(0, conv[near[v]]);
+      for (let y = Math.max(0, vy - rc); y <= Math.min(w.height - 1, vy + rc); y++)
+        for (let x = Math.max(0, vx - rc); x <= Math.min(W - 1, vx + rc); x++) {
+          const d = Math.hypot(x - vx, y - vy) * cs;
+          if (d < R) a[y * W + x] += rate * (1 - d / R);
+        }
+    }
   }
 
   accumulate(dtWater: number): boolean {
@@ -323,6 +408,115 @@ export class TectonicsSim {
     if (!this.params.enabled || dt <= 0) return false;
     this.run((dt * this.params.yearsPerSimHour) / 3600);
     return true;
+  }
+
+  /** Number of cells shifted by the last run (callers re-upload water when > 0). */
+  lastShifts = 0;
+
+  /** Accumulate slip on each transform fault and shift plates by whole cells. */
+  private transformSlip(years: number) {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const plates = this.params.plates;
+    this.lastShifts = 0;
+    // Fault normal per pair (sum of boundary-cell directions from the lower to the higher id).
+    const normals = new Map<string, [number, number, number]>();
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (this.boundary[i] !== 3) continue;
+        const a = w.plateId[i];
+        for (const [dx, dy] of NB) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          const b = w.plateId[yy * W + xx];
+          if (b <= a) continue;
+          const key = `${a}-${b}`;
+          const v = normals.get(key) ?? [0, 0, 0];
+          normals.set(key, [v[0] + dx, v[1] + dy, v[2] + 1]);
+        }
+      }
+    for (const [key, [nx0, ny0, cnt]] of normals) {
+      if (cnt < 3) continue;
+      const [a, b] = key.split('-').map(Number);
+      const pa = plates[a];
+      const pb = plates[b];
+      if (!pa || !pb) continue;
+      const l = Math.hypot(nx0, ny0) || 1;
+      const nx = nx0 / l;
+      const ny = ny0 / l;
+      const tx = -ny;
+      const ty = nx;
+      const rel = ((pb.vxMmYr - pa.vxMmYr) * tx + (pb.vyMmYr - pa.vyMmYr) * ty) / 1000; // m/yr along t
+      const slip = rel * years;
+      this.ledger.slipM += Math.abs(slip);
+      let pend = (this.pendingSlip.get(key) ?? 0) + slip;
+      const cs = w.cellSizeM;
+      while (Math.abs(pend) >= cs) {
+        const sgn = Math.sign(pend);
+        // Shift plate b one cell along the dominant axis of the tangent.
+        if (Math.abs(tx) >= Math.abs(ty)) this.shiftPlate(b, Math.sign(tx) * sgn, 0);
+        else this.shiftPlate(b, 0, Math.sign(ty) * sgn);
+        pend -= sgn * cs;
+        this.ledger.shifts++;
+        this.lastShifts++;
+      }
+      this.pendingSlip.set(key, pend);
+    }
+  }
+
+  /** Move every column of plate k one cell by (dx, dy) along its runs (see class comment). */
+  shiftPlate(k: number, dx: number, dy: number) {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const A = w.cellSizeM * w.cellSizeM;
+    const fields: { a: Float32Array | Uint8Array; per: number }[] = [
+      { a: w.bedrockElevationM, per: 1 },
+      { a: w.looseSedimentThicknessM, per: 1 },
+      { a: w.materialId, per: 1 },
+      { a: w.strataBoundsM, per: STRATA_BOUNDS },
+      { a: w.strataMaterial, per: 4 },
+      { a: w.waterDepthM, per: 1 },
+      { a: w.sedimentSuspendedM, per: 1 },
+      { a: w.snowSweM, per: 1 },
+      { a: w.iceThicknessM, per: 1 },
+      { a: w.iceDebrisM, per: 1 },
+      { a: w.vegCover, per: 1 },
+    ];
+    const copy = (to: number, from: number) => {
+      for (const f of fields) for (let c = 0; c < f.per; c++) f.a[to * f.per + c] = f.a[from * f.per + c];
+    };
+    const ground = (i: number) => w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
+    // Runs along the shift axis; walk from the leading end backwards so each cell takes its predecessor.
+    const lines = dx !== 0 ? H : W;
+    const len = dx !== 0 ? W : H;
+    const at = (line: number, t: number) => (dx !== 0 ? line * W + t : t * W + line);
+    const dir = dx !== 0 ? dx : dy;
+    for (let line = 0; line < lines; line++) {
+      let t = dir > 0 ? len - 1 : 0;
+      while (dir > 0 ? t >= 0 : t < len) {
+        if (w.plateId[at(line, t)] !== k) {
+          t -= dir;
+          continue;
+        }
+        // Run of plate k from its leading end `t` back to its trailing end.
+        const lead = t;
+        let trail = t;
+        while ((dir > 0 ? trail - 1 >= 0 : trail + 1 < len) && w.plateId[at(line, trail - dir)] === k) trail -= dir;
+        this.ledger.edgeExchange -= ground(at(line, lead)) * A; // the leading column leaves the run
+        for (let u = lead; u !== trail; u -= dir) copy(at(line, u), at(line, u - dir));
+        this.ledger.edgeExchange += ground(at(line, trail)) * A; // trailing column extended (duplicated)
+        t = trail - dir;
+      }
+    }
+    for (let i = 0; i < W * H; i++) {
+      if (w.plateId[i] !== k) continue;
+      w.waterFluxM3PerS.fill(0, i * 4, i * 4 + 4);
+      this.surface[i] = ground(i);
+    }
   }
 
   /** Advance `years` of tectonic time: move bedrock (and strata) by rate × years. */
@@ -348,10 +542,32 @@ export class TectonicsSim {
       if (dz > 0) up += dz;
       else down -= dz;
     }
+    // Arc volcanism: new volcanic rock laid on top (a volcanic top layer in the strata column).
+    let volc = 0;
+    const av = this.arcRate;
+    for (let i = 0; i < av.length; i++) {
+      if (av[i] <= 0) continue;
+      const add = av[i] * years;
+      const o = i * STRATA_BOUNDS;
+      const m = i * 4;
+      if (w.strataMaterial[m] !== VOLCANIC) {
+        for (let k = STRATA_BOUNDS - 1; k > 0; k--) w.strataBoundsM[o + k] = w.strataBoundsM[o + k - 1];
+        for (let k = 3; k > 0; k--) w.strataMaterial[m + k] = w.strataMaterial[m + k - 1];
+        w.strataBoundsM[o] = b[i];
+        w.strataMaterial[m] = VOLCANIC;
+      }
+      const nb = Math.fround(b[i] + add);
+      volc += nb - b[i];
+      b[i] = nb;
+      refreshExposed(w, i);
+      this.surface[i] = b[i] + w.looseSedimentThicknessM[i];
+    }
+    this.ledger.volcanic += volc * A;
     this.ledger.uplifted += up * A;
     this.ledger.subsided += down * A;
     this.ledger.years += years;
-    if (up > 0 || down > 0) {
+    this.transformSlip(years);
+    if (up > 0 || down > 0 || volc > 0) {
       settleSlopes(w, 60);
       for (let i = 0; i < this.surface.length; i++) this.surface[i] = b[i] + w.looseSedimentThicknessM[i];
     }

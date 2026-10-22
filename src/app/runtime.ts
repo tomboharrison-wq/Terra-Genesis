@@ -136,6 +136,10 @@ export function syncSim() {
           transform: tr,
           maxElevM: maxE,
           revision: engine.plateRevision,
+          slipM: s.ledger.slipM,
+          shifts: s.ledger.shifts,
+          volcanicM3: s.ledger.volcanic,
+          vents: s.vents.length,
         };
       })(),
       vegetation: (() => {

@@ -12,6 +12,7 @@ import { TimeBar } from './TimeBar';
 import { SlumpLab } from './SlumpLab';
 import { ArchLab } from './ArchLab';
 import { ShorelineLab } from './ShorelineLab';
+import { SubductionLab } from './SubductionLab';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
@@ -42,6 +43,7 @@ export function App() {
       {dialog === 'slump' && <SlumpLab />}
       {dialog === 'arch' && <ArchLab />}
       {dialog === 'shore' && <ShorelineLab />}
+      {dialog === 'subduction' && <SubductionLab />}
     </div>
   );
 }

@@ -77,6 +77,10 @@ export interface SimInfo {
     transform: number;
     maxElevM: number;
     revision: number;
+    slipM: number;
+    shifts: number;
+    volcanicM3: number;
+    vents: number;
   };
   vegetation: { enabled: boolean; annualPrecipMm: number; yearsPerSimHour: number; erosionShield: number; coverPct: number; forestPct: number; treelineM: number };
   glacier: {
@@ -160,7 +164,7 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore';
+  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;

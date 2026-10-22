@@ -129,3 +129,96 @@ describe('M07-C01 kinematic plates: boundaries and vertical deformation', () => 
     expect(generatePlates(w, 3, 1, s).length).toBe(3);
   }, 60000);
 });
+
+describe('M07-C02 faults: rift blocks and transform offsets', () => {
+  it('rifts drop in fault-bounded steps (scarps), with raised shoulders', () => {
+    const { w, t } = twoPlates({ vxMmYr: -15 }, { vxMmYr: 15 });
+    w.tectonics.beltWidthM = 4000; // blocks 1 km = 2 cells wide
+    t.run(20000);
+    const prof = Array.from({ length: 12 }, (_, k) => row(w, 31 - k));
+    // Graben deepest, then steps; a shoulder above the starting level; flat beyond.
+    expect(prof[0]).toBeLessThan(prof[2] - 1);
+    expect(prof[2]).toBeLessThan(prof[4] - 1);
+    expect(Math.max(...prof)).toBeGreaterThan(100);
+    // Discrete scarps: most neighbouring cells equal, a few big jumps.
+    const jumps = prof.slice(1).map((v, k) => Math.abs(v - prof[k])).filter((d) => d > 5);
+    expect(jumps.length).toBeGreaterThanOrEqual(3);
+    expect(jumps.length).toBeLessThanOrEqual(4);
+  });
+
+  it('a transform fault offsets a ridge that crosses it', () => {
+    // East plate slides north past the west plate at 20 mm/yr: 500 m cells ⇒ one cell per 25 kyr.
+    const { w, t } = twoPlates({ vyMmYr: 0 }, { vyMmYr: 20 });
+    for (let x = 0; x < 64; x++) w.bedrockElevationM[10 * 64 + x] = 300; // E–W ridge at row 10
+    t.run(100000);
+    expect(t.ledger.shifts).toBe(4);
+    const ridgeRow = (x: number) => {
+      let best = 0;
+      for (let y = 0; y < 32; y++) if (w.bedrockElevationM[y * 64 + x] > w.bedrockElevationM[best * 64 + x]) best = y;
+      return best;
+    };
+    expect(ridgeRow(10)).toBe(10); // west side stays
+    expect(ridgeRow(50)).toBe(14); // east side carried 4 cells north
+    expect(t.ledger.slipM).toBeCloseTo(2000, 0);
+  });
+
+  it('shifting conserves ground except the ledgered strip ends', () => {
+    const { w, t } = twoPlates({ vyMmYr: 0 }, { vyMmYr: -20 });
+    for (let i = 0; i < 64 * 32; i++) w.bedrockElevationM[i] = 100 + (i % 7) * 3;
+    const vol = () => w.bedrockElevationM.reduce((a, v, i) => a + v + w.looseSedimentThicknessM[i], 0) * w.cellSizeM * w.cellSizeM;
+    const v0 = vol();
+    t.run(50000);
+    expect(t.ledger.shifts).toBe(2);
+    expect(Math.abs(vol() - v0 - t.ledger.edgeExchange)).toBeLessThan(1e-3 * v0 * 1e-6 + 1);
+  });
+});
+
+describe('M07-C03 subduction: trench, volcanic arc, guided cross-section', () => {
+  it('ocean under continent: trench on the ocean side, arc volcanoes inland at the arc distance', () => {
+    const { w, t } = twoPlates({ vxMmYr: 40, kind: 'oceanic' }, { vxMmYr: 0 });
+    t.run(10000);
+    expect(t.vents.length).toBeGreaterThan(0);
+    for (const v of t.vents) {
+      expect(w.plateId[v]).toBe(1); // overriding (continental) side only
+      const x = v % 64;
+      // 2.5 × 1.5 km = 3.75 km = 7.5 cells inland of the boundary (x = 32).
+      expect(Math.abs(x - 32 - 7.5)).toBeLessThanOrEqual(1.5);
+    }
+    const v0 = t.vents[0];
+    expect(w.bedrockElevationM[v0] - 100).toBeGreaterThan(80); // 0.25 × 40 mm/yr × 10 kyr = 100 m peak (+ belt)
+    expect(w.materialId[v0]).toBe(5); // volcanic rock on top
+    expect(row(w, 31)).toBeLessThan(100); // trench
+    expect(t.ledger.volcanic).toBeGreaterThan(0);
+  });
+
+  it('two oceanic plates: an island arc rises out of the sea', () => {
+    const { w, t } = twoPlates({ vxMmYr: 40, kind: 'oceanic' }, { vxMmYr: 0, kind: 'oceanic' });
+    w.seaLevelM = 0;
+    w.bedrockElevationM.fill(-60);
+    t.run(20000);
+    expect(t.vents.length).toBeGreaterThan(0);
+    for (const v of t.vents) expect(w.plateId[v]).toBe(1); // the lower-id plate sinks
+    expect(Math.max(...t.vents.map((v) => w.bedrockElevationM[v]))).toBeGreaterThan(0);
+  });
+
+  it('continent–continent collision has no arc', () => {
+    const { t } = twoPlates({ vxMmYr: 20 }, { vxMmYr: -20 });
+    t.run(10000);
+    expect(t.vents.length).toBe(0);
+  });
+
+  it('cross-section geometry: steeper slabs put the arc closer to the trench; quakes follow the slab', async () => {
+    const { subductionGeometry, MAX_QUAKE_DEPTH_KM } = await import('../src/local/subduction/model');
+    const shallow = subductionGeometry({ convergenceMmYr: 50, dipDeg: 25, overriding: 'continental' });
+    const steep = subductionGeometry({ convergenceMmYr: 50, dipDeg: 65, overriding: 'continental' });
+    expect(steep.arcDistanceKm).toBeLessThan(shallow.arcDistanceKm);
+    expect(steep.arcDistanceKm).toBeGreaterThan(40);
+    expect(shallow.arcDistanceKm).toBeLessThan(400);
+    for (const q of steep.quakes) {
+      expect(q.z).toBeGreaterThan(0);
+      expect(q.z).toBeLessThanOrEqual(MAX_QUAKE_DEPTH_KM + 20);
+    }
+    const shallowQuakes = steep.quakes.filter((q) => q.z < 100).length;
+    expect(shallowQuakes).toBeGreaterThan(steep.quakes.length / 3); // most quakes are shallow
+  });
+});

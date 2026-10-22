@@ -100,3 +100,11 @@
 - New Earth → Plates tool (E): divide the map into 2–8 plates, then set each plate's type (continental or oceanic), speed (mm/yr) and direction.
 - Where plates collide the ground rises into a mountain belt (wider where two continents meet); where an ocean plate meets a continent a trench forms on the ocean side; where plates pull apart a rift valley sinks; where they slide past there is no vertical change. Rock layers move with the rock.
 - Runs in tectonic time (thousands of years per simulated hour). Plate colours with boundaries coloured by type and motion arrows on the map; the Profile cross-section shows the plates crossed and their motion.
+
+## M07-C02 — Faults
+- Rifts now sink as fault-bounded blocks: a central graben, stepped blocks and slightly raised shoulders, separated by fault scarps.
+- Where plates slide past each other, the slip builds up and the moving plate's ground shifts sideways one cell at a time — rock, soil, water, snow, ice and plants together — so ridges and rivers crossing the fault end up offset. The Plates panel reports the slip and offsets.
+
+## M07-C03 — Subduction and volcanic arcs
+- Where an ocean plate sinks under a continent (or one ocean plate under another), a trench deepens on the sinking side and a line of volcanoes grows inland on the other plate, built of new volcanic rock; two ocean plates make volcanic islands.
+- New Subduction zone cross-section (Plates panel): the sinking slab, earthquakes along it, melting where the slab reaches 100 km depth and the volcano above — change the speed, the slab's dip and the type of plate on top, and play the motion.

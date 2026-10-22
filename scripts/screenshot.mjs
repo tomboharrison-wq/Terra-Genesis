@@ -67,8 +67,13 @@ await page.waitForTimeout(300);
 await page.mouse.move(720, 520);
 await page.waitForTimeout(300);
 await page.mouse.down();
-await page.waitForTimeout(800);
+for (let k = 0; k < 16; k++) {
+  // keep moving over the raised bump: strokes advance on pointer events, not on a held still press
+  await page.mouse.move(716 + (k % 4) * 3, 518 - (k % 3) * 2, { steps: 1 });
+  await page.waitForTimeout(60);
+}
 await page.mouse.up();
+await page.waitForTimeout(300);
 const s3 = await sum();
 const smoothLabel = await page.evaluate(() => window.__terraGenesis.engine.history.undoLabel);
 check('smooth stroke changes terrain', s3 !== s1 && smoothLabel === 'smooth', `Δ=${(s3 - s1).toFixed(4)} undo=${smoothLabel}`);
@@ -429,6 +434,18 @@ const pl = await eng(() => {
 await page.waitForTimeout(1500);
 await shot('33-plates');
 check('plates: boundaries deform the land in tectonic time', pl.plates === 3 && pl.years > 3e5 && (pl.conv === 0 || pl.up > 0) && pl.up + pl.down > 0, `${pl.plates} plates, ${Math.round(pl.years).toLocaleString()} yr: raised ${(pl.up / 1e9).toFixed(2)} km³, lowered ${(pl.down / 1e9).toFixed(2)} km³, top ${pl.z0.toFixed(0)} → ${pl.z1.toFixed(0)} m`);
+
+// --- Subduction cross-section lab (M07-C03) ---
+await page.click('.plates-panel button:has-text("Open subduction zone cross-section")');
+await page.waitForSelector('svg[aria-label="Subduction zone cross-section"]');
+const arc1 = await page.textContent('.slump-readout');
+await page.locator('.dialog input[type=range]').nth(1).focus();
+for (let k = 0; k < 20; k++) await page.keyboard.press('ArrowRight'); // steeper slab
+const arc2 = await page.textContent('.slump-readout');
+await shot('34-subduction-lab');
+const km = (t) => +(t.match(/arc ([\d.]+) km/)?.[1] ?? NaN);
+check('subduction lab: steeper slab moves the arc towards the trench', km(arc2) < km(arc1), `${km(arc1)} km → ${km(arc2)} km`);
+await page.click('.dialog [aria-label="Close"]');
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

@@ -302,6 +302,11 @@ export class Engine {
     if (!this.tectonics.accumulate(simSeconds)) return;
     if (this.gpu) this.gpu.syncToCpu();
     if (!this.tectonics.update()) return;
+    if (this.tectonics.lastShifts > 0) {
+      // Transform faults moved whole columns (water, snow, plants included).
+      this.gpu?.uploadWater();
+      this.vegetationRevision++;
+    }
     this.water.refreshSea();
     this.groundDirty = true;
     this.markRenderDirtyAll();

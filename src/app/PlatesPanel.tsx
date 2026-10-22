@@ -75,6 +75,9 @@ export function PlatesPanel() {
           </div>
         );
       })}
+      <button className="small" onClick={() => set({ dialog: 'subduction' })}>
+        Open subduction zone cross-section
+      </button>
       <h3>Run</h3>
       <label className="field check">
         <input type="checkbox" checked={t.enabled} disabled={plates.length < 2} onChange={(e) => engine.setTectonicsParams({ enabled: e.target.checked })} />
@@ -108,7 +111,9 @@ export function PlatesPanel() {
       </div>
       <p className="hint small tight">
         Boundaries: {t.convergent} cells colliding, {t.divergent} pulling apart, {t.transform} sliding past. After {Math.round(t.years).toLocaleString()} years:
-        raised {fmtVol(t.upliftedM3)}, lowered {fmtVol(t.subsidedM3)}; highest point {Math.round(t.maxElevM)} m. Use the Profile tool for a
+        raised {fmtVol(t.upliftedM3)}, lowered {fmtVol(t.subsidedM3)}; highest point {Math.round(t.maxElevM)} m. Sliding faults have
+        moved {(t.slipM / 1000).toFixed(1)} km ({t.shifts} one-cell offsets: rivers and ridges crossing them shift sideways). Rifts sink in
+        fault-bounded steps. Where an ocean plate sinks, {t.vents} volcanoes grow inland of the trench ({fmtVol(t.volcanicM3)} of volcanic rock). Use the Profile tool for a
         cross-section with the plates marked.
       </p>
     </section>

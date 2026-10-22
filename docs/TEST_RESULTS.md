@@ -1,5 +1,12 @@
 # Test results (latest first)
 
+## 2026-10-22 M07-C03
+- npm test PASS 180 (+ subduction: ocean→continent trench + vents only on the overriding plate at 7.5 ± 1.5 cells (2.5 × belt), volcanic top layer, cone > 80 m in 10 kyr; o–o arc islands rise above sea on the higher-id plate; c–c collision has no arc; lab geometry: steeper dip ⇒ arc nearer the trench, quakes 0–680 km, most shallow)
+- e2e: fixed the flaky smooth-stroke check for good (keep moving during the stroke) — 34/34 before C03.
+
+## 2026-10-22 M07-C02
+- npm test PASS 176 (+ faults: rift steps graben < step < step with a shoulder above the start and 3–4 discrete scarps; a 20 mm/yr transform shifts the east plate 4 cells in 100 kyr (500 m cells) and the E–W ridge is offset 10 → 14; ground volume conserved apart from the ledgered strip-end exchange)
+
 ## 2026-10-22 M07-C01
 - npm test PASS 173 (+ tectonics: no plate fragments <2 %; classification convergent/divergent/transform/interior; converging continents +120 m at the boundary in 10 kyr (0.3 × 40 mm/yr), decaying, ledger = Δ bedrock volume; rift sinks; transform no change; ocean–continent trench + continental uplift; strata move with rock; engine tectonic time, seeded plate maps, save/load)
 - Fixed: nearest-boundary BFS re-queued cells until the array overflowed → two-pass sweep (linear).
