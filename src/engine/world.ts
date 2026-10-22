@@ -1,6 +1,6 @@
 import type { CellRect } from '../utils/rect';
 
-export const WORLD_FORMAT_VERSION = 2;
+export const WORLD_FORMAT_VERSION = 3;
 
 export type BoundaryMode = 'open' | 'closed';
 
@@ -28,6 +28,27 @@ export interface WaterParams {
 }
 
 export const MM_PER_H = 1 / 3.6e6;
+
+/**
+ * Hydraulic erosion / deposition parameters (spec E2). Transport capacity per unit area
+ * C = capacityK · q · S  (m of bulk sediment), q = depth·speed (m²/s), S = bed slope.
+ * Below capacity flow erodes at erodeK·(C − s) (loose sediment first, then bedrock scaled by
+ * lithology erodibility × bedrockFactor); above capacity it deposits at depositK·(s − C).
+ * `speedup` multiplies erosion and deposition rates together (geomorphic acceleration —
+ * a labelled, non-physical time compression so landforms change within minutes).
+ */
+export interface ErosionParams {
+  enabled: boolean;
+  capacityK: number;
+  erodeK: number;
+  depositK: number;
+  bedrockFactor: number;
+  speedup: number;
+}
+
+export function defaultErosionParams(): ErosionParams {
+  return { enabled: false, capacityK: 0.05, erodeK: 0.01, depositK: 0.02, bedrockFactor: 0.1, speedup: 10 };
+}
 
 export function defaultWaterParams(): WaterParams {
   return { rainMPerS: 0, infiltrationMPerS: 0, evaporationMPerS: 0, boundary: 'open', manningN: 0.035, sources: [] };
@@ -62,6 +83,9 @@ export interface WorldState {
   /** Pipe-model outflow per cell, 4 per cell [west, east, south, north] (m³/s), ≥ 0. */
   waterFluxM3PerS: Float32Array;
   water: WaterParams;
+  /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
+  sedimentSuspendedM: Float32Array;
+  erosion: ErosionParams;
   meta: WorldMeta;
 }
 
@@ -95,6 +119,8 @@ export function createWorld(init: WorldInit): WorldState {
     waterDepthM: new Float32Array(n),
     waterFluxM3PerS: new Float32Array(n * 4),
     water: defaultWaterParams(),
+    sedimentSuspendedM: new Float32Array(n),
+    erosion: defaultErosionParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -135,6 +161,14 @@ export function validateWorld(w: WorldState): string[] {
   if (w.materialId.length !== n) errs.push('material length mismatch');
   if (w.waterDepthM.length !== n) errs.push('water length mismatch');
   if (w.waterFluxM3PerS.length !== n * 4) errs.push('flux length mismatch');
+  if (w.sedimentSuspendedM.length !== n) errs.push('suspended length mismatch');
+  for (let i = 0; i < n; i++) {
+    const v = w.sedimentSuspendedM[i];
+    if (!(v >= 0) || !Number.isFinite(v)) {
+      errs.push(`invalid suspended sediment ${v} at ${i}`);
+      break;
+    }
+  }
   for (let i = 0; i < n; i++) {
     const d = w.waterDepthM[i];
     if (!(d >= 0) || !Number.isFinite(d)) {
@@ -167,6 +201,8 @@ export function cloneWorld(w: WorldState): WorldState {
     waterDepthM: w.waterDepthM.slice(),
     waterFluxM3PerS: w.waterFluxM3PerS.slice(),
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
+    sedimentSuspendedM: w.sedimentSuspendedM.slice(),
+    erosion: { ...w.erosion },
     meta: { ...w.meta },
   };
 }

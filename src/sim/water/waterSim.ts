@@ -26,6 +26,8 @@ export class WaterSim implements Stepper {
   vy: Float32Array;
   /** 1 where cell is sea (ground below sea level). Refreshed each step. */
   sea: Uint8Array;
+  /** Depth at the start of the last routing pass (after forcing), for sediment advection. */
+  prevDepth: Float32Array;
   maxDepth = 0;
   maxSpeed = 0;
   /** Largest step allowed regardless of CFL (s). */
@@ -38,6 +40,7 @@ export class WaterSim implements Stepper {
     this.vx = new Float32Array(n);
     this.vy = new Float32Array(n);
     this.sea = new Uint8Array(n);
+    this.prevDepth = new Float32Array(n);
     this.refreshSea();
     this.ledger = emptyLedger(this.storedVolume());
     this.refreshStats();
@@ -147,6 +150,7 @@ export class WaterSim implements Stepper {
   /** Pipe-model lateral routing for one step (see class comment). */
   route(dt: number): void {
     const w = this.world;
+    this.prevDepth.set(w.waterDepthM);
     const W = w.width;
     const H = w.height;
     const z = this.surface;

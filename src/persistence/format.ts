@@ -1,4 +1,4 @@
-import { WORLD_FORMAT_VERSION, defaultWaterParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
+import { WORLD_FORMAT_VERSION, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
  * Terra Genesis world file (.tgw), format version 1:
@@ -8,16 +8,18 @@ import { WORLD_FORMAT_VERSION, defaultWaterParams, type WaterParams, type WorldM
  *   padding to a 4-byte boundary, then raw little-endian field arrays at header offsets.
  * The whole file is gzip-compressed on disk / in IndexedDB (see compress/decompress).
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
+ * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
   { name: 'materialId', type: 'u8', perCell: 1 },
   { name: 'waterDepthM', type: 'f32', perCell: 1 },
   { name: 'waterFluxM3PerS', type: 'f32', perCell: 4 },
+  { name: 'sedimentSuspendedM', type: 'f32', perCell: 1 },
 ];
 
 export interface FileHeader {
@@ -32,6 +34,7 @@ export interface FileHeader {
   simTimeSeconds: number;
   meta: WorldMeta;
   water?: WaterParams;
+  erosion?: ErosionParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -60,6 +63,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     simTimeSeconds: w.simTimeSeconds,
     meta: w.meta,
     water: w.water,
+    erosion: w.erosion,
     fields,
     extras,
   };
@@ -117,13 +121,16 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     waterDepthM: has('waterDepthM') ? new Float32Array(get('waterDepthM')) : new Float32Array(n),
     waterFluxM3PerS: has('waterFluxM3PerS') ? new Float32Array(get('waterFluxM3PerS')) : new Float32Array(n * 4),
     water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
+    sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
+    erosion: { ...defaultErosionParams(), ...h.erosion },
     meta: h.meta,
   };
   if (
     world.bedrockElevationM.length !== n ||
     world.materialId.length !== n ||
     world.waterDepthM.length !== n ||
-    world.waterFluxM3PerS.length !== n * 4
+    world.waterFluxM3PerS.length !== n * 4 ||
+    world.sedimentSuspendedM.length !== n
   )
     throw new Error('Field size mismatch');
   return { world, extras: h.extras };
