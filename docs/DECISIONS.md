@@ -8,3 +8,5 @@
 - 2026-10-22 — Generation runs on main thread (≤512² is tens of ms). Workers reserved for M02+ solvers.
 - 2026-10-22 — Static sea-level plane rendered at `seaLevelM` as a representation of the sea-level parameter only; it is NOT hydrology (M02) or a coastal model (M05).
 - 2026-10-22 — Save format `.tgw`: magic+JSON header+raw little-endian typed arrays, gzip via CompressionStream. IndexedDB stores the same bytes.
+- 2026-10-22 — World rendered as a diorama block (earth skirts + sea confined to map) rather than infinite ocean; reads correctly for inland presets.
+- 2026-10-22 — `window.__terraGenesis` exposes read-only engine/checksum/bench hooks for e2e browser checks.

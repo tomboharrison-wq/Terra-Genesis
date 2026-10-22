@@ -63,7 +63,7 @@ export class Engine {
     return this.stroke !== null;
   }
 
-  beginStroke(params: BrushParams, xM: number, yM: number, label = params.kind): void {
+  beginStroke(params: BrushParams, xM: number, yM: number, label: string = params.kind): void {
     const p = { ...params };
     if (p.kind === 'flatten' && p.targetM === undefined) p.targetM = this.sampleSurface(xM, yM);
     this.stroke = { rec: new StrokeRecorder(this.world, label), params: p };

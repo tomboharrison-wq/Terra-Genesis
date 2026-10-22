@@ -16,7 +16,7 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 - `npm test` — Vitest numerical/unit tests in `tests/`
 - `npm run build` — typecheck + production build to `dist/` (Netlify publish dir)
 - `npm run preview` — serve built `dist/`
-- `node scripts/screenshot.mjs [url] [out.png]` — headless Chromium capture (needs dev/preview server)
+- `npm run e2e` — headless Chromium e2e + screenshots to tests/screenshots (needs `npm run preview` on :4173)
 
 ## Folder map
 - `src/engine/`   WorldState contract, Engine (world owner, dirty regions, history)

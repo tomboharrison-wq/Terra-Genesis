@@ -132,13 +132,14 @@ const shapes: Record<PresetId, ShapeFn> = {
     // Sea to the south; bands of rock run north–south so they meet the coast perpendicular.
     const [wu, wv] = warp(c, 0.03);
     const bandCoord = wu * 4 + 0.15 * c.n.fbm(wv * 2, 1.3, 3);
-    const hard = Math.sin(bandCoord * Math.PI * 2) > 0.1;
-    const coastV = 0.35 + (hard ? 0.0 : 0.12) + 0.03 * c.n.fbm(wu * 6, 2.1, 3);
+    // Continuous hardness factor (0 soft clay … 1 hard chalk) so geometry has no 1-cell steps.
+    const hard = smoothstep(-0.3, 0.4, Math.sin(bandCoord * Math.PI * 2));
+    const coastV = 0.35 + 0.12 * (1 - hard) + 0.03 * c.n.fbm(wu * 6, 2.1, 3);
     const landRise = smoothstep(coastV - 0.02, coastV + 0.3, wv);
-    const cliff = hard ? smoothstep(coastV - 0.01, coastV + 0.02, wv) * 0.45 : 0;
+    const cliff = hard * smoothstep(coastV - 0.012, coastV + 0.04, wv) * 0.45;
     const e =
       -0.25 + 0.27 * smoothstep(0, coastV, wv) + Math.max(cliff, 0.25 * landRise) + 0.45 * landRise * (0.6 + 0.4 * c.n.fbm(wu * 3, wv * 3, 4)) + 0.02 * c.n.fbm(wu * 14, wv * 14, 3);
-    return { e, mat: hard ? CHALK : CLAY };
+    return { e, mat: hard > 0.5 ? CHALK : CLAY };
   },
 
   plateau: (c) => {
@@ -209,7 +210,7 @@ export function generateWorld(o: GenerateOptions): WorldState {
       const slope = Math.hypot(sx, sy);
       const relH = o.reliefM > 0 ? (surf[i] - o.seaLevelM) / o.reliefM : 0;
       const gentle = clamp(1 - slope / 0.7, 0, 1);
-      const altitudeFactor = clamp(1 - relH * 1.1, 0.05, 1);
+      const altitudeFactor = clamp(1 - relH * 0.8, 0.25, 1);
       const sed = 2.0 * gentle * gentle * altitudeFactor * (0.7 + 0.3 * nsed.noise(x * 0.05, y * 0.05));
       const thickness = o.presetId === 'flat' ? 1 : Math.max(0, sed);
       world.looseSedimentThicknessM[i] = thickness;
