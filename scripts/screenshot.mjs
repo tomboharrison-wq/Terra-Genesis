@@ -378,6 +378,32 @@ await page.waitForTimeout(2000);
 await shot('30-vegetation');
 check('vegetation grows on warm lowlands, thins towards the peaks', vg.coverPct > 5 && vg.lo > vg.hi, `cover ${vg.coverPct.toFixed(0)}% (forest ${vg.forestPct.toFixed(0)}%), lowland ${vg.lo.toFixed(2)} vs summits ${vg.hi.toFixed(2)}`);
 
+// --- Biome preset + what-if comparison (M06-C05) ---
+await page.click('text=New');
+await page.click('.preset:has-text("Alpine glaciers")');
+await page.selectOption('.dialog select >> nth=0', '128');
+await page.click('label.check:has-text("Start simulation") input').catch(() => {});
+await page.click('text=Generate world');
+await page.waitForTimeout(2000);
+await shot('31-alpine-preset');
+await page.click('.rail-btn:has-text("Climate")');
+await page.selectOption('.climate-panel select[aria-label="Climate change to compare"]', 'warmer');
+await page.click('.climate-panel button:has-text("Compare")');
+await page.waitForSelector('.compare-table');
+const cmpRows = await page.$$eval('.compare-table tbody tr', (rs) => rs.map((r) => Array.from(r.querySelectorAll('td')).map((td) => td.textContent)));
+await page.click('.climate-panel button:has-text("Show difference map")');
+await page.waitForTimeout(1200);
+await shot('32-what-if-warmer');
+const pre = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  let ice = 0;
+  for (const h of e.world.iceThicknessM) ice += h;
+  return { climate: e.world.climate.enabled, glaciers: e.world.glacier.enabled, ice, plants: e.vegetation.stats().coverPct };
+});
+const iceRow = cmpRows.find((r) => r[0] === 'Ice volume');
+check('alpine preset starts with climate, ice and plants', pre.climate && pre.glaciers && pre.ice > 0 && pre.plants > 1, `plants ${pre.plants.toFixed(0)}%`);
+check('what-if 2 °C warmer: less ice', !!iceRow && parseFloat(iceRow[2]) < parseFloat(iceRow[1]), cmpRows.map((r) => r.join(' ')).join(' | '));
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

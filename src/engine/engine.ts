@@ -13,6 +13,7 @@ import { SimClock, type Stepper } from './clock';
 import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate';
 import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
 import { VegetationSim, type VegetationParams } from '../sim/vegetation/vegetationSim';
+import { compareClimate, type ClimateChange, type CompareResult } from '../terrain/biomes';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -85,6 +86,7 @@ export class Engine {
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
     this.referenceSurface = this.surface.slice();
+    this.compareResult = null;
     const water = this.water;
     const sediment = this.sediment;
     this.cpuStepper = {
@@ -287,6 +289,17 @@ export class Engine {
     this.gpu?.uploadClimate();
     this.vegetationRevision++;
     this.markRenderDirtyAll();
+  }
+
+  /** Last "what if?" comparison (its plant-cover difference drives the 'compare' overlay). */
+  compareResult: CompareResult | null = null;
+
+  /** Run a climate "what if?" comparison on copies of the current world (the world is unchanged). */
+  compareClimate(change: ClimateChange): CompareResult {
+    this.syncWater();
+    this.compareResult = compareClimate(this.world, change);
+    this.emit({ type: 'climate-changed' });
+    return this.compareResult;
   }
 
   /** Increments whenever plant cover changes (renderer rebuilds trees). */

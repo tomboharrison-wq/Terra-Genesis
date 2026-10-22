@@ -40,7 +40,7 @@ import { TreeLayer } from './treeLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall';
+export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare';
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
@@ -53,6 +53,8 @@ const RAIN_HI = new Color(0x0a3a6b);
 const SNOW = new Color(0xf2f4f7);
 const ICE = new Color(0xcfe2ee);
 const GRASS = new Color(0x7f9a4a);
+const CMP_MORE = new Color(0x25b755);
+const CMP_LESS = new Color(0xa0522d);
 const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
 /** Snow water equivalent giving full white cover (≈ 20–30 cm of settled snow). */
@@ -187,7 +189,7 @@ export class TerrainScene {
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') this.buildWorld(true);
       if (e.type === 'sea-level-changed') this.applySeaLevel();
-      if (e.type === 'climate-changed' && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall')) {
+      if (e.type === 'climate-changed' && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare')) {
         const w = engine.world;
         this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
       }
@@ -522,7 +524,16 @@ export class TerrainScene {
           this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
           this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
         }
-        if (tempOverlay) {
+        if (this.terrainOverlay === 'compare') {
+          // What-if minus now plant cover: brown = fewer plants, green = more, grey = no change.
+          const d = this.engine.compareResult?.coverDiff[i] ?? 0;
+          const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
+          tmp.setRGB(grey, grey, grey);
+          if (Math.abs(d) > 0.02) tmp.lerp(d > 0 ? CMP_MORE : CMP_LESS, Math.min(1, 0.3 + Math.abs(d)));
+          this.col[o] = tmp.r;
+          this.col[o + 1] = tmp.g;
+          this.col[o + 2] = tmp.b;
+        } else if (tempOverlay) {
           const t = clim.temperatureC[i];
           if (t < 0) tmp.copy(TEMP_ZERO).lerp(TEMP_COLD, Math.min(1, -t / 20));
           else tmp.copy(TEMP_ZERO).lerp(TEMP_WARM, Math.min(1, t / 30));

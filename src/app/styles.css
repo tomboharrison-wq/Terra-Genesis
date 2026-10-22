@@ -204,6 +204,7 @@ input[type='range'] { width: 100%; accent-color: var(--scouts-yellow); }
 .field.check input { width: auto; }
 .legend .ramp.change { background: linear-gradient(90deg, #ed3f23, #f4a08f, #9aa0a0, #8fb8ef, #006ddf); }
 button.active-toggle { background: var(--scouts-yellow); color: #1b2a12; border-color: var(--scouts-yellow); font-weight: 700; }
+button.active-toggle:hover { background: var(--scouts-yellow); color: #1b2a12; filter: brightness(0.95); }
 .erosion-panel .field.check { padding-bottom: 0; align-items: flex-start; }
 
 /* Profile chart */
@@ -269,3 +270,8 @@ table.values th:first-child, table.values td:first-child { text-align: left; }
 .compass { width: 54px; height: 54px; flex: none; }
 fieldset.plain { border: 0; padding: 0; margin: 0; min-width: 0; }
 fieldset.plain:disabled { opacity: 0.45; }
+.legend .ramp.compare { background: linear-gradient(90deg, #a0522d, #9a9a96, #25b755); }
+.compare-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 6px; }
+.compare-table th, .compare-table td { text-align: right; padding: 2px 4px; border-bottom: 1px solid var(--panel-border); }
+.compare-table th:first-child, .compare-table td:first-child { text-align: left; color: var(--muted); }
+.compare-table th:last-child { color: var(--scouts-yellow); }

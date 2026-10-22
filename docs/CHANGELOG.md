@@ -91,3 +91,7 @@
 - Plants (Climate panel → Plants) spread where it is warm enough (warmest month above 6 °C, so there is a treeline), wet enough (a yearly rainfall setting, more on windward slopes) and there is soil on gentle ground — never in the sea, on bare rock or under ice. They grow over decades and die back faster when conditions worsen.
 - Plant cover protects soil: river erosion is reduced by up to 80 % (on both GPU and CPU).
 - The ground turns greener and trees appear (conifers where it is cool, broadleaf where warm), drawn as symbols; the inspector shows plant cover.
+
+## M06-C05 — Biome presets and "what if?"
+- Four new worlds: Temperate valley (forested), Alpine glaciers (ice above the snowline, forest below), Rain-shadow desert (wet windward forest, dry lee) and Tundra (sparse plants, ice caps). Each starts with its climate set and mature plants (and starting ice) already in place.
+- Climate panel → What if?: compare the world now with 2 °C warmer / colder or 30 % wetter / drier — plant cover, forest, treeline, snowline and ice side by side, plus a map of where plants would gain or lose. Your world is not changed.

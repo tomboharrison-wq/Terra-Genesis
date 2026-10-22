@@ -1,6 +1,8 @@
 import { useUi } from '../state/uiStore';
 import { engine } from './runtime';
 import { MM_PER_H } from '../engine/world';
+import { useState } from 'react';
+import { CLIMATE_CHANGES, type ClimateChange, type CompareResult } from '../terrain/biomes';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -11,6 +13,8 @@ const monthOf = (phase: number) => MONTHS[Math.floor((((phase + 0.5 / 12) % 1) +
 /** Temperature, seasons, wind and orographic rain (spec E7). */
 export function ClimatePanel() {
   const sim = useUi((s) => s.sim);
+  const [change, setChange] = useState<ClimateChange>('warmer');
+  const [cmp, setCmp] = useState<CompareResult | null>(engine.compareResult);
   const overlay = useUi((s) => s.terrainOverlay);
   const set = useUi((s) => s.set);
   if (!sim) return null;
@@ -140,6 +144,56 @@ export function ClimatePanel() {
           {g.lagYears > 0.5 ? ` (${g.lagYears.toFixed(0)} behind: very fast ice limits the time step)` : ''}: eroded{' '}
           {Math.round(g.erodedM3).toLocaleString()} m³, {Math.round(g.morainedM3).toLocaleString()} m³ dropped as moraine.
         </p>
+        <h3>What if?</h3>
+        <div className="row">
+          <select value={change} onChange={(e) => setChange(e.target.value as ClimateChange)} aria-label="Climate change to compare">
+            {CLIMATE_CHANGES.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.label}
+              </option>
+            ))}
+          </select>
+          <button className="small" onClick={() => setCmp(engine.compareClimate(change))}>
+            Compare
+          </button>
+        </div>
+        {cmp && (
+          <>
+            <table className="compare-table">
+              <thead>
+                <tr>
+                  <th />
+                  <th>Now</th>
+                  <th>{CLIMATE_CHANGES.find((x) => x.id === cmp.change)?.label}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ['Plant cover', (r) => `${r.coverPct.toFixed(0)}%`],
+                    ['Forest', (r) => `${r.forestPct.toFixed(0)}%`],
+                    ['Treeline', (r) => `${Math.round(r.treelineM)} m`],
+                    ['Snowline', (r) => `${Math.round(r.snowlineM)} m`],
+                    ['Ice area', (r) => `${r.iceAreaPct.toFixed(0)}%`],
+                    ['Ice volume', (r) => `${(r.iceM3 / 1e9).toFixed(3)} km³`],
+                  ] as [string, (r: CompareResult['now']) => string][]
+                ).map(([k, f]) => (
+                  <tr key={k}>
+                    <td>{k}</td>
+                    <td>{f(cmp.now)}</td>
+                    <td>{f(cmp.whatIf)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <button className={`small ${overlay === 'compare' ? 'active-toggle' : ''}`} onClick={() => set({ terrainOverlay: overlay === 'compare' ? 'none' : 'compare' })}>
+              {overlay === 'compare' ? 'Hide difference map' : 'Show difference map'}
+            </button>
+            <p className="hint small tight">
+              Both columns start from the same ground with no ice and mature plants; only the climate differs. Your world is not changed.
+            </p>
+          </>
+        )}
         <h3>Wind and rain shadow</h3>
         <div className="compass-row">
           <svg className="compass" viewBox="-30 -30 60 60" aria-hidden="true">

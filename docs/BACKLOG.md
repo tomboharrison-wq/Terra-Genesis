@@ -2,7 +2,9 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M06-C05 | Biome presets, wet/dry and warm/cold comparisons | READY |
+| M07-C01 | Kinematic plates: regions, velocities, uplift/subsidence on the heightfield, cross-section | READY |
+| M07-C02..C05 | Divergent/transform faults, subduction + arc, collision folding, earthquake tool | TODO |
+| M06-C05 | Biome presets (temperate, alpine, rain shadow, tundra) + what-if compare | DONE |
 | M06-C04 | Vegetation: suitability, growth/dieback, erosion shield, trees | DONE |
 | M06-C03b | Guided U-shaped valley / corrie / arête cross-section lab (plan-view SIA deepens V centres) | TODO |
 | M06-C03 | Glaciers: mass balance, implicit SIA flow, abrasion, debris + moraines, meltwater | DONE |

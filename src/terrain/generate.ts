@@ -4,6 +4,7 @@ import { deriveSeed } from '../utils/rng';
 import { clamp, smoothstep } from '../utils/math';
 import { fillDepressions } from './conditioning';
 import { settleSlopes } from './settle';
+import { applyBiome, type BiomeId } from './biomes';
 
 export type PresetId =
   | 'flat'
@@ -14,7 +15,11 @@ export type PresetId =
   | 'mountain-range'
   | 'coastal-headland'
   | 'plateau'
-  | 'continental';
+  | 'continental'
+  | 'temperate-valley'
+  | 'alpine-glaciers'
+  | 'rain-shadow'
+  | 'tundra';
 
 export interface GenerateOptions {
   presetId: PresetId;
@@ -38,6 +43,8 @@ export interface GenerateOptions {
   waves?: boolean;
   /** Geomorphic acceleration to start with (default: ErosionParams default). */
   speedup?: number;
+  /** Climate / plants / glaciers to set up and spin up (biome presets). */
+  biome?: BiomeId;
   name?: string;
 }
 
@@ -45,7 +52,7 @@ export interface PresetDef {
   id: PresetId;
   name: string;
   description: string;
-  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH' | 'erosion' | 'waves' | 'speedup'>;
+  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH' | 'erosion' | 'waves' | 'speedup' | 'biome'>;
 }
 
 export const PRESETS: readonly PresetDef[] = [
@@ -57,6 +64,10 @@ export const PRESETS: readonly PresetDef[] = [
   { id: 'coastal-headland', name: 'Coastal headlands', description: 'Straight coast across alternating hard chalk and soft clay bands; waves from the south carve bays in the clay, leaving chalk headlands.', defaults: { cellSizeM: 10, reliefM: 60, seaLevelM: 0, roughness: 0.4, erosion: true, waves: true, speedup: 1000 } },
   { id: 'plateau', name: 'Layered plateau', description: 'Resistant cap rock over weaker strata with escarpments.', defaults: { cellSizeM: 25, reliefM: 400, seaLevelM: -100, roughness: 0.35 } },
   { id: 'continental', name: 'Continental', description: 'Large-scale mixed terrain: uplands, lowlands and coast.', defaults: { cellSizeM: 120, reliefM: 1500, seaLevelM: 0, roughness: 0.55 } },
+  { id: 'temperate-valley', name: 'Temperate valley', description: 'Mild, wet climate: forested valley floors and slopes, bare rock only on the highest ridges.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, biome: 'temperate' } },
+  { id: 'alpine-glaciers', name: 'Alpine glaciers', description: 'High mountains in a cool climate: glaciers above the snowline flowing into forested valleys.', defaults: { cellSizeM: 40, reliefM: 2600, seaLevelM: -50, roughness: 0.55, biome: 'alpine' } },
+  { id: 'rain-shadow', name: 'Rain-shadow desert', description: 'A ridge across the westerly wind: wet forest on the windward side, dry scrub in its rain shadow.', defaults: { cellSizeM: 60, reliefM: 1800, seaLevelM: -50, roughness: 0.45, biome: 'rain-shadow' } },
+  { id: 'tundra', name: 'Tundra', description: 'Cold lowland: a short summer allows only sparse plants; snow lies long and ice caps the hills.', defaults: { cellSizeM: 60, reliefM: 700, seaLevelM: 0, roughness: 0.5, biome: 'tundra' } },
   { id: 'flat', name: 'Flat test world', description: 'Level plain 10 m above sea level for controlled tests.', defaults: { cellSizeM: 10, reliefM: 0, seaLevelM: 0, roughness: 0 } },
 ];
 
@@ -93,8 +104,18 @@ function warp(c: Ctx, amount: number, freq = 2.2): [number, number] {
   ];
 }
 
-const shapes: Record<PresetId, ShapeFn> = {
+const shapes: Partial<Record<PresetId, ShapeFn>> = {
   flat: () => ({ e: 0, mat: MUDSTONE }),
+
+  'rain-shadow': (c) => {
+    // One north–south range at u ≈ 0.45 between low plains; the westerly wind meets its west face.
+    const [wu, wv] = warp(c, 0.06);
+    const dx = (wu - 0.45 - 0.05 * Math.sin(wv * Math.PI * 2)) / 0.09;
+    const range = Math.exp(-dx * dx);
+    const ridge = c.n.ridged(wu * 4, wv * 4, 5);
+    const e = 0.04 + range * (0.45 + 0.55 * ridge) + 0.05 * c.n.fbm(wu * 5, wv * 5, 4);
+    return { e, mat: range > 0.5 ? CRYSTALLINE : SANDSTONE };
+  },
 
   'river-basin': (c) => {
     const [wu, wv] = warp(c, 0.06);
@@ -200,6 +221,11 @@ const shapes: Record<PresetId, ShapeFn> = {
   },
 };
 
+// Biome presets reuse existing landform shapes with their own climate.
+shapes['temperate-valley'] = shapes['river-basin'];
+shapes['alpine-glaciers'] = shapes['mountain-range'];
+shapes.tundra = shapes['river-delta'];
+
 /** Deterministically generate a world. Same options → bit-identical arrays. */
 export function generateWorld(o: GenerateOptions): WorldState {
   const size = Math.round(o.size);
@@ -219,7 +245,7 @@ export function generateWorld(o: GenerateOptions): WorldState {
   world.erosion.enabled = o.erosion ?? false;
   world.coast.wavesOn = o.waves ?? false;
   if (o.speedup) world.erosion.speedup = o.speedup;
-  const shape = shapes[o.presetId] ?? shapes.flat;
+  const shape = (shapes[o.presetId] ?? shapes.flat)!;
   const surf = new Float32Array(size * size);
   const ctx: Ctx = { u: 0, v: 0, n, n2, o };
   const inv = 1 / (size - 1);
@@ -282,6 +308,7 @@ export function generateWorld(o: GenerateOptions): WorldState {
       if (add > 0) world.looseSedimentThicknessM[i] += add;
     }
   }
+  if (o.biome) applyBiome(world, o.biome);
   return world;
 }
 

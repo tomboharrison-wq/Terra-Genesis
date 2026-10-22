@@ -1,12 +1,14 @@
 # One next executable task
-ID: M06-C05
-Goal: Biome presets and comparisons (Part J M06-C05). New World presets that set climate + plants + snow/glacier
-settings together on suitable terrain: "Temperate valley" (wet, forested), "Mountain glaciers" (cold, ice above
-the snowline), "Rain-shadow desert" (ridge with wet windward forest and dry lee), "Tundra / periglacial" (cold,
-sparse plants). A Compare tool: snapshot the current world, change one climate setting (warmer/colder/wetter/
-drier), run the same time on a copy (CPU, off the UI thread budget) and show side-by-side numbers (plant cover,
-ice, runoff, erosion) and a difference map. Every preset reproducible from its seed.
-Read only: src/terrain/generate.ts presets, NewWorldDialog, ClimatePanel, engine advance.
-Acceptance: each preset generates with the intended state after a short spin-up (tests); compare reports
-warmer ⇒ less ice / higher treeline, wetter ⇒ more plant cover; e2e for one preset + compare.
+ID: M07-C01
+Goal: Kinematic plates (spec E9; no mantle solver). Plate map: per-cell plate id (format v9) from seeded
+Voronoi-like regions or user-painted; each plate a rigid velocity (mm/yr, direction). Boundaries classified from
+relative motion (divergent / convergent / transform) per boundary cell. Tectonic step on a slow cadence in
+geomorphic time (yearsPerSimHour, like glaciers): convergent boundaries uplift bedrock in a band (rate ∝ normal
+convergence, wider/higher for continental), divergent subside/rift, isostatic-free simple rules, all as real
+bedrock changes ledgered (uplift volume). Plates panel + boundary overlay + a cross-section view along the
+profile tool line showing plates and motion arrows (labelled schematic).
+Read only: spec E9 (`sed -n '/^## E9/,/^## E10/p' docs/MASTER_SPEC.md`), src/engine/engine.ts hooks,
+src/app/ProfilePanel.tsx, TerrainScene overlays.
+Acceptance: two plates converging raise a ridge along their boundary at the expected rate; diverging lower a
+rift; transform: no vertical change; uplift ledger = Δ bedrock volume; deterministic; save/load.
 Done when: tests/typecheck/build/e2e pass, committed + pushed.

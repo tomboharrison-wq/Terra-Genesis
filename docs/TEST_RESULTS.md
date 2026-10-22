@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-22 M06-C05
+- npm test PASS 166 (+ biomes: temperate cover >20 % on 96² (≈50 % at 256²), no ice; alpine ice + plants, treeline < snowline, no plants under ice; rain-shadow west cover > 2× east; tundra no forest, sparse, ice; reproducible; what-if warmer ⇒ less ice + higher treeline, wetter ⇒ more cover, world untouched)
+- Measured: 150-yr flowing glacier spin-up took 35 s at 256² → static starting ice (≤120 m) laid above the snowline (<1 s), deterministic.
+
 ## 2026-10-22 M06-C04
 - npm test PASS 156 (+ vegetation: grows to suitability in warm wet soil, none above the treeline; none on bare rock / under ice / in drought / on cliffs; dieback faster than growth; cover cuts total erosion on a transport-limited slope (<0.8×, detachment ×0.2); engine plant time; save/load)
 - gpu-check 10/10 (+ veg-erosion: GPU applies the same erosion shield)

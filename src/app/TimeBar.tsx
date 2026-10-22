@@ -96,6 +96,14 @@ export function TimeBar() {
           <span>+10 m</span>
         </div>
       )}
+      {terrainOverlay === 'compare' && (
+        <div className="legend" aria-label="What-if plant cover difference legend">
+          <i className="ramp compare" />
+          <span>fewer plants</span>
+          <span>same</span>
+          <span>more plants</span>
+        </div>
+      )}
       {terrainOverlay === 'temperature' && (
         <div className="legend" aria-label="Temperature legend">
           <i className="ramp temperature" />

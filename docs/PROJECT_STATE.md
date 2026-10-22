@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M06 — Climate, snow, glaciers, vegetation (C01–C04 done)
-Current chunk: M06-C05 — biome presets + comparisons (see NEXT_TASK)
+Current milestone: M07 — Plate tectonics (M06 climate milestone complete)
+Current chunk: M07-C01 — kinematic plates (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -23,6 +23,8 @@ Verified working:
 - M06-C04 vegetation (src/sim/vegetation/vegetationSim.ts, renderer/treeLayer.ts): cover → suitability (warmth,
   yearly rain, soil, slope; none in sea/ice/lakes), grow 0.15/yr, die 0.4/yr; erosion × (1 − 0.8c) CPU + GPU
   (climate tex .a). Green tint + instanced tree symbols. Format v8.
+- M06-C05 biome presets (src/terrain/biomes.ts: temperate, alpine, rain-shadow, tundra; static spin-up of starting
+  ice + equilibrium plants) and what-if compare (two cloned spin-ups, table + plant-difference overlay).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -34,6 +36,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
 forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (156) · build PASS · e2e PASS 31/31 · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (166) · build PASS · e2e PASS 33/33 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md
