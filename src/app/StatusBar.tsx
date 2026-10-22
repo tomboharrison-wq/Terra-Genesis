@@ -29,6 +29,11 @@ export function StatusBar() {
             <span>
               <b>Rock</b> {hover.materialName}
             </span>
+            {hover.vegPct !== undefined && (
+              <span title="Plant cover">
+                <b>Plants</b> {Math.round(hover.vegPct)}%
+              </span>
+            )}
             {hover.iceM !== undefined && (
               <span title="Glacier ice thickness">
                 <b>Ice</b> {hover.iceM < 10 ? hover.iceM.toFixed(1) : Math.round(hover.iceM)} m

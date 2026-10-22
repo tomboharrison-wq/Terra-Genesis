@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M06-C04
+- npm test PASS 156 (+ vegetation: grows to suitability in warm wet soil, none above the treeline; none on bare rock / under ice / in drought / on cliffs; dieback faster than growth; cover cuts total erosion on a transport-limited slope (<0.8×, detachment ×0.2); engine plant time; save/load)
+- gpu-check 10/10 (+ veg-erosion: GPU applies the same erosion shield)
+- e2e 31/31 (+ GPU mountain world, 1200 mm/yr, 14 °C: cover 19 % (forest 18 %), lowlands 0.41 vs summits 0.00)
+
 ## 2026-10-22 M06-C03
 - npm test PASS 150 (+ glaciers: slab flows downhill with volume conserved 1e-5; ice accumulates above the ELA, snout flows below it, ledger closes; abrasion lowers the bed, debris dropped as moraine, debris ledger closes; erosion confined to the ice and greatest on the centre line; engine meltwater input keeps the water budget; save/load)
 - Measured: explicit SIA reached only 0.3 glacier yr per 40 ms update on the 128² mountain world → semi-implicit CG (~5 yr/update). Loose CG tolerance broke conservation (5 %) → ice moved by donor-limited transfers of the implicit fluxes (1e-9). Unbounded dt·D gave 1100 m ice spikes (CG not converged) → dt·D/cs² ≤ 100 (0 unconverged, max ice ~190 m).

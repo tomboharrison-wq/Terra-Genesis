@@ -36,6 +36,7 @@ import { addTerrainDetail, createSeaMaterial, createSkyMaterial, createStrataUni
 import { MATERIALS } from '../terrain/materials';
 import { STRATA_BOUNDS, STRATA_LAYERS } from '../engine/world';
 import { WaterLayer, type WaterView } from './waterLayer';
+import { TreeLayer } from './treeLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
@@ -51,6 +52,8 @@ const RAIN_LO = new Color(0xb4c6d3);
 const RAIN_HI = new Color(0x0a3a6b);
 const SNOW = new Color(0xf2f4f7);
 const ICE = new Color(0xcfe2ee);
+const GRASS = new Color(0x7f9a4a);
+const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
 /** Snow water equivalent giving full white cover (≈ 20–30 cm of settled snow). */
 const SNOW_FULL_M = 0.03;
@@ -96,6 +99,10 @@ export class TerrainScene {
   private waterView: WaterView = 'water';
   private terrainOverlay: TerrainOverlay = 'none';
   private snowTimer = 0;
+  private trees: TreeLayer | null = null;
+  private treeRev = -1;
+  private treesStale = false;
+  private treeTimer = 0;
   private displayZ = new Float32Array(0);
   private snowRev = -1;
   private hadSnow = false;
@@ -260,6 +267,12 @@ export class TerrainScene {
     this.terrain.castShadow = true;
     this.terrain.receiveShadow = true;
     this.scene.add(this.terrain);
+    if (!this.trees) {
+      this.trees = new TreeLayer(this.engine);
+      this.scene.add(this.trees.group);
+    }
+    this.trees.rebuild();
+    this.treeRev = this.engine.vegetationRevision;
     this.stats.triangles = idx.length / 3;
 
     if (this.waterLayer) {
@@ -481,6 +494,15 @@ export class TerrainScene {
           this.col,
           o,
         );
+        const vc = w.vegCover[i];
+        if (vc > 0.02 && this.terrainOverlay === 'none' && z[i] >= sea) {
+          // Plant cover: grassland → forest green.
+          tmp.copy(GRASS).lerp(FOREST, vc);
+          const a = 0.8 * Math.min(1, vc * 1.5);
+          this.col[o] += (tmp.r - this.col[o]) * a;
+          this.col[o + 1] += (tmp.g - this.col[o + 1]) * a;
+          this.col[o + 2] += (tmp.b - this.col[o + 2]) * a;
+        }
         const ic = iceT[i];
         if (ic > 0.5) {
           // Glacier ice: blue-white, greyer where it carries rock debris; no rock strata drawn on it.
@@ -575,6 +597,7 @@ export class TerrainScene {
     if (simDone > 0) this.onSim?.();
     const dirty = this.engine.takeDirty();
     if (dirty) {
+      this.treesStale = true;
       this.updateVertices(dirty, true);
       this.updateHeightTexture();
       this.waterLayer?.updateGround();
@@ -593,6 +616,13 @@ export class TerrainScene {
         if (any || this.hadSnow) this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
         this.hadSnow = any;
       }
+    }
+    this.treeTimer += rawDt;
+    if (this.trees && this.treeTimer > 1 && (this.engine.vegetationRevision !== this.treeRev || (this.treesStale && this.trees.count > 0))) {
+      this.treeTimer = 0;
+      this.treesStale = false;
+      this.treeRev = this.engine.vegetationRevision;
+      this.trees.rebuild();
     }
     if (this.brushVisible) this.updateBrushRing();
     if (this.profileEnds) this.updateProfileLine();
@@ -751,6 +781,7 @@ export class TerrainScene {
     this.unsub();
     this.engine.detachGpu();
     this.waterLayer?.dispose();
+    this.trees?.dispose();
     this.resizeObs.disconnect();
     this.controls.dispose();
     this.terrain?.geometry.dispose();

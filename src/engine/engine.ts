@@ -12,6 +12,7 @@ import { CoastSim, type CoastParams } from '../sim/coast/coastSim';
 import { SimClock, type Stepper } from './clock';
 import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate';
 import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
+import { VegetationSim, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -44,6 +45,8 @@ export class Engine {
   climate!: ClimateField;
   /** Glaciers (slow cadence, CPU, accelerated glacier time). */
   glacier!: GlacierSim;
+  /** Vegetation (slow cadence, CPU, accelerated plant time). */
+  vegetation!: VegetationSim;
   private climateDirty = false;
   private climateClock = 0;
   private seasonDay = -1;
@@ -77,6 +80,7 @@ export class Engine {
     this.climate.compute(world, this.surface);
     this.water.climate = this.climate;
     this.glacier = new GlacierSim(world, this.surface, this.climate);
+    this.vegetation = new VegetationSim(world, this.surface, this.climate);
     this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
@@ -164,6 +168,7 @@ export class Engine {
       this.advanceSeason(done);
       this.coastHook(done);
       this.glacierHook(done);
+      this.vegetationHook(done);
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -190,6 +195,7 @@ export class Engine {
       this.advanceSeason(d);
       this.coastHook(d);
       this.glacierHook(d);
+      this.vegetationHook(d);
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -271,6 +277,25 @@ export class Engine {
     this.groundDirty = true;
     this.climateDirty = true;
     this.markRenderDirtyAll();
+  }
+
+  /** Grow / die back plants when their cadence is due; push the erosion factor to the GPU. */
+  private vegetationHook(simSeconds: number) {
+    if (!this.vegetation.accumulate(simSeconds)) return;
+    if (this.gpu) this.gpu.syncToCpu(); // standing water and soil depth must be current
+    if (!this.vegetation.update()) return;
+    this.gpu?.uploadClimate();
+    this.vegetationRevision++;
+    this.markRenderDirtyAll();
+  }
+
+  /** Increments whenever plant cover changes (renderer rebuilds trees). */
+  vegetationRevision = 0;
+
+  setVegetationParams(p: Partial<VegetationParams>): void {
+    Object.assign(this.world.vegetation, p);
+    this.gpu?.uploadClimate();
+    this.emit({ type: 'water-params-changed' });
   }
 
   setGlacierParams(p: Partial<GlacierParams>): void {

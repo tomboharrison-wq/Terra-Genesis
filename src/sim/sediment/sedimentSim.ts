@@ -328,6 +328,8 @@ export class SedimentSim {
     const vy = this.water.vy;
     const sea = this.water.sea;
     const ke = Math.min(1, p.erodeK * p.speedup * dt);
+    const veg = w.vegCover;
+    const shield = w.vegetation.erosionShield;
     const kd = Math.min(1, p.depositK * p.speedup * dt);
     let eL = 0;
     let eB = 0;
@@ -358,7 +360,7 @@ export class SedimentSim {
         const q = di * Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
         const C = p.capacityK * q * S;
         if (si < C) {
-          let demand = ke * (C - si);
+          let demand = ke * (C - si) * (1 - shield * veg[i]); // plants protect the soil
           const fromLoose = Math.min(loose[i], demand);
           loose[i] -= fromLoose;
           demand -= fromLoose;

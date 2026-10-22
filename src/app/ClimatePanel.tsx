@@ -16,6 +16,7 @@ export function ClimatePanel() {
   if (!sim) return null;
   const c = sim.climate;
   const g = sim.glacier;
+  const v = sim.vegetation;
   const on = c.enabled;
   const setC = engine.setClimateParams.bind(engine);
   const seasonal = -c.seasonalAmpC * Math.cos(2 * Math.PI * c.seasonPhase);
@@ -87,6 +88,28 @@ export function ClimatePanel() {
           <b>{c.snowM3 >= 1e6 ? `${(c.snowM3 / 1e6).toFixed(2)} million` : Math.round(c.snowM3).toLocaleString()} m³</b> of water, covering{' '}
           {c.snowCoverPct.toFixed(0)}% of the land. Fallen so far {Math.round(c.snowfallM3).toLocaleString()} m³, melted{' '}
           {Math.round(c.snowmeltM3).toLocaleString()} m³.
+        </p>
+        <h3>Plants</h3>
+        <label className="field check">
+          <input type="checkbox" checked={v.enabled} onChange={(e) => engine.setVegetationParams({ enabled: e.target.checked })} />
+          <span>Plants grow where it is warm and wet enough and protect the soil from erosion</span>
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Yearly rainfall <b>{Math.round(v.annualPrecipMm)} mm</b>
+          </span>
+          <input type="range" min={0} max={3000} step={50} value={v.annualPrecipMm} onChange={(e) => engine.setVegetationParams({ annualPrecipMm: +e.target.value })} />
+        </label>
+        <label className="field">
+          <span className="field-label">
+            Plant time <b>{v.yearsPerSimHour} years per simulated hour</b>
+          </span>
+          <input type="range" min={0} max={100} value={Math.round(Math.log10(v.yearsPerSimHour) * 33.3)} onChange={(e) => engine.setVegetationParams({ yearsPerSimHour: Math.max(1, Math.round(Math.pow(10, +e.target.value / 33.3))) })} />
+        </label>
+        <p className="hint small tight">
+          Plants cover {v.coverPct.toFixed(0)}% of the land ({v.forestPct.toFixed(0)}% forest). Treeline {Math.round(v.treelineM)} m (warmest month 6 °C).
+          They need soil, gentle slopes and over 150 mm of rain a year, and cut soil erosion by up to {Math.round(v.erosionShield * 100)}%.
+          Trees are drawn as symbols, larger than life on coarse maps.
         </p>
         <h3>Glaciers</h3>
         <label className="field check">

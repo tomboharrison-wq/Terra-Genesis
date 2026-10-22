@@ -29,7 +29,8 @@ import { MATERIALS } from '../../terrain/materials';
  *   snow:   r = snowpack water equivalent (m), g = snowfall, b = melt since last sync (m)
  *   state.a: evaporated depth since last sync (climate makes evaporation vary per cell)
  *   acc:    water depth-equivalents since last sync: infiltrated, rain added, into sea, off edges
- *   climate: r = rain factor, g = evaporation factor (static; re-uploaded when the climate changes)
+ *   climate: r = rain factor, g = evaporation factor, b = temperature (°C), a = plant erosion factor
+ *           (re-uploaded when the climate or vegetation changes)
  *   sedA:   sediment since last sync (m): eroded loose, eroded bedrock, deposited on land, exported
  *   sedB:   r = deposited on the sea floor, g = weathered, b = rockfall (m)
  * Accumulators are folded into the CPU ledgers (× cell area) on sync and cleared. Rain is
@@ -359,7 +360,7 @@ void main() {
     float S = clamp(length(vec2(sx, sy)), ${SLOPE_MIN.toExponential()}, ${SLOPE_MAX.toFixed(1)});
     float C = uCapK * d * length(st.gb) * S;
     if (s < C) {
-      float demand = uKe * (C - s);
+      float demand = uKe * (C - s) * texelFetch(uClimate, c, 0).a; // a = plant erosion factor
       float fromLoose = min(loose, demand);
       loose -= fromLoose;
       demand -= fromLoose;
@@ -574,6 +575,7 @@ export class GpuWater implements Stepper {
       c[i * 4] = cl ? cl.rainFactor[i] : 1;
       c[i * 4 + 1] = cl ? cl.evapFactor[i] : 1;
       c[i * 4 + 2] = cl ? cl.temperatureC[i] : 10;
+      c[i * 4 + 3] = 1 - this.world.vegetation.erosionShield * this.world.vegCover[i];
     }
     this.write(this.climateTex, c);
   }

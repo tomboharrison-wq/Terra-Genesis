@@ -352,6 +352,32 @@ await page.waitForTimeout(1500);
 await shot('29-glaciers');
 check('glaciers grow, conserve ice and keep the water budget', gl.ice > 1e5 && gl.years > 30 && Math.abs(gl.years + gl.lag - 120) < 1 && gl.iceClosure < 1e-6 && gl.wClosure < 1e-4, `ice ${(gl.ice / 1e6).toFixed(2)} M m³ after ${gl.years.toFixed(0)} yr (lag ${gl.lag.toFixed(0)} yr), ice closure ${gl.iceClosure.toExponential(1)}, water ${gl.wClosure.toExponential(1)}, ${gl.ms.toFixed(0)} ms`);
 
+// --- Vegetation (M06-C04): plants spread over the warm, wet lowlands and shield them from erosion ---
+const vg = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  e.setGlacierParams({ enabled: false });
+  e.setClimateParams({ seaLevelTempC: 14, seasonalAmpC: 6 });
+  e.setVegetationParams({ enabled: true, yearsPerSimHour: 100, annualPrecipMm: 1200 });
+  e.advance(2 * 3600);
+  const st = e.vegetation.stats();
+  let hiCov = 0;
+  let hiN = 0;
+  let loCov = 0;
+  let loN = 0;
+  const z = e.surface;
+  let zmax = -Infinity;
+  for (const v of z) zmax = Math.max(zmax, v);
+  for (let i = 0; i < z.length; i++) {
+    if (z[i] < e.world.seaLevelM) continue;
+    if (z[i] > zmax - 300) (hiCov += e.world.vegCover[i]), hiN++;
+    else if (z[i] < e.world.seaLevelM + 400) (loCov += e.world.vegCover[i]), loN++;
+  }
+  return { ...st, hi: hiN ? hiCov / hiN : 0, lo: loN ? loCov / loN : 0 };
+});
+await page.waitForTimeout(2000);
+await shot('30-vegetation');
+check('vegetation grows on warm lowlands, thins towards the peaks', vg.coverPct > 5 && vg.lo > vg.hi, `cover ${vg.coverPct.toFixed(0)}% (forest ${vg.forestPct.toFixed(0)}%), lowland ${vg.lo.toFixed(2)} vs summits ${vg.hi.toFixed(2)}`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

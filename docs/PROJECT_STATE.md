@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M06 — Climate, snow, glaciers, vegetation (C01–C03 done)
-Current chunk: M06-C04 — vegetation (see NEXT_TASK)
+Current milestone: M06 — Climate, snow, glaciers, vegetation (C01–C04 done)
+Current chunk: M06-C05 — biome presets + comparisons (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -20,6 +20,9 @@ Verified working:
 - M06-C03 glaciers (src/sim/glacier/glacierSim.ts, Engine.glacierHook, Climate panel): ice + debris fields (v7);
   linear mass balance about a climate ELA; semi-implicit SIA (CG, dt·D/cs² ≤ 100) moving ice by donor-limited
   transfers (exact); edge outflow; abrasion ∝ sliding → debris → moraines; meltwater at real-time share.
+- M06-C04 vegetation (src/sim/vegetation/vegetationSim.ts, renderer/treeLayer.ts): cover → suitability (warmth,
+  yearly rain, soil, slope; none in sea/ice/lakes), grow 0.15/yr, die 0.4/yr; erosion × (1 − 0.8c) CPU + GPU
+  (climate tex .a). Green tint + instanced tree symbols. Format v8.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -31,6 +34,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
 forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (150) · build PASS · e2e PASS 30/30 · gpu-check 9/9
+Last checks: typecheck PASS · npm test PASS (156) · build PASS · e2e PASS 31/31 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

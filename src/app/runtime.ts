@@ -114,6 +114,20 @@ export function syncSim() {
           snowmeltM3: L.snowmelt,
         };
       })(),
+      vegetation: (() => {
+        const v = w.vegetation;
+        const st = engine.vegetation.stats();
+        const c = w.climate;
+        return {
+          enabled: v.enabled,
+          annualPrecipMm: v.annualPrecipMm,
+          yearsPerSimHour: v.yearsPerSimHour,
+          erosionShield: v.erosionShield,
+          coverPct: st.coverPct,
+          forestPct: st.forestPct,
+          treelineM: w.seaLevelM + ((c.seaLevelTempC + c.seasonalAmpC - 6) / c.lapseRateCPerKm) * 1000,
+        };
+      })(),
       glacier: (() => {
         const g = engine.glacier;
         const p = w.glacier;

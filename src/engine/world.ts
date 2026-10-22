@@ -2,8 +2,9 @@ import type { CellRect } from '../utils/rect';
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacierSim';
+import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 
-export const WORLD_FORMAT_VERSION = 7;
+export const WORLD_FORMAT_VERSION = 8;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -120,6 +121,8 @@ export interface WorldState {
   iceThicknessM: Float32Array;
   /** Rock debris carried in the ice (m of rock over the cell), ≥ 0. */
   iceDebrisM: Float32Array;
+  /** Plant cover fraction 0 … 1 (vegetation). */
+  vegCover: Float32Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
@@ -129,6 +132,8 @@ export interface WorldState {
   climate: ClimateParams;
   /** Glacier mass balance, flow and erosion parameters (spec E8). */
   glacier: GlacierParams;
+  /** Plant growth and its effect on erosion. */
+  vegetation: VegetationParams;
   meta: WorldMeta;
 }
 
@@ -168,10 +173,12 @@ export function createWorld(init: WorldInit): WorldState {
     snowSweM: new Float32Array(n),
     iceThicknessM: new Float32Array(n),
     iceDebrisM: new Float32Array(n),
+    vegCover: new Float32Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
     climate: defaultClimateParams(),
     glacier: defaultGlacierParams(),
+    vegetation: defaultVegetationParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -269,10 +276,12 @@ export function cloneWorld(w: WorldState): WorldState {
     snowSweM: w.snowSweM.slice(),
     iceThicknessM: w.iceThicknessM.slice(),
     iceDebrisM: w.iceDebrisM.slice(),
+    vegCover: w.vegCover.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
     climate: { ...w.climate },
     glacier: { ...w.glacier },
+    vegetation: { ...w.vegetation },
     meta: { ...w.meta },
   };
 }

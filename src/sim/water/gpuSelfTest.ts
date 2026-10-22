@@ -60,6 +60,18 @@ function fixture(name: string): WorldState {
       w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
       return w;
     }
+    case 'veg-erosion': {
+      // Erosion slope under 70 % plant cover: the GPU must apply the same erosion shield.
+      const w = mk(48, 10, (x) => x * 0.8);
+      w.looseSedimentThicknessM.fill(0.5);
+      w.materialId.fill(2);
+      setUniformStrata(w);
+      w.vegCover.fill(0.7);
+      for (let i = 0; i < 48 * 20; i++) w.vegCover[i] = 0; // bare southern part
+      w.erosion.enabled = true;
+      w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
+      return w;
+    }
     case 'caprock': {
       // 5 cm resistant sandstone cap over clay: erosion must switch lithology mid-run.
       const w = mk(48, 10, (x) => x * 0.8);
@@ -136,7 +148,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge', 'snow-ridge']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge', 'snow-ridge', 'veg-erosion']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);

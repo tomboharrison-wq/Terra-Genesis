@@ -86,3 +86,8 @@
 - Sliding ice erodes its bed; the rock is carried in the ice and dropped as moraines where the ice melts away. Ice is drawn as blue-white (grey where it carries debris) and raises the visible surface.
 - Glacier time runs faster than water time (default 10 years per simulated hour) and is shown with any lag; ice volume, area, thickness, sliding speed, erosion and moraine readouts; saved with the world.
 - Honest limit: map-scale ice flow deepens the centre of a V-shaped valley rather than carving a U; a guided U-valley/corrie lab is planned.
+
+## M06-C04 — Plants
+- Plants (Climate panel → Plants) spread where it is warm enough (warmest month above 6 °C, so there is a treeline), wet enough (a yearly rainfall setting, more on windward slopes) and there is soil on gentle ground — never in the sea, on bare rock or under ice. They grow over decades and die back faster when conditions worsen.
+- Plant cover protects soil: river erosion is reduced by up to 80 % (on both GPU and CPU).
+- The ground turns greener and trees appear (conifers where it is cool, broadleaf where warm), drawn as symbols; the inspector shows plant cover.

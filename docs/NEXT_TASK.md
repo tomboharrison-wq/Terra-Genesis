@@ -1,13 +1,12 @@
 # One next executable task
-ID: M06-C04
-Goal: Vegetation (spec E7/E8 neighbours; Part J M06-C04). Per-cell vegetation cover fraction (0–1, format v8)
-growing towards a suitability set by temperature (growing season above ~5 °C), water availability (rain
-factor × map rain, standing water, not under snow/ice/sea) and slope/soil (needs loose sediment); logistic
-growth / dieback on a slow cadence in geomorphic time. Vegetation reduces erosion (erodeK × (1 − 0.8·cover))
-and rain-splash weathering, and is rendered: greener terrain colour + instanced trees/shrubs where cover is
-high (InstancedMesh, density from cover, deterministic placement). Inspector + panel readouts, overlay.
-Read only: src/sim/climate/climate.ts, src/sim/sediment/sedimentSim.ts (erodeK use), gpuWater sediment pass
-(uniform → texture factor), TerrainScene colours.
-Acceptance: cover grows where warm + wet, absent above the treeline / on bare rock / under ice; erosion lower
-under vegetation (CPU + GPU test); old files load bare; instanced trees match cover.
-Done when: tests/typecheck/build/e2e/gpu-check pass, committed + pushed.
+ID: M06-C05
+Goal: Biome presets and comparisons (Part J M06-C05). New World presets that set climate + plants + snow/glacier
+settings together on suitable terrain: "Temperate valley" (wet, forested), "Mountain glaciers" (cold, ice above
+the snowline), "Rain-shadow desert" (ridge with wet windward forest and dry lee), "Tundra / periglacial" (cold,
+sparse plants). A Compare tool: snapshot the current world, change one climate setting (warmer/colder/wetter/
+drier), run the same time on a copy (CPU, off the UI thread budget) and show side-by-side numbers (plant cover,
+ice, runoff, erosion) and a difference map. Every preset reproducible from its seed.
+Read only: src/terrain/generate.ts presets, NewWorldDialog, ClimatePanel, engine advance.
+Acceptance: each preset generates with the intended state after a short spin-up (tests); compare reports
+warmer ⇒ less ice / higher treeline, wetter ⇒ more plant cover; e2e for one preset + compare.
+Done when: tests/typecheck/build/e2e pass, committed + pushed.

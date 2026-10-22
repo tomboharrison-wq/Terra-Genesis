@@ -40,6 +40,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     waterSpeedMS: Math.hypot(engine.water.vx[i], engine.water.vy[i]),
     ...(w.snowSweM[i] > 0 ? { snowSweM: w.snowSweM[i] } : {}),
     ...(w.iceThicknessM[i] > 0 ? { iceM: w.iceThicknessM[i] } : {}),
+    ...(w.vegCover[i] > 0.005 ? { vegPct: 100 * w.vegCover[i] } : {}),
     ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
   };

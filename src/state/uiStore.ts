@@ -64,6 +64,7 @@ export interface SimInfo {
     snowfallM3: number;
     snowmeltM3: number;
   };
+  vegetation: { enabled: boolean; annualPrecipMm: number; yearsPerSimHour: number; erosionShield: number; coverPct: number; forestPct: number; treelineM: number };
   glacier: {
     enabled: boolean;
     yearsPerSimHour: number;
@@ -99,6 +100,7 @@ export interface HoverInfo {
   temperatureC?: number;
   snowSweM?: number;
   iceM?: number;
+  vegPct?: number;
   rainHereMmH?: number;
   isSea: boolean;
 }

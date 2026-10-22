@@ -2,8 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M06-C04 | Vegetation: suitability from climate/water, growth, instanced rendering, erosion modifier | READY |
-| M06-C05 | Biome presets, wet/dry and warm/cold comparisons | TODO |
+| M06-C05 | Biome presets, wet/dry and warm/cold comparisons | READY |
+| M06-C04 | Vegetation: suitability, growth/dieback, erosion shield, trees | DONE |
 | M06-C03b | Guided U-shaped valley / corrie / arête cross-section lab (plan-view SIA deepens V centres) | TODO |
 | M06-C03 | Glaciers: mass balance, implicit SIA flow, abrasion, debris + moraines, meltwater | DONE |
 | M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | TODO |
