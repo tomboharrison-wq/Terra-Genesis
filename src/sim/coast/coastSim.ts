@@ -24,17 +24,18 @@ import { MATERIALS } from '../../terrain/materials';
  *   Cliffs behind the lowered cell then fail through the global rockfall model (undercut →
  *   collapse → retreat); talus at the toe shields the cliff until waves remove it.
  *
- * C03 — longshore drift (CERC-like): in each surf cell (sea cell with a land neighbour) loose
+ * C03 — longshore drift (CERC-like): on the beach face (shoreline cells below the berm, i.e. the
+ * surf and swash zone, whether just submerged or just emerged) loose
  * sediment moves along the shore at Q = driftK · H_eff^2.5 · |sin 2α| (m³/s), with H_eff = H·√e
  * from the local wave field and α the effective wave angle to the shore-normal, towards the
  * 8-neighbour best aligned with the alongshore component. In an island's lee the bent waves
  * drive drift inward from both sides, so sand converges (salient → tombolo).
- * Onshore transport: in shallow sea cells (depth < 2× breaking depth) that have a shore within
- * 10 cells ahead along the local wave direction, loose sand moves one cell in that direction at
+ * Onshore transport: in shallow sea cells (depth < 2× breaking depth) on the shoreface — a shore
+ * within 4 cells ahead along the local wave direction, loose sand moves one cell in that direction at
  * onshoreK · H_eff^2.5 — shoaling waves feed shelf sand to beaches, salients and tombolos (in
  * open water with no shore ahead there is no net shoreward transport).
- * Nearshore reworking: in the surf zone (within 2 cells of the shoreline and |z − sea| below 2×
- * breaking depth) loose sand diffuses pairwise (min(0.1·Δz, donor/4)) so beaches and ridges stay
+ * Nearshore reworking: in the submerged surf zone (within 2 cells of the shoreline, between
+ * 0.2 m and 2× breaking depth below sea level) loose sand diffuses pairwise (min(0.1·Δz, donor/4)) so beaches and ridges stay
  * continuous rather than speckled at cell scale.
  * Transfers are computed from a snapshot then applied (order-independent, exactly
  * conservative). Where the coast turns away, drift carries on into open water and deposits —
@@ -278,6 +279,17 @@ export class CoastSim {
     this.ledger.nearshoreDeposited += vol * w.cellSizeM * w.cellSizeM;
   }
 
+  private landNeighbours(x: number, y: number): number {
+    const W = this.world.width;
+    const H = this.world.height;
+    let n = 0;
+    if (x > 0 && !this.isSea(y * W + x - 1)) n++;
+    if (x < W - 1 && !this.isSea(y * W + x + 1)) n++;
+    if (y > 0 && !this.isSea((y - 1) * W + x)) n++;
+    if (y < H - 1 && !this.isSea((y + 1) * W + x)) n++;
+    return n;
+  }
+
   /** Wave reworking of loose sand in the active band: pairwise diffusion from a snapshot. */
   private nearshoreSmooth(activeDepth: number, kappa = 0.1) {
     const w = this.world;
@@ -308,7 +320,8 @@ export class CoastSim {
           }
         near[i] = shore ? 1 : 0;
       }
-    const active = (i: number) => near[i] === 1 && Math.abs(z0[i] - sl) < activeDepth;
+    // Only the submerged surf zone is reworked: emergent beaches, spits and bars keep their crests.
+    const active = (i: number) => near[i] === 1 && z0[i] < sl - 0.2 && sl - z0[i] < activeDepth;
     const face = (i: number, j: number) => {
       const dz = z0[i] - z0[j];
       return dz > 0 ? Math.min(kappa * dz, 0.25 * l0[i]) : -Math.min(-kappa * dz, 0.25 * l0[j]);
@@ -344,11 +357,25 @@ export class CoastSim {
     const moves: { from: number; to: number; m: number }[] = [];
     const DX = [1, 1, 0, -1, -1, -1, 0, 1];
     const DY = [0, 1, 1, 1, 0, -1, -1, -1];
+    // Beach face = cells on the shoreline (a neighbour of the opposite land/sea state) below the
+    // berm (wave run-up) height: the swash zone stays mobile even where sand has emerged.
+    const berm = w.seaLevelM + Math.min(1, 0.5 * p.waveHeightM);
+    const onShore = (xx: number, yy: number) => {
+      const j = yy * W + xx;
+      const sea = this.isSea(j);
+      return (
+        (xx > 0 && this.isSea(j - 1) !== sea) ||
+        (xx < W - 1 && this.isSea(j + 1) !== sea) ||
+        (yy > 0 && this.isSea(j - W) !== sea) ||
+        (yy < H - 1 && this.isSea(j + W) !== sea)
+      );
+    };
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
-        if (!this.isSea(i) || loose[i] <= 0) continue;
-        if (!((x > 0 && !this.isSea(i - 1)) || (x < W - 1 && !this.isSea(i + 1)) || (y > 0 && !this.isSea(i - W)) || (y < H - 1 && !this.isSea(i + W)))) continue;
+        // Shoreline beach cells give sand even if their crest stands above the berm (waves work the
+        // sub-cell beach face); they receive only below the berm.
+        if (loose[i] <= 0 || z[i] >= w.seaLevelM + 2 || !onShore(x, y)) continue;
         const [nx, ny] = this.seawardNormal(x, y); // points away from land
         const wf = this.waveField(x, y);
         if (wf.e <= 0) continue;
@@ -364,21 +391,38 @@ export class CoastSim {
         if (vol <= 0) continue;
         const dx = Math.sign(along) * tx;
         const dy = Math.sign(along) * ty;
-        // Neighbour best aligned with the drift direction that is not land.
+        // Beach-face neighbour best aligned with the drift; never open water (the spit tip fills
+        // and emerges instead) and never above the berm.
         let best = -1;
-        let bestDot = 0.3;
+        let bestScore = -Infinity;
+        let bestD = 0;
+        let ahead = -1;
+        let aheadD = 0;
         for (let k = 0; k < 8; k++) {
           const xx = x + DX[k];
           const yy = y + DY[k];
           if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
           const j = yy * W + xx;
-          if (!this.isSea(j)) continue;
+          if (z[j] >= berm) continue;
           const d = (DX[k] * dx + DY[k] * dy) / Math.hypot(DX[k], DY[k]);
-          if (d > bestDot) {
-            bestDot = d;
+          if (!onShore(xx, yy)) {
+            if (this.isSea(j) && d > aheadD) {
+              aheadD = d;
+              ahead = j;
+            }
+            continue;
+          }
+          if (d < 0.3) continue;
+          const score = d + 0.35 * this.landNeighbours(xx, yy);
+          if (score > bestScore) {
+            bestScore = score;
             best = j;
           }
+          if (score === bestScore) bestD = d;
         }
+        // Drift cannot turn a sharp corner: where the shore bends away by more than ~35° and open
+        // water lies straight ahead, sand is laid ahead — the spit tip fills, emerges, advances.
+        if (ahead >= 0 && aheadD > 0.9 && (best < 0 || bestD < 0.82)) best = ahead;
         if (best < 0) continue; // blocked (e.g. against a headland): sediment accumulates here
         moves.push({ from: i, to: best, m: vol / A });
       }
@@ -398,7 +442,7 @@ export class CoastSim {
           const px = -wf.sx;
           const py = -wf.sy;
           let shoreAhead = false;
-          for (let k = 1; k <= 10 && !shoreAhead; k++) {
+          for (let k = 1; k <= 4 && !shoreAhead; k++) {
             const xx = Math.round(x + px * k);
             const yy = Math.round(y + py * k);
             if (xx < 0 || yy < 0 || xx >= W || yy >= H) break;

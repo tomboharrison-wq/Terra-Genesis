@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C04a
+- npm test PASS 110 (spit test now asserts an emergent spit ≥4 land cells beyond the coast end, land-connected, sand conserved 1e-5; tombolo still passes)
+- Explored: bay-mouth bar (spit reaches ~65% across a 12-cell mouth, then angles offshore; lagoon not enclosed), recurve (inconclusive). Logged as M05-C04b.
+
 ## 2026-10-22 M05-C04 (partial)
 - npm test PASS 110 (+ tombolo: lee wave energy < 0.7× open, salient shoreline advances >2 cells toward island, sand conserved 1e-5; spit seed: >20% of sand carried past the coast end (submerged ridge))
 - e2e PASS 22/22 (fixed a test race: tool key + immediate mouse-down after redo).

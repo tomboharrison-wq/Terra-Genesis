@@ -2,9 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M05-C04b | One-line shoreline model: spits, bars, lagoons, recurves | READY |
+| M05-C05 | Local 3D cave → arch → stack → stump guided model | READY |
+| M05-C04b | One-line shoreline model: bay-mouth bars, lagoons, recurves | TODO |
+| M05-C04a | Beach-face drift, emergent attached spits | DONE |
 | M05-C04 | Wave field, onshore transport, surf smoothing, tombolo (partial) | PARTIAL |
-| M05-C05 | Local 3D solid geometry: cave → arch → stack → stump | TODO |
 | M05-C06 | Stack/stump, cliff slump, wave-cut features, classroom scenarios | TODO |
 | M05-C03 | Longshore drift, spit seeds | DONE |
 | M05-C02 | Wave power, shelter, attenuation, cliff retreat, wave-attack map | DONE |

@@ -1,11 +1,11 @@
 # One next executable task
-ID: M05-C04b
-Goal: One-line shoreline model (Ashton & Murray-style CEM) for sandy coasts: shoreline as a polyline (or per-column shoreline position) with alongshore flux Q(θ) = K·H^{5/2}·sin(2(θ_wave − θ_shore)) and continuity dX/dt = −(1/D)·dQ/ds; spits extend at coast ends, recurve with wave-angle changes, and bay-mouth bars close lagoons. Couple to the heightfield by rasterising the sandy shore band each coastal update.
-Why now: grid drift (coastSim.ts) yields tombolos/salients but not emergent spits/bars (documented in tests/coast.test.ts).
-Read only: src/sim/coast/coastSim.ts, tests/coast.test.ts, spec E6 (`sed -n 431,446p docs/MASTER_SPEC.md`).
-Change only: new src/sim/coast/shoreline.ts, coupling in coastSim.ts, tests.
-Acceptance: spit grows from a coast end and becomes land; changing wave direction recurves its tip; a bar closes a bay mouth enclosing a lagoon; sand conserved.
-Do not touch: water/sediment solvers.
+ID: M05-C05
+Goal: Guided local 3D model (like the slump lab): a headland block with a vertical joint/fault of weakness, eroded by waves at sea level; erosion concentrated along the weakness enlarges a cave on both sides until they connect (arch with a real opening), the arch roof thins and collapses (stack), the stack is undercut and reduced to a stump. Real 3D geometry (voxel/SDF + surface extraction), staged and animated, labelled for teaching.
+Why now: spec E6/G3 requirement; heightfields cannot represent openings.
+Read only: spec E6 cave paragraph (`sed -n 441,442p docs/MASTER_SPEC.md`), src/local/slump/model.ts + src/app/SlumpLab.tsx (pattern).
+Change only: new src/local/arch/{model,mesh}.ts, src/app/ArchLab.tsx, tests/arch.test.ts.
+Acceptance: opening exists (a path of empty voxels through the headland at the arch stage — topology test), stack disconnected from mainland, stump below high-water, volume removed = volume eroded ledger, deterministic stages.
+Do not touch: global solvers.
 Done when: tests/typecheck/build/e2e pass, committed + pushed.
-If interrupted: shoreline.ts unit tests first.
-Next candidate: M05-C05 local 3D cave → arch → stack → stump guided model.
+If interrupted: model.ts + topology tests first, then mesh + UI.
+Backlog: M05-C04b one-line shoreline model (bars/lagoons/recurves).

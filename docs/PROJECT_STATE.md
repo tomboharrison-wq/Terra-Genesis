@@ -2,7 +2,7 @@
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M05 — Coasts (C01–C03 done, C04 partial)
-Current chunk: M05-C04b — one-line shoreline model for spits / bay-mouth bars / recurves
+Current chunk: M05-C05 — local 3D cave → arch → stack → stump guided model
 Status: READY
 
 Verified working:
@@ -15,14 +15,16 @@ Verified working:
   the collapse. Wave-attack map overlay.
 - M05-C03 longshore drift: CERC-like Q ∝ H^2.5·sin2α in surf cells, Jacobi transfers, spits seed at coast ends.
 - M05-C04 (partial): ray-fan wave field (diffraction/shelter proxy), onshore shelf transport (shore ahead),
-  surf-zone smoothing. Tombolo/salient emerges in an island's lee (test). Spits only as submerged ridges.
+  surf-zone smoothing. Tombolo/salient emerges in an island's lee (test). Beach-face drift (swash zone mobile, never into
+  open water, straight-ahead tip rule) grows emergent attached spits from coast ends (test).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 - Headlands preset: straight coast across chalk/clay bands, waves from S, ×1000: clay bays retreat 2–3 cells
   vs chalk headlands in 4 accelerated days (96² CPU run).
 
 Known failures / gaps:
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
-- Emergent recurved spits / bay-mouth bars / lagoons NOT achieved by the grid drift model (needs one-line model).
+- Bay-mouth bars enclosing lagoons and clean recurves NOT reliable with grid drift (spits angle offshore under
+  high-angle waves); a one-line shoreline model is the planned fix (backlog M05-C04b).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
 - Caves/arches/stacks need the local 3D model (M05-C05). Inland cells below sea level count as sea.
 

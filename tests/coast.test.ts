@@ -108,20 +108,46 @@ describe('M05 coast: longshore drift and spits (C03)', () => {
     expect(Math.abs(sum() - s0)).toBeLessThan(1e-4);
   });
 
-  it('spit seed: drift carries sand past the end of a coast into open water (submerged ridge)', () => {
-    // Mainland only for x < 20; beyond it the sea opens up. Waves from the SW drive sand east.
-    const zf = (x: number, y: number) => (y >= 12 && x < 20 ? 6 : -1.5);
-    const { w, s, coast, N } = coastWorld({ zf });
-    w.coast.waveFromDeg = 225;
+  it('spit: beach drift past the end of a coast builds an emergent sand spit attached to the land', () => {
+    const N = 48;
+    const w = createWorld({ width: N, height: N, cellSizeM: 10, seed: 1, seaLevelM: 0 });
+    // Mainland y ≥ 24 for x < 22; beyond the coast end, open 2 m-deep water.
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) w.bedrockElevationM[y * N + x] = y >= 24 && x < 22 ? 6 : y >= 18 ? -2 : -2 - (18 - y) * 0.6;
+    setUniformStrata(w);
+    w.coast.wavesOn = true;
+    w.coast.waveFromDeg = 240; // oblique from the WSW: drift runs east
     w.coast.cliffK = 0;
-    for (let y = 9; y < 12; y++) for (let x = 2; x < 19; x++) w.looseSedimentThicknessM[y * N + x] = 1.2; // submerged sand supply
+    for (let y = 22; y < 24; y++) for (let x = 1; x < 21; x++) w.looseSedimentThicknessM[y * N + x] = 1.7; // beach sand
+    const s = new Float32Array(N * N);
     computeSurface(w, s);
-    const total = w.looseSedimentThicknessM.reduce((a, v) => a + v, 0);
-    runCoast(coast, 24);
-    let beyond = 0;
-    for (let y = 0; y < N; y++) for (let x = 20; x < N; x++) beyond += w.looseSedimentThicknessM[y * N + x];
-    expect(beyond / total).toBeGreaterThan(0.2);
-    // Known gap: emergent, recurving spits and bay-mouth bars need a one-line shoreline model (M05-C04 next).
+    const c = new CoastSim(w, s);
+    const total = () => w.looseSedimentThicknessM.reduce((a, v) => a + v, 0);
+    const t0 = total();
+    runCoast(c, 48);
+    expect(Math.abs(total() - t0) / t0).toBeLessThan(1e-5);
+    // Land beyond the coast end, connected to the mainland through land cells.
+    const seen = new Uint8Array(N * N);
+    const stack = [40 * N + 5];
+    seen[40 * N + 5] = 1;
+    while (stack.length) {
+      const i = stack.pop()!;
+      const x = i % N;
+      const y = (i / N) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const xx = x + dx;
+        const yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= N || yy >= N) continue;
+        const j = yy * N + xx;
+        if (!seen[j] && s[j] >= 0) {
+          seen[j] = 1;
+          stack.push(j);
+        }
+      }
+    }
+    let spitCells = 0;
+    for (let y = 0; y < 24; y++) for (let x = 22; x < N; x++) if (seen[y * N + x]) spitCells++;
+    expect(spitCells).toBeGreaterThanOrEqual(4);
+    // Known gap: bay-mouth bars enclosing lagoons and cleanly recurving tips need a one-line shoreline model.
   });
 });
 

@@ -46,3 +46,7 @@
 - Waves now bend around islands and headlands (weaker, angled waves in their shadow). Shoaling waves bring shelf sand ashore and the surf zone keeps beaches smooth.
 - Behind an offshore island, sand converges and a salient grows towards it (the start of a tombolo).
 - Not yet: spits that grow into land and curve, or bars closing bays — next task.
+
+## M05-C04a — Spits
+- Beach sand now keeps moving in the swash zone even after it emerges, and drift cannot turn sharp corners: at the end of a coast it builds an emergent sand spit attached to the land.
+- Not yet: bars closing bays into lagoons, cleanly recurved spit tips.
