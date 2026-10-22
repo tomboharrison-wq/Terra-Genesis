@@ -12,3 +12,5 @@
 - 2026-10-22 — `window.__terraGenesis` exposes read-only engine/checksum/bench hooks for e2e browser checks.
 - 2026-10-22 — Water routing = local-inertial (Bates 2010) in non-negative 4-pipe form; flux grows with face flow depth (the plain cs² pipe model was unstable: depth-independent wave speed). Sea cells = fixed-head sink. Inland cells below sea level are also treated as sea (limitation).
 - 2026-10-22 — CPU solver too slow for interactive use (~20 ms/step at 256²); GPU port planned as M02-C03, CPU kept as reference.
+- 2026-10-22 — GPU water = raw WebGL2 passes on three's context (forcing / flux / update, RGBA32F ping-pong, MRT accumulators); three binds the state texture via renderer.properties injection; renderer.resetState() after compute. CPU arrays are a mirror synced every 0.25 s and before save.
+- 2026-10-22 — Generated terrain is drainage-conditioned by priority-flood with a 0.2% gradient; fill volume is added as loose sediment (alluvium), bedrock untouched.

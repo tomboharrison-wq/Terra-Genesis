@@ -1,26 +1,27 @@
 # Project state
-Updated: 2026-10-22, session 1
-Branch / HEAD: main / see `git log -1` (no remote configured)
-Current milestone: M02 — Water (C01, C02 done)
-Current chunk: M02-C03 — GPU (WebGL2) port of water solver, validated against CPU reference
+Updated: 2026-10-22, session 1 (cont.)
+Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
+Current milestone: M03 — Erosion, sediment transport, deposition
+Current chunk: M03-C01 — bedrock + loose sediment layer & material property registry for erosion
 Status: READY
 
-Verified working (browser = headless Chromium/SwiftShader via `npm run e2e`):
-- 8 seeded presets, deterministic (tests/terrain.test.ts); New World dialog with seed/size/cell/relief/sea/roughness.
-- Smooth 3D mesh, alternating diagonals, lithology+sediment+slope colouring, sea-level surface with depth shading, diorama skirts.
-- Orbit/pan/zoom/top/oblique/fit; brush strokes captured before OrbitControls (no conflict); Space/⌥ to orbit mid-sculpt.
-- Brushes raise/lower/smooth/flatten/paint lithology/add+strip sediment edit bedrock/sediment physically, dt-independent.
-- Undo/redo per stroke (exact restore, e2e verified). Dirty-rect mesh updates.
-- Save: IndexedDB slots + autosave/restore, .tgw export/import (gzip, versioned). Round-trip bit-exact.
+Verified working:
+- M01 editable terrain: 8 seeded presets, brushes, undo/redo, save/load (.tgw v2), see tests/*.test.ts.
+- M02 water: rain/springs/infiltration/evaporation + exact ledger; local-inertial solver (CPU reference
+  src/sim/water/waterSim.ts, GPU port gpuWater.ts on the renderer's WebGL2 context, CPU fallback).
+- GPU vs CPU: `npm run gpu-check` PASS (smooth fixtures ≤0.09 mm; turbulent mean 0.013 mm, vol 0.02%).
+- Water rendered from solver textures (waterLayer.ts); overlays depth/flow speed; TimeBar play/step/speed.
+- Generated terrain is drainage-conditioned (priority-flood fill with alluvium, 0.2% gradient).
+- river-catchment fixture: 24% of rain drained in 3 h, top 5% cells carry 71% of discharge.
 
 Known failures / gaps:
-- CPU water solver (src/sim/water/waterSim.ts) costs ~20 ms/step at 256² (dt≈1 s): far too slow for interactive rivers. Needs GPU port.
-- Real M4/Safari frame rate NOT measured (headless throttles rAF; SwiftShader ~450 ms/frame forced-sync, no growth = no leak).
-- Ridged mountain peaks slightly needle-like (pre-erosion deferred to M03).
-- Bundle 740 KB (three.js); no code-splitting yet.
+- Real M4 Safari/Chrome speed NOT measured (SwiftShader: ~3 min sim/s; budget 10 ms/frame).
+- Bitwise frame-rate independence holds for the CPU solver; GPU dt uses synced stats (reproducible, not bitwise).
+- Inland cells below sea level are treated as sea. Water tools are not undoable (by design: snapshots).
+- Low-gradient valley fills flood as broad sheets under heavy rain (physical, but looks sheet-like).
 
-Architecture / relevant paths: src/engine/{world,engine}.ts, src/terrain/*, src/tools/{brush,history}.ts,
-src/renderer/TerrainScene.ts, src/persistence/{format,idb}.ts, src/app/* (runtime.ts = glue), tests/*.test.ts
-Last checks: npm run typecheck PASS, npm test PASS (60), npm run build PASS, npm run e2e PASS (11 checks)
+Relevant paths: src/engine/{engine,clock,world}.ts, src/sim/water/*, src/renderer/{TerrainScene,waterLayer}.ts,
+src/app/{TimeBar,WaterPanel,Viewport}.tsx, src/terrain/conditioning.ts
+Last checks: typecheck PASS · npm test PASS (69) · build PASS · e2e PASS 16/16 · gpu-check PASS 3/3
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

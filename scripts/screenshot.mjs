@@ -17,7 +17,7 @@ const check = (name, ok, detail = '') => {
   results.push(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`);
 };
 const sum = () => page.evaluate(() => window.__terraGenesis.checksum());
-const shot = (n) => page.screenshot({ path: `${out}/${n}.png` });
+const shot = (n) => page.screenshot({ path: `${out}/${n}.png`, timeout: 90000 });
 
 await page.goto(base + '?fresh');
 await page.waitForSelector('canvas');
@@ -25,8 +25,10 @@ await page.waitForTimeout(2000);
 await shot('01-initial');
 
 // Hover inspector reads real values
+await page.mouse.move(700, 480);
+await page.waitForTimeout(300);
 await page.mouse.move(720, 500);
-await page.waitForTimeout(400);
+await page.waitForFunction(() => /Surface/.test(document.querySelector('.inspect')?.textContent ?? ''), null, { timeout: 10000 }).catch(() => {});
 const inspect = await page.textContent('.inspect');
 check('inspector shows surface values', /Surface\s*-?\d/.test(inspect ?? ''), inspect?.slice(0, 80));
 
@@ -85,6 +87,45 @@ await page.waitForTimeout(2500);
 const s4 = await sum();
 check('reload restores autosaved edited world', Math.abs(s4 - s3) < 1e-3 * Math.abs(s3) + 1e-3, `saved=${s3.toFixed(2)} loaded=${s4.toFixed(2)}`);
 
+// --- Water (M02) ---
+const eng = (fn) => page.evaluate(fn);
+check('GPU water backend active', (await page.textContent('.timebar .badge')) === 'GPU');
+await page.selectOption('.timebar select', '3600');
+await page.click('.timebar .play');
+await page.waitForTimeout(4000);
+await eng(() => window.__terraGenesis.engine.setPlaying(false));
+await page.waitForTimeout(1000);
+const w1 = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  const L = e.water.ledger;
+  const stored = e.water.storedVolume();
+  const inn = L.rainIn + L.sourceIn + L.toolIn;
+  const out = L.infiltrated + L.evaporated + L.edgeOut + L.seaOut + L.toolOut;
+  return { t: e.world.simTimeSeconds, stored, closure: Math.abs(stored - (L.initialStored + inn - out)) / Math.max(1, L.initialStored + inn) };
+});
+check('Play advances simulated time and rain adds water', w1.t > 60 && w1.stored > 0, `t=${w1.t.toFixed(0)} s stored=${w1.stored.toFixed(0)} m³`);
+check('water budget closes in browser (GPU)', w1.closure < 1e-3, `closure=${w1.closure.toExponential(2)}`);
+await shot('08-water');
+await page.click('.timebar .seg button:has-text("Depth map")');
+await page.waitForTimeout(500);
+await shot('09-depth-map');
+await page.click('.timebar .seg button:has-text("Water")');
+// spring tool places a source
+await page.keyboard.press('-');
+await page.mouse.click(720, 520);
+await page.waitForTimeout(300);
+check('spring tool adds a source', (await eng(() => window.__terraGenesis.engine.world.water.sources.length)) === 1);
+await page.keyboard.press('1');
+// water survives save + reload
+await page.keyboard.press('Control+s');
+await page.waitForTimeout(3500);
+const before = await eng(() => window.__terraGenesis.engine.water.storedVolume());
+await page.goto(base);
+await page.waitForSelector('canvas');
+await page.waitForTimeout(2500);
+const after = await eng(() => window.__terraGenesis.engine.water.storedVolume());
+check('water depth restored after reload', Math.abs(after - before) <= 1e-4 * before, `before=${before.toFixed(1)} after=${after.toFixed(1)}`);
+
 // Named save + load dialog
 await page.keyboard.press('Control+s');
 await page.waitForTimeout(800);
@@ -113,6 +154,7 @@ for (const preset of ['Mountain range', 'Coastal headlands', 'Layered plateau'])
   await page.click(`.preset:has-text("${preset}")`);
   await page.click('text=Generate world');
   await page.waitForTimeout(1500);
+  await eng(() => window.__terraGenesis.engine.setPlaying(false));
   await shot('07-' + preset.toLowerCase().replace(/\s+/g, '-'));
 }
 

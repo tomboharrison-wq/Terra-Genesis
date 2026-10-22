@@ -17,10 +17,12 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 - `npm run build` — typecheck + production build to `dist/` (Netlify publish dir)
 - `npm run preview` — serve built `dist/`
 - `npm run e2e` — headless Chromium e2e + screenshots to tests/screenshots (needs `npm run preview` on :4173)
+- `npm run gpu-check` — CPU-vs-GPU water solver comparison in headless Chromium (needs preview)
 
 ## Folder map
 - `src/engine/`   WorldState contract, Engine (world owner, dirty regions, history)
-- `src/terrain/`  materials registry, procedural generation, heightfield sampling/raycast
+- `src/terrain/`  materials registry, procedural generation, drainage conditioning, heightfield sampling/raycast
+- `src/sim/water/` WaterSim (CPU reference), GpuWater (WebGL2), ledger, GPU self-test
 - `src/tools/`    sculpt brushes (physical edits), undo/redo stroke recorder
 - `src/renderer/` Three.js scene (imperative; React never touches Three objects)
 - `src/persistence/` binary world format + IndexedDB slots

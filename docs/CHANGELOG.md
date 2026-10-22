@@ -13,3 +13,9 @@
 ## M02-C01..C02 — Water engine (no UI yet)
 - Water depth + flux fields, rain/sources/infiltration/evaporation with exact volume ledger, fixed-step clock, save format v2.
 - Local-inertial flow solver: downhill flow, lakes settle level, spill over saddles, drain to sea/open edges.
+
+## M02-C03..C06 — Water you can see and run
+- GPU (WebGL2) water solver validated against the CPU reference; automatic CPU fallback.
+- Water drawn from real depth/velocity: lakes, flowing streams with flow streaks and foam; depth and flow-speed maps with legends.
+- Play/Pause/Step/Speed time bar with simulated clock; Add water, Drain and Spring tools; rainfall, infiltration, evaporation and edge controls; live water budget.
+- New worlds are drainage-conditioned (hollows filled with alluvium) so rain organises into rivers. River-basin preset starts with 60 mm/h rain.
