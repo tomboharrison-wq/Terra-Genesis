@@ -2,9 +2,9 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M02-C01 | Water field, rainfall, fixed sim clock, water ledger | READY |
-| M02-C02 | Conservative pipe-flow solver; downhill + depression tests | TODO |
-| M02-C03 | Ponding, spillover, outlet boundaries, source/sink controls | TODO |
+| M02-C03 | GPU water step (WebGL2), validated vs CPU reference | READY |
+| M02-C02 | Local-inertial pipe solver; downhill/bowl/saddle/still-lake tests (spill + outlets covered) | DONE |
+| M02-C01 | Water field, rainfall, sources/losses, clock, ledger, format v2 | DONE |
 | M02-C04 | Water mesh/material from real depth/velocity | TODO |
 | M02-C05 | Rain brush + Play/Pause/Step/Speed; depth/velocity overlay | TODO |
 | M02-C06 | Mountain-rain-river preset, mass tests, perf | TODO |

@@ -10,3 +10,5 @@
 - 2026-10-22 — Save format `.tgw`: magic+JSON header+raw little-endian typed arrays, gzip via CompressionStream. IndexedDB stores the same bytes.
 - 2026-10-22 — World rendered as a diorama block (earth skirts + sea confined to map) rather than infinite ocean; reads correctly for inland presets.
 - 2026-10-22 — `window.__terraGenesis` exposes read-only engine/checksum/bench hooks for e2e browser checks.
+- 2026-10-22 — Water routing = local-inertial (Bates 2010) in non-negative 4-pipe form; flux grows with face flow depth (the plain cs² pipe model was unstable: depth-independent wave speed). Sea cells = fixed-head sink. Inland cells below sea level are also treated as sea (limitation).
+- 2026-10-22 — CPU solver too slow for interactive use (~20 ms/step at 256²); GPU port planned as M02-C03, CPU kept as reference.

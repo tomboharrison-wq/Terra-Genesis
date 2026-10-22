@@ -9,3 +9,7 @@
 - Three.js diorama renderer: smooth lit terrain, sea-level surface with depth colour, sky, shadows, brush ring.
 - Brushes: raise, lower, smooth, flatten, geology paint, add/strip soil. Inspector shows real cell values.
 - Save/load in browser (IndexedDB, autosave), .tgw export/import. Scouts-palette UI.
+
+## M02-C01..C02 — Water engine (no UI yet)
+- Water depth + flux fields, rain/sources/infiltration/evaporation with exact volume ledger, fixed-step clock, save format v2.
+- Local-inertial flow solver: downhill flow, lakes settle level, spill over saddles, drain to sea/open edges.

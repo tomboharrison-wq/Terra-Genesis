@@ -1,11 +1,11 @@
 # One next executable task
-ID: M02-C01
-Goal: WorldState gains `waterDepthM` (Float32Array) + `rainfallMPerS`; a fixed-dt SimClock advances simTimeSeconds; rainfall adds water volume; a WaterLedger records added/removed/stored volume (m³).
-Why now: M01 terrain is complete; hydrology is the first physics milestone (spec E1, lines ~374–392).
-Read only: src/engine/world.ts, src/engine/engine.ts, src/persistence/format.ts, spec E1 + C4 (`sed -n 308,392p docs/MASTER_SPEC.md`).
-Change only: src/engine/world.ts (+field), new src/sim/water/{field,ledger}.ts, new src/engine/clock.ts, format.ts (add field, bump WORLD_FORMAT_VERSION to 2 with v1 migration = zero water), tests/water.test.ts.
-Acceptance tests: `npm test` — rain of R mm/h for T s on N cells adds exactly R/3.6e6*T*N*cs² m³ (ledger within 1e-6 rel); dry world stays dry; no negative/NaN depth; clock substeps identical for 1×60 Hz vs 4×15 Hz frames; v1 files still load.
-Do not touch: renderer, brushes, UI (no Play button until M02-C05).
-Done when: tests + typecheck + build pass, committed `feat(M02-C01): …`, docs updated.
-If interrupted: check which of field/clock/ledger/format exist and have tests; continue from first missing.
-Next candidate: M02-C02 — conservative pipe-flow water solver (downhill + depression tests).
+ID: M02-C03
+Goal: Run the water step on the GPU (WebGL2 float render targets, ping-pong) so 256² reaches ≥1 h sim time per real second; CPU WaterSim stays the tested reference.
+Why now: benchmark: CPU route ≈20 ms/step at 256², dt≈1 s → ~50× too slow for visible river formation.
+Read only: src/sim/water/waterSim.ts (reference algorithm, local-inertial pipes), src/engine/clock.ts, src/renderer/TerrainScene.ts.
+Change only: new src/sim/water/gpuWater.ts (+ shaders), engine wiring, tests comparing GPU vs CPU on fixtures in headless Chromium (scripts/), docs.
+Acceptance: GPU vs CPU depth max-abs diff < 1 cm on bowl/slope fixtures after 600 s; ledger closes < 1e-3 (GPU reduction); feature-detect EXT_color_buffer_float, fall back to CPU at lower speed.
+Do not touch: terrain brushes, persistence format.
+Done when: e2e passes, tests/typecheck/build pass, committed.
+If interrupted: check gpuWater.ts existence + which shader passes work.
+Next candidate: M02-C04 water rendering from real depth/velocity; M02-C05 Play/Pause/Step/Speed + rain brush UI.
