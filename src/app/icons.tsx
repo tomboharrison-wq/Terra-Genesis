@@ -13,6 +13,7 @@ const P: Record<string, string> = {
   'water-drain': 'M12 3c3 4.5 6 7.7 6 11a6 6 0 01-12 0c0-3.3 3-6.5 6-11zM9 14h6',
   spring: 'M12 21v-6M8 21h8M12 15c-3 0-5-2-5-5 0-2 2-4 5-7 3 3 5 5 5 7 0 3-2 5-5 5z',
   profile: 'M3 19l5-7 4 4 4-8 5 11M3 21h18M5 9v-4M19 9V5',
+  landslide: 'M3 20h18M4 20c2-8 5-13 9-14M13 6l2 5 4 2M10 14l2 1M15 17l2 1',
   play: 'M7 4l13 8-13 8z',
   pause: 'M7 4h4v16H7zM14 4h4v16h-4z',
   step: 'M5 4l10 8-10 8zM17 4h3v16h-3z',

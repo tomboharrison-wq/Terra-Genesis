@@ -158,6 +158,19 @@ for (const preset of ['Mountain range', 'Coastal headlands', 'Layered plateau'])
   await shot('07-' + preset.toLowerCase().replace(/\s+/g, '-'));
 }
 
+// --- Landslide event (M04) on the last generated world (layered plateau) ---
+const ls0 = await sum();
+await page.keyboard.press('l');
+await page.mouse.click(720, 470);
+await page.waitForTimeout(800);
+const slideToast = (await page.textContent('.toasts')) ?? '';
+const ls1 = await sum();
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(400);
+const ls2 = await sum();
+check('landslide tool runs and is undoable', /Landslide|stable/.test(slideToast) && Math.abs(ls2 - ls0) < 1e-6 * Math.abs(ls0) + 1e-3, `${slideToast.slice(0, 70)} Δ=${(ls1 - ls0).toFixed(3)}`);
+await page.keyboard.press('1');
+
 // --- Erosion (M03): river-to-sea world, accelerated erosion, budget, save/reload ---
 await page.click('text=New');
 await page.click('.preset:has-text("River to sea")');

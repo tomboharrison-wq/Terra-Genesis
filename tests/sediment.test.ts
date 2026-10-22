@@ -36,8 +36,9 @@ function solids(w: WorldState) {
 }
 
 describe('M03 sediment: erosion, transport, deposition', () => {
-  it('no water → no erosion; erosion disabled → nothing changes', () => {
+  it('no water → no hydraulic erosion (weathering off); erosion disabled → nothing changes', () => {
     const a = setup(24, 10, (x) => x);
+    a.w.erosion.weatherK = 0;
     const b0 = a.w.bedrockElevationM.slice();
     run(a.water, a.sed, 600);
     expect(a.w.bedrockElevationM).toEqual(b0);
@@ -128,6 +129,8 @@ describe('M03 sediment: erosion, transport, deposition', () => {
   it('hillslope creep smooths grid-scale roughness, conserves loose sediment exactly, never touches bedrock', () => {
     const { w, s, water, sed } = setup(32, 10, () => 10, { loose: 0 });
     w.erosion.creepK = 0.002;
+    w.erosion.weatherK = 0;
+    w.erosion.slopeFailure = false;
     // Checkerboard of ±0.5 m loose sediment bumps on a flat bedrock plain.
     for (let i = 0; i < 32 * 32; i++) w.looseSedimentThicknessM[i] = ((i % 32) + Math.floor(i / 32)) % 2 ? 1 : 0;
     computeSurface(w, s);

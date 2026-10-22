@@ -43,6 +43,16 @@ export function ErosionPanel() {
         </span>
         <input type="range" min={0} max={20} value={Math.round(sim.creepK * 1e5)} onChange={(e) => engine.setErosionParams({ creepK: +e.target.value * 1e-5 })} />
       </label>
+      <label className="field" title="Bare rock breaks down into loose regolith (faster for weak rock and when wet, slower under existing soil).">
+        <span className="field-label">
+          Weathering <b>{sim.weatherK === 0 ? 'off' : `${(sim.weatherK * 1e8).toFixed(1)}×10⁻⁸ m/s`}</b>
+        </span>
+        <input type="range" min={0} max={20} value={Math.round(sim.weatherK * 1e8)} onChange={(e) => engine.setErosionParams({ weatherK: +e.target.value * 1e-8 })} />
+      </label>
+      <label className="field check">
+        <input type="checkbox" checked={sim.slopeFailure} onChange={(e) => engine.setErosionParams({ slopeFailure: e.target.checked })} />
+        <span>Slope failure: debris avalanches above its angle of repose; cliffs steeper than their rock allows collapse (both weaker when wet)</span>
+      </label>
       <div className="field">
         <span className="field-label">Change map</span>
         <div className="seg">
@@ -56,6 +66,10 @@ export function ErosionPanel() {
       </div>
       <h3>Sediment budget</h3>
       <dl className="budget">
+        <dt title="Bedrock turned into loose regolith (stays in place)">Weathered</dt>
+        <dd>{fmtVol(S.weathered)}</dd>
+        <dt title="Bedrock that collapsed from over-steep cliffs into rubble">Rockfall</dt>
+        <dd>{fmtVol(S.rockfall)}</dd>
         <dt>Eroded soil</dt>
         <dd>{fmtVol(S.erodedLoose)}</dd>
         <dt>Eroded bedrock</dt>

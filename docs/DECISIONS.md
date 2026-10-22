@@ -17,3 +17,6 @@
 - 2026-10-22 — Sediment = single-class suspended load (bulk m) advected with the water solver's own face discharges (upwind, exactly conservative); capacity C = K·q·S; loose sediment eroded before bedrock (× lithology erodibility × bedrockFactor); bedrock change booked as the exact float32 delta. Sea cells receive settling sediment (sea-floor building).
 - 2026-10-22 — GPU: water passes read surface from a shared bed texture (bedrock, loose, suspended, erodibility); a 4th pass does creep → advection → exchange; rain measured on GPU (acc.g), infiltration+evaporation share acc.r split by rate ratio on sync. Long advances sync every 600 s.
 - 2026-10-22 — Change map neutral band ±5 cm; hillslope creep default off (measured: it mostly smooths generator micro-relief at ×300).
+- 2026-10-22 — Stratigraphy by absolute elevation per cell (3 boundaries / 4 layers), not by thickness: erosion can never make a layer negative and exposure is a pure lookup (CPU + GPU). materialId kept as derived exposed lithology for compatibility.
+- 2026-10-22 — Weathering demand accumulates in a pending store (CPU array / GPU bed.a) because per-step production is below float32 resolution at high elevations.
+- 2026-10-22 — Slope stability uses a saturation proxy (surface water depth or rain intensity) until a soil-moisture field exists (M06).

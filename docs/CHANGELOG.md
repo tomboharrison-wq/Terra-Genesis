@@ -26,3 +26,8 @@
 - Erosion panel: on/off, geomorphic acceleration (labelled), bedrock hardness, optional hillslope creep, sediment budget.
 - Change map (red = eroded, blue = deposited) against a resettable reference; Profile tool draws cross-sections.
 - New preset: River to sea.
+
+## M04-C01..C03 — Rock layers, weathering and slope failure
+- Rock now has layers: cut through a hard cap and the weaker rock beneath is exposed and erodes faster; cliffs show their layers.
+- Bare rock weathers into soil (weak rock and wet ground faster). Steep debris avalanches, over-steep cliffs collapse into rubble — both easier when saturated.
+- Landslide tool (Events): click a slope to saturate it and watch it fail; undoable.

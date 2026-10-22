@@ -32,7 +32,7 @@ export function useShortcuts() {
         return;
       }
       if (mod || e.altKey) return;
-      const tool = TOOLS.find((t) => t.key === e.key);
+      const tool = TOOLS.find((t) => t.key === e.key || t.key === e.key.toUpperCase());
       if (tool) return ui.set({ tool: tool.id });
       const s = getScene();
       if (PAN[e.code]) {

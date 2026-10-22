@@ -21,6 +21,10 @@ export interface SelfTestCase {
   gpuSedClosure?: number;
   cpuErodedM3?: number;
   gpuErodedM3?: number;
+  cpuRockfallM3?: number;
+  gpuRockfallM3?: number;
+  cpuWeatheredM3?: number;
+  gpuWeatheredM3?: number;
   /** Cells whose exposed lithology differs CPU vs GPU. */
   exposedMismatch?: number;
 }
@@ -61,6 +65,17 @@ function fixture(name: string): WorldState {
       w.water.sources.push({ id: 1, x: 40, y: 24, rateM3PerS: 6 });
       return w;
     }
+    case 'cliff-failure': {
+      // Saturated clay cliff with a loose pile on top: rockfall + avalanching + weathering.
+      const w = mk(40, 5, (x) => (x >= 20 ? 25 : 0));
+      w.materialId.fill(3);
+      setUniformStrata(w);
+      for (let y = 10; y < 30; y++) for (let x = 24; x < 30; x++) w.looseSedimentThicknessM[y * 40 + x] = 6;
+      w.erosion.enabled = true;
+      w.erosion.speedup = 100;
+      w.water.rainMPerS = 30 * MM_PER_H;
+      return w;
+    }
     case 'erosion-delta': {
       const w = mk(48, 10, (x) => (x - 12) * 0.6, 0);
       w.looseSedimentThicknessM.fill(1);
@@ -92,7 +107,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -135,6 +150,10 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
           cpuSedClosure: sedimentClosure(cpuSed.ledger, cpuSed.suspendedVolume()),
           gpuSedClosure: sedimentClosure(gSed.ledger, gSed.suspendedVolume()),
           cpuErodedM3: cpuSed.ledger.erodedLoose + cpuSed.ledger.erodedBedrock,
+          cpuRockfallM3: cpuSed.ledger.rockfall,
+          gpuRockfallM3: gSed.ledger.rockfall,
+          cpuWeatheredM3: cpuSed.ledger.weathered,
+          gpuWeatheredM3: gSed.ledger.weathered,
           exposedMismatch: wc.materialId.reduce((a, m, i) => a + (m !== wg.materialId[i] ? 1 : 0), 0),
           gpuErodedM3: gSed.ledger.erodedLoose + gSed.ledger.erodedBedrock,
         }

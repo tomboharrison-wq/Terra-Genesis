@@ -1,5 +1,5 @@
 import { refreshExposed, type WorldState } from '../../engine/world';
-import { MATERIALS } from '../../terrain/materials';
+import { MATERIALS, LOOSE_REPOSE_DEG } from '../../terrain/materials';
 import type { WaterSim } from '../water/waterSim';
 
 /** Cumulative sediment accounting (m³ bulk volume) since reset. */
@@ -13,10 +13,14 @@ export interface SedimentLedger {
   /** Carried off open map edges. */
   edgeExport: number;
   initialSuspended: number;
+  /** Bedrock converted to loose regolith by weathering (internal transfer, informational). */
+  weathered: number;
+  /** Bedrock converted to rubble by cliff failure (internal transfer, informational). */
+  rockfall: number;
 }
 
 export function emptySedimentLedger(initialSuspended = 0): SedimentLedger {
-  return { erodedLoose: 0, erodedBedrock: 0, deposited: 0, seaDeposited: 0, edgeExport: 0, initialSuspended };
+  return { erodedLoose: 0, erodedBedrock: 0, deposited: 0, seaDeposited: 0, edgeExport: 0, initialSuspended, weathered: 0, rockfall: 0 };
 }
 
 /** Suspended volume the ledger predicts. */
@@ -34,6 +38,18 @@ export const MIN_TRANSPORT_DEPTH = 1e-3;
 /** Slope floor/ceiling used in the capacity law. */
 export const SLOPE_MIN = 5e-4;
 export const SLOPE_MAX = 1.0;
+/**
+ * Saturation proxy for slope stability (until a soil-moisture model exists, spec M06):
+ * wet = min(1, max(surface water depth / SATURATION_DEPTH, rain intensity / SATURATION_RAIN)).
+ */
+export const SATURATION_DEPTH = 0.01;
+export const SATURATION_RAIN = 20 / 3.6e6; // 20 mm/h
+/** Fraction of the excess over the stable angle removed per step (avalanche / rockfall). */
+export const FAILURE_RATE = 0.2;
+/** Saturation lowers tan(stable angle) by this fraction for loose sediment / bedrock. */
+export const WET_LOOSE_WEAKENING = 0.35;
+export const WET_ROCK_WEAKENING = 0.2;
+export const TAN_LOOSE = Math.tan((LOOSE_REPOSE_DEG * Math.PI) / 180);
 
 /**
  * Hydraulic erosion, suspended transport and deposition (spec E2) on top of WaterSim.
@@ -55,14 +71,29 @@ export class SedimentSim {
   private buf: Float32Array;
   private zSnap: Float32Array;
   private looseSnap: Float32Array;
-  /** Per-material bedrock erodibility lookup. */
+  /** Per-material bedrock erodibility and tan(critical cliff angle) lookups. */
   private erod = new Float32Array(256);
+  private tanCliff = new Float32Array(256);
+  private bSnap: Float32Array;
+  private wet: Float32Array;
+  /**
+   * Weathering demand not yet applied to bedrock (m). Per-step regolith production is often
+   * below float32 resolution at high elevations; it accumulates here until it registers, so the
+   * long-run rate is exact. Mirrored in the GPU bed texture's alpha channel.
+   */
+  weatherPending: Float32Array;
 
   constructor(private world: WorldState, private surface: Float32Array, private water: WaterSim) {
     this.buf = new Float32Array(world.width * world.height);
     this.zSnap = new Float32Array(world.width * world.height);
     this.looseSnap = new Float32Array(world.width * world.height);
-    for (const m of MATERIALS) this.erod[m.id] = m.erodibility;
+    for (const m of MATERIALS) {
+      this.erod[m.id] = m.erodibility;
+      this.tanCliff[m.id] = Math.tan((m.cliffDeg * Math.PI) / 180);
+    }
+    this.bSnap = new Float32Array(world.width * world.height);
+    this.wet = new Float32Array(world.width * world.height);
+    this.weatherPending = new Float32Array(world.width * world.height);
     this.ledger = emptySedimentLedger(this.suspendedVolume());
   }
 
@@ -79,10 +110,16 @@ export class SedimentSim {
 
   step(dt: number): void {
     if (!this.world.erosion.enabled) return;
-    // Slopes and creep use the state at the start of the step (Jacobi), as in the GPU port.
+    // Slope processes use the state at the start of the step (Jacobi), as in the GPU port.
     this.zSnap.set(this.surface);
     this.looseSnap.set(this.world.looseSedimentThicknessM);
+    this.bSnap.set(this.world.bedrockElevationM);
+    const d0 = this.water.prevDepth;
+    const sea = this.water.sea;
+    const rainWet = this.world.water.rainMPerS / SATURATION_RAIN;
+    for (let i = 0; i < this.wet.length; i++) this.wet[i] = sea[i] ? 1 : Math.min(1, Math.max(d0[i] / SATURATION_DEPTH, rainWet));
     this.creep(dt);
+    this.rockfallAndWeathering(dt);
     this.advect(dt);
     this.exchange(dt);
   }
@@ -93,14 +130,19 @@ export class SedimentSim {
   }
 
   /**
-   * Hillslope creep: each face moves min(κ·Δz, loose_donor/4) of loose sediment from the
-   * higher to the lower cell (pairwise, from start-of-step values ⇒ exactly conservative and
-   * never more than a donor holds). Map edges are closed to creep.
+   * Hillslope creep + loose-sediment avalanching: each face moves
+   *   min(κ·Δz + FAILURE_RATE·max(0, Δz − cs·tanφ_eff)/4, loose_donor/4)
+   * from the higher (donor) to the lower cell, where tanφ_eff = tan(33°)·(1 − 0.35·wet_donor).
+   * Pairwise from start-of-step values ⇒ exactly conservative, never more than a donor holds.
+   * Map edges are closed.
    */
   private creep(dt: number) {
     const w = this.world;
     const kappa = SedimentSim.creepKappa(w, dt);
-    if (kappa <= 0) return;
+    const aval = w.erosion.slopeFailure;
+    if (kappa <= 0 && !aval) return;
+    const cs = w.cellSizeM;
+    const wet = this.wet;
     const W = w.width;
     const H = w.height;
     const zs = this.zSnap;
@@ -108,9 +150,17 @@ export class SedimentSim {
     const loose = w.looseSedimentThicknessM;
     const b = w.bedrockElevationM;
     const z = this.surface;
+    const amount = (dz: number, donor: number) => {
+      let a = kappa * dz;
+      if (aval) {
+        const excess = dz - cs * TAN_LOOSE * (1 - WET_LOOSE_WEAKENING * wet[donor]);
+        if (excess > 0) a += 0.25 * FAILURE_RATE * excess;
+      }
+      return Math.min(a, 0.25 * ls[donor]);
+    };
     const face = (i: number, j: number) => {
       const dz = zs[i] - zs[j];
-      return dz > 0 ? Math.min(kappa * dz, 0.25 * ls[i]) : -Math.min(-kappa * dz, 0.25 * ls[j]);
+      return dz > 0 ? amount(dz, i) : -amount(-dz, j);
     };
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -126,6 +176,74 @@ export class SedimentSim {
         }
       }
     }
+  }
+
+  /**
+   * Per cell, from start-of-step values: (1) rockfall — if the drop to the lowest neighbouring
+   * bedrock exceeds cs·tan(cliff angle of the exposed rock)·(1 − 0.2·wet), FAILURE_RATE of the
+   * excess becomes loose rubble; (2) weathering — bedrock → regolith at
+   * weatherK·speedup·erodibility·(1 + wet)·exp(−soil/soilScale)·dt. Both are bedrock → loose
+   * transfers booked as the exact float32 change applied.
+   */
+  private rockfallAndWeathering(dt: number) {
+    const w = this.world;
+    const p = w.erosion;
+    const W = w.width;
+    const H = w.height;
+    const cs = w.cellSizeM;
+    const A = cs * cs;
+    const b = w.bedrockElevationM;
+    const bs = this.bSnap;
+    const ls = this.looseSnap;
+    const loose = w.looseSedimentThicknessM;
+    const z = this.surface;
+    const mat = w.materialId;
+    const wet = this.wet;
+    const wRate = p.weatherK * p.speedup * dt;
+    let fallSum = 0;
+    let weatherSum = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const m = mat[i];
+        const bi = bs[i];
+        let changed = false;
+        if (p.slopeFailure) {
+          let low = bi;
+          if (x > 0) low = Math.min(low, bs[i - 1]);
+          if (x < W - 1) low = Math.min(low, bs[i + 1]);
+          if (y > 0) low = Math.min(low, bs[i - W]);
+          if (y < H - 1) low = Math.min(low, bs[i + W]);
+          const excess = bi - low - cs * this.tanCliff[m] * (1 - WET_ROCK_WEAKENING * wet[i]);
+          if (excess > 0) {
+            const nb = Math.fround(b[i] - FAILURE_RATE * excess);
+            const act = b[i] - nb;
+            b[i] = nb;
+            loose[i] += act;
+            fallSum += act;
+            changed = true;
+          }
+        }
+        if (wRate > 0) {
+          const pend = Math.fround(this.weatherPending[i] + wRate * this.erod[m] * (1 + wet[i]) * Math.exp(-ls[i] / p.soilScaleM));
+          const nb = Math.fround(b[i] - pend);
+          const act = b[i] - nb;
+          this.weatherPending[i] = Math.fround(pend - act);
+          if (act > 0) {
+            b[i] = nb;
+            loose[i] += act;
+            weatherSum += act;
+            changed = true;
+          }
+        }
+        if (changed) {
+          z[i] = b[i] + loose[i];
+          refreshExposed(w, i);
+        }
+      }
+    }
+    this.ledger.rockfall += fallSum * A;
+    this.ledger.weathered += weatherSum * A;
   }
 
   private advect(dt: number) {

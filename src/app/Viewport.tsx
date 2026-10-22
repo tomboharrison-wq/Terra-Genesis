@@ -15,7 +15,7 @@ function currentBrush(): BrushParams | null {
 /** Radius of the cursor ring for the active tool, or null if no ring. */
 function ringRadius(): number | null {
   const s = useUi.getState();
-  if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain') return s.radiusM;
+  if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain' || s.tool === 'landslide') return s.radiusM;
   if (s.tool === 'spring' || s.tool === 'profile') return (s.world?.cellSizeM ?? 10) * 2;
   return null;
 }
@@ -77,6 +77,12 @@ export function Viewport() {
       e.stopPropagation();
       e.preventDefault();
       const ui = useUi.getState();
+      if (ui.tool === 'landslide') {
+        const r = engine.landslide(hit.xM, hit.yM, ui.radiusM);
+        const total = r.failedRockM3 + r.movedM3;
+        ui.toast(total > 1 ? `Landslide: ${Math.round(r.movedM3).toLocaleString()} m³ displaced downslope (${Math.round(r.failedRockM3).toLocaleString()} m³ of it rock that broke up)` : 'Slope is stable here even when saturated', total > 1 ? 'success' : 'info');
+        return;
+      }
       if (ui.tool === 'profile') {
         if (!ui.profileStart || ui.profile) {
           ui.set({ profileStart: { x: hit.xM, y: hit.yM }, profile: null });

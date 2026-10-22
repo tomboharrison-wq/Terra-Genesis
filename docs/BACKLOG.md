@@ -2,10 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M04-C01 | Layered stratigraphy, exposure by erosion, plateau/headland layers | READY |
-| M04-C02 | Weathering (bedrock→regolith) + creep tuning | TODO |
-| M04-C03 | Saturation/stability + basic landslide event | TODO |
-| M04-C04 | Local curved-slip rotational slump prototype | TODO |
+| M04-C04 | Local curved-slip rotational slump prototype | READY |
+| M04-C03 | Avalanching, rockfall, saturation proxy, Landslide tool | DONE |
+| M04-C02 | Weathering with pending store | DONE |
+| M04-C01 | Layered stratigraphy, exposure by erosion, strata on cliffs | DONE |
 | M03-C06 | River-to-sea preset, profile tool, e2e erosion checks | DONE |
 | M03-C04..C05 | GPU sediment pass, change map, turbid water, erosion UI | DONE |
 | M03-C01..C03 | Sediment fields/ledger, transport, erosion/deposition (CPU ref) | DONE |

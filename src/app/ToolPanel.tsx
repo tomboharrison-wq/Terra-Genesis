@@ -46,6 +46,7 @@ export function ToolPanel() {
   const brush = isBrushTool(t.id);
   const water = isWaterTool(t.id);
   const measure = t.id === 'profile';
+  const events = t.id === 'landslide';
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -114,11 +115,17 @@ export function ToolPanel() {
         </>
       )}
 
+      {events && (
+        <>
+          <LogSlider label="Zone radius" unit="m" value={s.radiusM} min={cs * 1.5} max={extent / 3} onChange={(v) => s.set({ radiusM: v })} />
+          <p className="hint small">Saturation lowers the stable angle of debris to half its dry value and weakens rock in the zone. Where nothing is steep enough, nothing moves.</p>
+        </>
+      )}
       {(measure || s.profile) && <ProfilePanel />}
-      {(water || (!brush && !measure)) && <WaterPanel />}
+      {(water || (!brush && !measure && !events)) && <WaterPanel />}
       {(water || (!brush && !measure)) && <ErosionPanel />}
 
-      {!brush && !water && !measure && (
+      {!brush && !water && !measure && !events && (
         <div className="cam-buttons">
           <button onClick={() => getScene()?.fitWorld()}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>

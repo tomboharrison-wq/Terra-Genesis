@@ -1,13 +1,25 @@
 import { refreshAllExposed, STRATA_BOUNDS, STRATA_LAYERS, type WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import type { WaterSim } from './waterSim';
-import { MIN_TRANSPORT_DEPTH, SLOPE_MAX, SLOPE_MIN, SedimentSim } from '../sediment/sedimentSim';
+import {
+  FAILURE_RATE,
+  MIN_TRANSPORT_DEPTH,
+  SATURATION_DEPTH,
+  SATURATION_RAIN,
+  SLOPE_MAX,
+  SLOPE_MIN,
+  SedimentSim,
+  TAN_LOOSE,
+  WET_LOOSE_WEAKENING,
+  WET_ROCK_WEAKENING,
+} from '../sediment/sedimentSim';
 import { MATERIALS } from '../../terrain/materials';
 
 /**
  * WebGL2 port of WaterSim + SedimentSim (same schemes, see waterSim.ts / sedimentSim.ts).
  * Textures (RGBA32F, texel (x, y) = cell (x, y), y north):
- *   bed:    r = bedrock elevation, g = loose sediment thickness, b = suspended sediment (m), a unused.
+ *   bed:    r = bedrock elevation, g = loose sediment thickness, b = suspended sediment (m),
+ *           a = weathering demand not yet applied (m, see SedimentSim.weatherPending).
  *           Surface z = r + g; sea ⇔ z < sea level.
  *   strataB / strataM (static, uploaded with the ground): layer boundaries (m) and layer lithology
  *           ids; the sediment pass finds the exposed layer at the current bedrock elevation, so
@@ -17,7 +29,7 @@ import { MATERIALS } from '../../terrain/materials';
  *   acc:    water depth-equivalents since last sync: lost (infiltration+evaporation, split by
  *           their rate ratio on sync), rain added, into sea, off edges
  *   sedA:   sediment since last sync (m): eroded loose, eroded bedrock, deposited on land, exported
- *   sedB:   r = deposited on the sea floor (m)
+ *   sedB:   r = deposited on the sea floor, g = weathered, b = rockfall (m)
  * Accumulators are folded into the CPU ledgers (× cell area) on sync and cleared. Rain is
  * measured on the GPU (the land/sea mask moves with erosion); source inputs are ledgered on the CPU.
  * While attached, GPU textures are authoritative; CPU arrays are a mirror refreshed by syncToCpu().
@@ -179,6 +191,11 @@ uniform float uKappa;      // creep coefficient (see SedimentSim.creepKappa)
 uniform sampler2D uStrataB; // boundaries (descending), unused = -1e9
 uniform sampler2D uStrataM; // lithology id per layer (as float)
 uniform float uErod[16];   // erodibility by lithology id
+uniform float uTanCliff[16]; // tan(critical cliff angle) by lithology id
+uniform int uSlopeFail;
+uniform float uRainWet;    // rain intensity / SATURATION_RAIN
+uniform float uWeather;    // weatherK * speedup * dt
+uniform float uSoilScale;
 layout(location = 0) out vec4 oBed;
 layout(location = 1) out vec4 oSedA;
 layout(location = 2) out vec4 oSedB;
@@ -194,19 +211,36 @@ float outThrough(ivec2 j, int k) {
   return b.b * f * uDt / (d0 * uCs * uCs);
 }
 
-float exposedErodibility(ivec2 c, float bedrockZ) {
+int exposedMat(ivec2 c, float bedrockZ) {
   vec4 sb = texelFetch(uStrataB, c, 0);
   vec4 sm = texelFetch(uStrataM, c, 0);
   float m = sm.x;
   if (bedrockZ < sb.x) { m = sm.y; if (bedrockZ < sb.y) { m = sm.z; if (bedrockZ < sb.z) m = sm.w; } }
-  return uErod[int(m + 0.5)];
+  return int(m + 0.5);
+}
+float exposedErodibility(ivec2 c, float bedrockZ) { return uErod[exposedMat(c, bedrockZ)]; }
+
+// Saturation proxy (see SedimentSim): standing water or rain intensity; sea = saturated.
+float wetAt(ivec2 j) {
+  if (seaAt(j)) return 1.0;
+  return min(1.0, max(texelFetch(uPrev, j, 0).r / ${SATURATION_DEPTH.toExponential()}, uRainWet));
 }
 
-// Creep loss of cell i to neighbour j (negative = gain), from start-of-step values.
-float creepFace(float zi, float li, ivec2 j) {
+// Loose sediment moved from donor across a face with drop dz > 0 (creep + avalanche).
+float looseMove(float dz, float donorLoose, ivec2 donor) {
+  float a = uKappa * dz;
+  if (uSlopeFail == 1) {
+    float excess = dz - uCs * ${TAN_LOOSE.toFixed(6)} * (1.0 - ${WET_LOOSE_WEAKENING.toFixed(3)} * wetAt(donor));
+    if (excess > 0.0) a += 0.25 * ${FAILURE_RATE.toFixed(3)} * excess;
+  }
+  return min(a, 0.25 * donorLoose);
+}
+
+// Loss of cell c to neighbour j (negative = gain), from start-of-step values.
+float creepFace(ivec2 c, float zi, float li, ivec2 j) {
   vec4 bj = texelFetch(uBed, j, 0);
   float dz = zi - (bj.r + bj.g);
-  return dz > 0.0 ? min(uKappa * dz, 0.25 * li) : -min(-uKappa * dz, 0.25 * bj.g);
+  return dz > 0.0 ? looseMove(dz, li, c) : -looseMove(-dz, bj.g, j);
 }
 
 void main() {
@@ -220,14 +254,42 @@ void main() {
   float zi = bedrock + loose;
   bool sea = zi < uSea;
 
-  // 0. Hillslope creep of loose sediment (conservative pairwise exchange).
-  if (uKappa > 0.0) {
+  // 0a. Hillslope creep + avalanching of loose sediment (conservative pairwise exchange).
+  if (uKappa > 0.0 || uSlopeFail == 1) {
     float net = 0.0;
-    if (c.x > 0) net += creepFace(zi, B.g, c + ivec2(-1, 0));
-    if (c.x < uSize.x - 1) net += creepFace(zi, B.g, c + ivec2(1, 0));
-    if (c.y > 0) net += creepFace(zi, B.g, c + ivec2(0, -1));
-    if (c.y < uSize.y - 1) net += creepFace(zi, B.g, c + ivec2(0, 1));
+    if (c.x > 0) net += creepFace(c, zi, B.g, c + ivec2(-1, 0));
+    if (c.x < uSize.x - 1) net += creepFace(c, zi, B.g, c + ivec2(1, 0));
+    if (c.y > 0) net += creepFace(c, zi, B.g, c + ivec2(0, -1));
+    if (c.y < uSize.y - 1) net += creepFace(c, zi, B.g, c + ivec2(0, 1));
     loose = max(0.0, B.g - net);
+  }
+  // 0b. Rockfall and weathering (bedrock → loose, exact float32 change).
+  int m0 = exposedMat(c, B.r);
+  float wetC = wetAt(c);
+  if (uSlopeFail == 1) {
+    float low = B.r;
+    if (c.x > 0) low = min(low, texelFetch(uBed, c + ivec2(-1, 0), 0).r);
+    if (c.x < uSize.x - 1) low = min(low, texelFetch(uBed, c + ivec2(1, 0), 0).r);
+    if (c.y > 0) low = min(low, texelFetch(uBed, c + ivec2(0, -1), 0).r);
+    if (c.y < uSize.y - 1) low = min(low, texelFetch(uBed, c + ivec2(0, 1), 0).r);
+    float excess = B.r - low - uCs * uTanCliff[m0] * (1.0 - ${WET_ROCK_WEAKENING.toFixed(3)} * wetC);
+    if (excess > 0.0) {
+      float nb = bedrock - ${FAILURE_RATE.toFixed(3)} * excess;
+      float act = bedrock - nb;
+      bedrock = nb;
+      loose += act;
+      sb.b += act;
+    }
+  }
+  float pend = B.a;
+  if (uWeather > 0.0) {
+    pend += uWeather * uErod[m0] * (1.0 + wetC) * exp(-B.g / uSoilScale);
+    float nb = bedrock - pend;
+    float act = bedrock - nb;
+    pend -= act;
+    bedrock = nb;
+    loose += act;
+    sb.g += act;
   }
 
   // 1. Advection (upwind, same face discharges as the water).
@@ -240,7 +302,7 @@ void main() {
     float settle = s + inS;
     loose += settle;
     sb.r += settle;
-    oBed = vec4(bedrock, loose, 0.0, B.a);
+    oBed = vec4(bedrock, loose, 0.0, pend);
     oSedA = sa;
     oSedB = sb;
     return;
@@ -289,7 +351,7 @@ void main() {
       sa.b += amt;
     }
   }
-  oBed = vec4(bedrock, loose, s, B.a);
+  oBed = vec4(bedrock, loose, s, pend);
   oSedA = sa;
   oSedB = sb;
 }`;
@@ -313,6 +375,7 @@ export class GpuWater implements Stepper {
   private strataB: WebGLTexture;
   private strataM: WebGLTexture;
   private erodTable = new Float32Array(16);
+  private tanCliffTable = new Float32Array(16);
   private fbStateAcc: [WebGLFramebuffer, WebGLFramebuffer];
   private fbFlux: [WebGLFramebuffer, WebGLFramebuffer];
   private fbBed: [WebGLFramebuffer, WebGLFramebuffer];
@@ -354,7 +417,11 @@ export class GpuWater implements Stepper {
     this.sedB = pair();
     this.strataB = this.tex();
     this.strataM = this.tex();
-    for (const m of MATERIALS) if (m.id < 16) this.erodTable[m.id] = m.erodibility;
+    for (const m of MATERIALS)
+      if (m.id < 16) {
+        this.erodTable[m.id] = m.erodibility;
+        this.tanCliffTable[m.id] = Math.tan((m.cliffDeg * Math.PI) / 180);
+      }
     this.fbStateAcc = [this.fb([this.state[0], this.acc[0]]), this.fb([this.state[1], this.acc[1]])];
     this.fbFlux = [this.fb([this.flux[0]]), this.fb([this.flux[1]])];
     this.fbBed = [this.fb([this.bed[0], this.sedA[0], this.sedB[0]]), this.fb([this.bed[1], this.sedA[1], this.sedB[1]])];
@@ -453,6 +520,7 @@ export class GpuWater implements Stepper {
       g[i * 4] = w.bedrockElevationM[i];
       g[i * 4 + 1] = w.looseSedimentThicknessM[i];
       g[i * 4 + 2] = w.sedimentSuspendedM[i];
+      g[i * 4 + 3] = this.sed ? this.sed.weatherPending[i] : 0;
       for (let k = 0; k < STRATA_BOUNDS && k < 4; k++) sb[i * 4 + k] = w.strataBoundsM[i * STRATA_BOUNDS + k];
       for (let k = 0; k < STRATA_LAYERS && k < 4; k++) sm[i * 4 + k] = w.strataMaterial[i * STRATA_LAYERS + k];
     }
@@ -530,8 +598,13 @@ export class GpuWater implements Stepper {
       let dep = 0;
       let exp = 0;
       let seaDep = 0;
+      let weathered = 0;
+      let rockfall = 0;
       for (let i = 0; i < n; i++) {
         const o = i * 4;
+        this.sed.weatherPending[i] = bd[o + 3];
+        weathered += sb[o + 1];
+        rockfall += sb[o + 2];
         w.bedrockElevationM[i] = bd[o];
         w.looseSedimentThicknessM[i] = bd[o + 1];
         w.sedimentSuspendedM[i] = bd[o + 2];
@@ -548,6 +621,8 @@ export class GpuWater implements Stepper {
       SL.deposited += dep * A;
       SL.edgeExport += exp * A;
       SL.seaDeposited += seaDep * A;
+      SL.weathered += weathered * A;
+      SL.rockfall += rockfall * A;
       const zero = new Float32Array(n * 4);
       this.write(this.sedA[this.b], zero);
       this.write(this.sedB[this.b], zero);
@@ -667,6 +742,11 @@ export class GpuWater implements Stepper {
       this.bindTex(this.sediment, 'uStrataB', 6, this.strataB);
       this.bindTex(this.sediment, 'uStrataM', 7, this.strataM);
       gl.uniform1fv(this.uni(this.sediment, 'uErod[0]'), this.erodTable);
+      gl.uniform1fv(this.uni(this.sediment, 'uTanCliff[0]'), this.tanCliffTable);
+      gl.uniform1i(this.uni(this.sediment, 'uSlopeFail'), e.slopeFailure ? 1 : 0);
+      gl.uniform1f(this.uni(this.sediment, 'uRainWet'), p.rainMPerS / SATURATION_RAIN);
+      gl.uniform1f(this.uni(this.sediment, 'uWeather'), e.weatherK * e.speedup * dt);
+      gl.uniform1f(this.uni(this.sediment, 'uSoilScale'), e.soilScaleM);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbBed[b1]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.b = b1;

@@ -70,10 +70,14 @@ export function syncSim() {
       speedup: w.erosion.speedup,
       bedrockFactor: w.erosion.bedrockFactor,
       creepK: w.erosion.creepK,
+      weatherK: w.erosion.weatherK,
+      slopeFailure: w.erosion.slopeFailure,
       sed: (() => {
         const S = engine.sediment.ledger;
         const susp = engine.sediment.suspendedVolume();
         return {
+          weathered: S.weathered,
+          rockfall: S.rockfall,
           erodedLoose: S.erodedLoose,
           erodedBedrock: S.erodedBedrock,
           deposited: S.deposited,

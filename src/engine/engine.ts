@@ -7,6 +7,7 @@ import { unionRect, type CellRect } from '../utils/rect';
 import { WaterSim } from '../sim/water/waterSim';
 import { GpuWater } from '../sim/water/gpuWater';
 import { SedimentSim } from '../sim/sediment/sedimentSim';
+import { triggerLandslide, type LandslideResult } from '../sim/slopes/landslide';
 import { SimClock, type Stepper } from './clock';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
@@ -302,6 +303,22 @@ export class Engine {
       this.history.push(cmd);
       this.emit({ type: 'history-changed' });
     }
+  }
+
+  /**
+   * Landslide event at (xM, yM): saturate and weaken a zone, let it fail (undoable as one edit).
+   */
+  landslide(xM: number, yM: number, radiusM: number, weakening = 0.5): LandslideResult {
+    this.syncWater();
+    const rec = new StrokeRecorder(this.world, 'Landslide');
+    const res = triggerLandslide(this.world, this.surface, { xM, yM, radiusM, weakening, iterations: 120 }, rec.capture);
+    const cmd = rec.finish();
+    if (cmd) {
+      this.history.push(cmd);
+      this.markDirty(res.rect);
+      this.emit({ type: 'history-changed' });
+    }
+    return res;
   }
 
   /** GPU erosion keeps changing the bed: pull it before a CPU-side terrain edit. */

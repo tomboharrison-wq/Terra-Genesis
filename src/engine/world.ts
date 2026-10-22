@@ -44,10 +44,17 @@ export const MM_PER_H = 1 / 3.6e6;
  * a labelled, non-physical time compression so landforms change within minutes).
  * `creepK` is hillslope diffusivity (m²/s at ×1) acting on loose sediment: flux ∝ −∇z,
  * limited to the loose sediment available. Smooths grid-scale roughness; valleys persist.
+ * `weatherK` is the bare-rock regolith production rate (m/s at ×1, × lithology erodibility,
+ * × (1 + wetness)), decaying as exp(−soil/soilScaleM) under existing soil.
+ * `slopeFailure` enables loose-sediment avalanching above the angle of repose and bedrock
+ * rockfall above each lithology's critical cliff angle (both lowered by saturation).
  */
 export interface ErosionParams {
   enabled: boolean;
   creepK: number;
+  weatherK: number;
+  soilScaleM: number;
+  slopeFailure: boolean;
   capacityK: number;
   erodeK: number;
   depositK: number;
@@ -56,7 +63,7 @@ export interface ErosionParams {
 }
 
 export function defaultErosionParams(): ErosionParams {
-  return { enabled: false, creepK: 0, capacityK: 0.05, erodeK: 0.01, depositK: 0.02, bedrockFactor: 0.1, speedup: 10 };
+  return { enabled: false, creepK: 0, weatherK: 2e-8, soilScaleM: 0.5, slopeFailure: true, capacityK: 0.05, erodeK: 0.01, depositK: 0.02, bedrockFactor: 0.1, speedup: 10 };
 }
 
 export function defaultWaterParams(): WaterParams {
