@@ -96,6 +96,14 @@ export function TimeBar() {
           <span>+10 m</span>
         </div>
       )}
+      {terrainOverlay === 'waves' && (
+        <div className="legend" aria-label="Wave attack legend">
+          <i className="ramp waves" />
+          <span>low</span>
+          <span>15</span>
+          <span>≥30 kW/m</span>
+        </div>
+      )}
       {view === 'depth' && (
         <div className="legend" aria-label="Water depth legend">
           <i className="ramp depth" />

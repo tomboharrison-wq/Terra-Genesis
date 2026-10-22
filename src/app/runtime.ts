@@ -72,6 +72,16 @@ export function syncSim() {
       creepK: w.erosion.creepK,
       weatherK: w.erosion.weatherK,
       slopeFailure: w.erosion.slopeFailure,
+      ...(() => {
+        let zMin = Infinity;
+        let zMax = -Infinity;
+        for (const z of engine.surface) {
+          if (z < zMin) zMin = z;
+          if (z > zMax) zMax = z;
+        }
+        return { zMin, zMax };
+      })(),
+      coast: { ...w.coast, ...engine.coast.ledger },
       sed: (() => {
         const S = engine.sediment.ledger;
         const susp = engine.sediment.suspendedVolume();

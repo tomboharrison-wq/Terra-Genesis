@@ -1,3 +1,4 @@
+import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
@@ -38,6 +39,7 @@ export interface FileHeader {
   meta: WorldMeta;
   water?: WaterParams;
   erosion?: ErosionParams;
+  coast?: CoastParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -67,6 +69,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     meta: w.meta,
     water: w.water,
     erosion: w.erosion,
+    coast: w.coast,
     fields,
     extras,
   };
@@ -128,6 +131,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
     sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
+    coast: { ...defaultCoastParams(), ...h.coast },
     meta: h.meta,
   };
   if (!has('strataMaterial')) setUniformStrata(world); // v1–v3: one layer = the stored lithology

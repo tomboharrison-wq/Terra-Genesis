@@ -8,6 +8,7 @@ import { WaterSim } from '../sim/water/waterSim';
 import { GpuWater } from '../sim/water/gpuWater';
 import { SedimentSim } from '../sim/sediment/sedimentSim';
 import { triggerLandslide, type LandslideResult } from '../sim/slopes/landslide';
+import { CoastSim, type CoastParams } from '../sim/coast/coastSim';
 import { SimClock, type Stepper } from './clock';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
@@ -16,7 +17,8 @@ export type EngineEvent =
   | { type: 'terrain-changed'; rect: CellRect }
   | { type: 'history-changed' }
   | { type: 'water-params-changed' }
-  | { type: 'sim-state-changed' };
+  | { type: 'sim-state-changed' }
+  | { type: 'sea-level-changed' };
 
 /**
  * Owns the authoritative WorldState, its derived surface cache, edit history and dirty
@@ -33,6 +35,8 @@ export class Engine {
   water!: WaterSim;
   /** CPU sediment solver (reference/fallback; owns the sediment ledger). */
   sediment!: SedimentSim;
+  /** Coastal processes (slow cadence, CPU). */
+  coast!: CoastSim;
   /** Surface at the last "set reference" (for the erosion/deposition change map). */
   referenceSurface!: Float32Array;
   private cpuStepper!: Stepper;
@@ -58,6 +62,7 @@ export class Engine {
     this.dirty = null;
     this.water = new WaterSim(world, this.surface);
     this.sediment = new SedimentSim(world, this.surface, this.water);
+    this.coast = new CoastSim(world, this.surface);
     this.referenceSurface = this.surface.slice();
     const water = this.water;
     const sediment = this.sediment;
@@ -136,6 +141,7 @@ export class Engine {
     if (done > 0) {
       this.world.simTimeSeconds += done;
       this.waterRevision++;
+      this.coastHook(done);
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -159,6 +165,7 @@ export class Engine {
       const seg = this.gpu ? Math.min(left, 600) : left;
       const d = this.clock.advanceExactly(this.stepper, seg);
       done += d;
+      this.coastHook(d);
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -168,6 +175,23 @@ export class Engine {
     if (!this.gpu && this.erosionActive) this.markRenderDirtyAll();
     this.waterRevision++;
     return done;
+  }
+
+  /** Run coastal processes when their cadence is due (pull GPU state, update, push back). */
+  private coastHook(simSeconds: number) {
+    if (!this.coast.accumulate(simSeconds)) return;
+    if (this.gpu) this.gpu.syncToCpu();
+    const changed = this.coast.update(this.world.erosion.speedup);
+    if (changed > 0) {
+      this.water.refreshSea();
+      this.groundDirty = true;
+      this.markRenderDirtyAll();
+    }
+  }
+
+  setCoastParams(p: Partial<CoastParams>): void {
+    Object.assign(this.world.coast, p);
+    this.emit({ type: 'water-params-changed' });
   }
 
   private flushGround() {
@@ -194,6 +218,20 @@ export class Engine {
     Object.assign(this.world.erosion, p);
     if (p.enabled) this.groundDirty = true;
     this.emit({ type: 'water-params-changed' });
+  }
+
+  /**
+   * Change sea level (m). Land below the new level becomes sea (its surface water joins the sea
+   * and is ledgered; suspended sediment there settles next step); exposed shelf becomes land.
+   */
+  setSeaLevel(m: number): void {
+    this.syncWater();
+    this.world.seaLevelM = m;
+    this.water.refreshSea();
+    this.groundDirty = true;
+    this.waterRevision++;
+    this.emit({ type: 'sea-level-changed' });
+    this.markRenderDirtyAll();
   }
 
   /** Snapshot the current surface as the reference for the erosion/deposition change map. */

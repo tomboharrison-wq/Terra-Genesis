@@ -5,7 +5,7 @@ import { ToolIcon } from './icons';
 export function ToolRail() {
   const tool = useUi((s) => s.tool);
   const set = useUi((s) => s.set);
-  const group = (g: 'terrain' | 'water' | 'measure' | 'events', label: string) => (
+  const group = (g: 'terrain' | 'water' | 'coast' | 'measure' | 'events', label: string) => (
     <>
       <div className="rail-group-label">{label}</div>
       {TOOLS.filter((t) => t.group === g).map((t) => (
@@ -27,6 +27,7 @@ export function ToolRail() {
       {group('terrain', 'Terrain')}
       <div className="rail-sep" />
       {group('water', 'Water')}
+      {group('coast', 'Coast')}
       <div className="rail-sep" />
       {group('measure', 'Measure')}
       <div className="rail-sep" />

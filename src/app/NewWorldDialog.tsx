@@ -24,18 +24,20 @@ export function NewWorldDialog() {
   const [boundary, setBoundary] = useState<'open' | 'closed'>('open');
   const [autoplay, setAutoplay] = useState(true);
   const [erosion, setErosion] = useState(() => presetById('river-basin').defaults.erosion ?? false);
+  const [waves, setWaves] = useState(() => presetById('river-basin').defaults.waves ?? false);
 
   const pick = (id: PresetId) => {
     setPresetId(id);
     setD({ ...presetById(id).defaults });
     setRain(presetById(id).defaults.rainMmH ?? 0);
     setErosion(presetById(id).defaults.erosion ?? false);
+    setWaves(presetById(id).defaults.waves ?? false);
   };
   const extentKm = useMemo(() => ((size - 1) * d.cellSizeM) / 1000, [size, d.cellSizeM]);
 
   const generate = () => {
-    const o: GenerateOptions = { presetId, seed, size, ...d, rainMmH: rain, boundary, erosion, name: name.trim() || `${presetById(presetId).name} ${seed}` };
-    newWorld(o, autoplay && rain > 0);
+    const o: GenerateOptions = { presetId, seed, size, ...d, rainMmH: rain, boundary, erosion, waves, name: name.trim() || `${presetById(presetId).name} ${seed}` };
+    newWorld(o, autoplay && (rain > 0 || waves));
     close();
   };
 
@@ -103,8 +105,12 @@ export function NewWorldDialog() {
           <span>Erosion &amp; deposition on</span>
         </label>
         <label className="field check">
+          <input type="checkbox" checked={waves} onChange={(e) => setWaves(e.target.checked)} />
+          <span>Waves on</span>
+        </label>
+        <label className="field check">
           <input type="checkbox" checked={autoplay} onChange={(e) => setAutoplay(e.target.checked)} />
-          <span>Start simulation if raining</span>
+          <span>Start simulation if raining or waves on</span>
         </label>
         <label className="field">
           <span className="field-label">

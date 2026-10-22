@@ -1,11 +1,11 @@
 # One next executable task
-ID: M05-C01
-Goal: Sea level becomes a live control (slider in a Coast panel) that re-derives the coastline (sea mask) for water + sediment on CPU and GPU, with the shoreline drawn crisply; ocean shading improved (depth colour already from heightmap). Sea-level change ledgers water exchange correctly.
-Why now: M04 done; coasts (spec E6, `sed -n 431,446p docs/MASTER_SPEC.md`) start from a controllable shoreline.
-Read only: src/engine/engine.ts, src/sim/water/{waterSim,gpuWater}.ts (sea = z < seaLevel), src/renderer/{TerrainScene,shaders,waterLayer}.ts.
-Change only: engine (setSeaLevel), renderer sea plane update, new src/app/CoastPanel.tsx, tests.
-Acceptance: raising sea level floods low land (sea mask grows), lowering exposes shelf; water/sediment ledgers still close; GPU and CPU agree; e2e check.
-Do not touch: erosion numerics.
-Done when: tests/typecheck/build/e2e/gpu-check pass, committed + pushed.
-If interrupted: engine setter + tests first, then renderer, then UI.
-Next candidate: M05-C02 wave energy/incidence and lithology-dependent cliff retreat.
+ID: M05-C04
+Goal: Parameterised coastal-deposition scenarios built from the existing drift physics: (1) spit across a bay mouth → bar + lagoon, (2) offshore island → tombolo (sheltered lee collects drift), (3) recurved spit end after a wave-direction change. Each with a seeded preset and a numerical assertion (connected sand ridge above sea level; lagoon enclosed; sediment conserved).
+Why now: C01–C03 provide sea level, waves, drift; spec E6 + J1 `coastal-sediment` fixture.
+Read only: src/sim/coast/coastSim.ts, src/terrain/generate.ts, tests/coast.test.ts.
+Change only: generate.ts (scenario presets), coastSim.ts (only if a physics gap is proven by a failing test), tests.
+Acceptance: tests show bar/tombolo/recurve emerge from drift alone; e2e loads each preset.
+Do not touch: water/sediment solvers.
+Done when: tests/typecheck/build/e2e pass, committed + pushed.
+If interrupted: scenario fixtures in tests first.
+Next candidate: M05-C05 local 3D solid geometry: cave → arch → stack → stump (guided model, like the slump lab).

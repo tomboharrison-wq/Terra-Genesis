@@ -34,3 +34,10 @@
 
 ## M04-C04 — Rotational slump lab
 - A cross-section "lab" (Landslide panel → Open rotational slump lab): choose material, cliff height, face angle and saturation; it finds the critical curved slip surface and its factor of safety, and when it drops below 1 animates the block rotating back, exposing a back scarp and building a toe. Labelled as a guided model.
+
+## M05-C01..C03 — Coasts: sea level, waves, drift
+- Coast tool: sea-level slider (drown valleys or expose the shelf), wave height/period/direction with live wave power.
+- Waves erode cliffs — exposed weak rock fastest, sheltered coasts least, slowed by a widening wave-cut platform; cliffs collapse behind; debris goes offshore. Wave attack map.
+- Longshore drift moves beach sand along the shore with oblique waves; spits start to grow where the coast turns.
+- New worlds start with settled, stable slopes (talus aprons) instead of collapsing on the first step.
+- Coastal headlands preset rebuilt: straight coast, chalk/clay bands, waves on — bays form in the clay.

@@ -4,9 +4,9 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide';
+export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast';
 
-export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && !t.startsWith('water-') && t !== 'spring';
+export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && !t.startsWith('water-') && t !== 'spring';
 
 /** Transect end points in world metres (x east, y north). */
 export interface ProfileLine {
@@ -40,6 +40,9 @@ export interface SimInfo {
   creepK: number;
   weatherK: number;
   slopeFailure: boolean;
+  zMin: number;
+  zMax: number;
+  coast: { wavesOn: boolean; waveHeightM: number; wavePeriodS: number; waveFromDeg: number; cliffEroded: number; cliffBedrock: number; nearshoreDeposited: number; drifted: number };
   sed: { weathered: number; rockfall: number; erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
 }
 

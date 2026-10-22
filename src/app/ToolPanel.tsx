@@ -2,6 +2,7 @@ import { useUi, DEFAULT_RATES, isBrushTool, isWaterTool } from '../state/uiStore
 import { WaterPanel } from './WaterPanel';
 import { ErosionPanel } from './ErosionPanel';
 import { ProfilePanel } from './ProfilePanel';
+import { CoastPanel } from './CoastPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
@@ -47,6 +48,7 @@ export function ToolPanel() {
   const water = isWaterTool(t.id);
   const measure = t.id === 'profile';
   const events = t.id === 'landslide';
+  const coastTool = t.id === 'coast';
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -125,11 +127,12 @@ export function ToolPanel() {
           <p className="hint small">The map shows generalised mass movement; curved-slip rotational slumping is shown in its own guided cross-section model.</p>
         </>
       )}
+      {coastTool && <CoastPanel />}
       {(measure || s.profile) && <ProfilePanel />}
-      {(water || (!brush && !measure && !events)) && <WaterPanel />}
-      {(water || (!brush && !measure)) && <ErosionPanel />}
+      {(water || (!brush && !measure && !events && !coastTool)) && <WaterPanel />}
+      {(water || (!brush && !measure && !coastTool)) && <ErosionPanel />}
 
-      {!brush && !water && !measure && !events && (
+      {!brush && !water && !measure && !events && !coastTool && (
         <div className="cam-buttons">
           <button onClick={() => getScene()?.fitWorld()}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>

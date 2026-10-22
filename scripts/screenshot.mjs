@@ -14,7 +14,9 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(e.message));
 const results = [];
 const check = (name, ok, detail = '') => {
-  results.push(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`);
+  const line = `${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`;
+  results.push(line);
+  console.log(line);
 };
 const sum = () => page.evaluate(() => window.__terraGenesis.checksum());
 const shot = (n) => page.screenshot({ path: `${out}/${n}.png`, timeout: 90000 });
@@ -204,9 +206,29 @@ await page.waitForTimeout(2500);
 const b2 = await bedSum();
 check('eroded terrain + suspended load restored after reload', Math.abs(b1 - b2) < 1e-6 * Math.abs(b1), `before=${b1.toFixed(3)} after=${b2.toFixed(3)}`);
 
+// --- Coast (M05): sea level + waves on the headlands preset ---
+await page.click('text=New');
+await page.click('.preset:has-text("Coastal headlands")');
+await page.selectOption('.dialog select >> nth=0', '128');
+await page.click('label.check:has-text("Start simulation") input');
+await page.click('text=Generate world');
+await page.waitForTimeout(1200);
+const co = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  const sea = () => e.water.sea.reduce((a, v) => a + v, 0);
+  const s0 = sea();
+  e.setSeaLevel(5);
+  const s1 = sea();
+  e.setSeaLevel(0);
+  e.advance(6 * 3600);
+  return { s0, s1, cliff: e.coast.ledger.cliffEroded, waves: e.world.coast.wavesOn };
+});
+check('sea-level rise floods more cells', co.s1 > co.s0, `${co.s0} → ${co.s1} sea cells`);
+check('waves erode the headlands coast', co.waves && co.cliff > 1000, `cliff erosion ${co.cliff.toFixed(0)} m³`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
-console.log(results.join('\n'));
+console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);
 console.log('perf:', fps);
 await browser.close();
 process.exit(results.some((r) => r.startsWith('FAIL')) ? 1 : 0);

@@ -1,4 +1,5 @@
 import type { CellRect } from '../utils/rect';
+import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 
 export const WORLD_FORMAT_VERSION = 4;
 
@@ -114,6 +115,8 @@ export interface WorldState {
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
+  /** Wave climate and coastal process parameters (spec E6). */
+  coast: CoastParams;
   meta: WorldMeta;
 }
 
@@ -151,6 +154,7 @@ export function createWorld(init: WorldInit): WorldState {
     water: defaultWaterParams(),
     sedimentSuspendedM: new Float32Array(n),
     erosion: defaultErosionParams(),
+    coast: defaultCoastParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -246,6 +250,7 @@ export function cloneWorld(w: WorldState): WorldState {
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
     sedimentSuspendedM: w.sedimentSuspendedM.slice(),
     erosion: { ...w.erosion },
+    coast: { ...w.coast },
     meta: { ...w.meta },
   };
 }

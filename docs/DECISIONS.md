@@ -21,3 +21,5 @@
 - 2026-10-22 — Weathering demand accumulates in a pending store (CPU array / GPU bed.a) because per-step production is below float32 resolution at high elevations.
 - 2026-10-22 — Slope stability uses a saturation proxy (surface water depth or rain intensity) until a soil-moisture field exists (M06).
 - 2026-10-22 — Rotational slumping is a separate guided 2D model (Fellenius method of slices + rigid rotation about the critical circle + equal-area toe lobe), labelled as such and not coupled to the heightfield; the map uses generalised mass movement.
+- 2026-10-22 — Coastal processes run on the CPU at a fixed 600 s simulated cadence (Engine.coastHook: GPU sync → update → re-upload); wave power from deep-water energy flux with shelter/incidence/attenuation multipliers; drift CERC-like with Jacobi transfers. Shares the geomorphic acceleration with erosion.
+- 2026-10-22 — New worlds are settled to the simulator's dry stability limits at generation (rockfall + talus), so change maps show only real process change.

@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M05-C01..C03
+- npm test PASS 109 (coast: wave power formula, zero-energy no erosion, debris conserved, weak > hard retreat, island shelter, platform slows retreat, drift direction + conservation, spit seed beyond coast end; sea level flood/expose + water closure; coast cadence in engine; settle: stable cliff + talus, presets start stable)
+- e2e PASS 22/22 (+ sea-level rise floods 5281→5594 cells; waves erode headlands 177k m³ in 6 h ×1000)
+- Headlands 96² CPU run, ×1000: clay bays retreat 2–3 cells vs chalk headlands 0 after 4 accelerated days.
+
 ## 2026-10-22 M04-C04
 - npm test PASS 97 (+ slump: FoS falls with saturation, dry gentle stable / wet steep fails, slip surface below ground, area conserved block+lobe, scarp + back-tilt, base stays on circle, stable doesn't move)
 - FoS table (teaching strengths): 15 m @30° clay dry 1.43 → saturated 0.95; 25 m @45° dry 0.86; 30 m @60° dry 0.61.

@@ -39,10 +39,13 @@ import { WaterLayer, type WaterView } from './waterLayer';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change';
+export type TerrainOverlay = 'none' | 'change' | 'waves';
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
+const WAVE_LO = new Color(0xffe627);
+const WAVE_MID = new Color(0xff912a);
+const WAVE_HI = new Color(0xed3f23);
 
 export interface FrameStats {
   fps: number;
@@ -161,6 +164,7 @@ export class TerrainScene {
 
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') this.buildWorld(true);
+      if (e.type === 'sea-level-changed') this.applySeaLevel();
     });
     // GPU water solver shares this WebGL2 context; falls back to CPU if float targets are missing.
     engine.attachGpu(this.renderer.getContext() as WebGL2RenderingContext);
@@ -286,6 +290,21 @@ export class TerrainScene {
     if (this.heightTex) this.heightTex.needsUpdate = true;
   }
 
+  /** Move the sea surface and refresh depth-dependent shading after a sea-level change. */
+  private applySeaLevel() {
+    const w = this.engine.world;
+    if (this.sea) {
+      this.sea.position.y = w.seaLevelM;
+      this.sea.material.uniforms.uSeaLevel.value = w.seaLevelM;
+    }
+    let zmin = Infinity;
+    for (const z of this.engine.surface) zmin = Math.min(zmin, z);
+    if (w.seaLevelM - Math.max(20, this.reliefM * 0.12) < this.baseM || zmin < this.baseM) {
+      this.baseM = Math.min(zmin, w.seaLevelM) - Math.max(20, this.reliefM * 0.12);
+    }
+    this.updateSkirts();
+  }
+
   /** Perimeter cell indices, walked clockwise-agnostic as four edges. */
   private perimeter(): number[] {
     const { width: W, height: H } = this.engine.world;
@@ -398,6 +417,8 @@ export class TerrainScene {
     const sea = w.seaLevelM;
     const relief = this.reliefM;
     const overlay = this.terrainOverlay === 'change';
+    const wavesOverlay = this.terrainOverlay === 'waves';
+    const expo = this.engine.coast.exposure;
     const ref = this.engine.referenceSurface;
     for (let y = r.y0; y < r.y1; y++) {
       const yd = y > 0 ? y - 1 : y;
@@ -428,7 +449,18 @@ export class TerrainScene {
           this.col,
           o,
         );
-        if (overlay) {
+        if (wavesOverlay) {
+          // Sequential: grey land, coastal cells yellow → orange → red by wave power (0 … 30 kW/m).
+          const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
+          const pw = expo[i];
+          if (pw > 0) {
+            const t = Math.min(1, pw / 30000);
+            const c = t < 0.5 ? WAVE_LO.clone().lerp(WAVE_MID, t * 2) : WAVE_MID.clone().lerp(WAVE_HI, t * 2 - 1);
+            this.col[o] = c.r;
+            this.col[o + 1] = c.g;
+            this.col[o + 2] = c.b;
+          } else this.col[o] = this.col[o + 1] = this.col[o + 2] = grey;
+        } else if (overlay) {
           // Diverging change map: red = lowered (eroded), blue = raised (deposited);
           // neutral within ±5 cm, log scale 5 cm … 10 m.
           const dz = z[i] - ref[i];

@@ -2,9 +2,12 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M05-C01 | Shoreline + controllable sea level + ocean visuals | READY |
-| M05-C02 | Wave energy/incidence, geology-dependent coastal retreat | TODO |
-| M05-C03 | Alongshore drift, beach/spit growth | TODO |
+| M05-C04 | Bar / lagoon / tombolo / recurved-spit scenarios | READY |
+| M05-C05 | Local 3D solid geometry: cave → arch → stack → stump | TODO |
+| M05-C06 | Stack/stump, cliff slump, wave-cut features, classroom scenarios | TODO |
+| M05-C03 | Longshore drift, spit seeds | DONE |
+| M05-C02 | Wave power, shelter, attenuation, cliff retreat, wave-attack map | DONE |
+| M05-C01 | Controllable sea level | DONE |
 | M04-C04 | Rotational slump lab (guided 2D model) | DONE |
 | M04-C03 | Avalanching, rockfall, saturation proxy, Landslide tool | DONE |
 | M04-C02 | Weathering with pending store | DONE |

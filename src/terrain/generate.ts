@@ -3,6 +3,7 @@ import { Noise2D } from '../utils/noise';
 import { deriveSeed } from '../utils/rng';
 import { clamp, smoothstep } from '../utils/math';
 import { fillDepressions } from './conditioning';
+import { settleSlopes } from './settle';
 
 export type PresetId =
   | 'flat'
@@ -33,6 +34,10 @@ export interface GenerateOptions {
   drainage?: boolean;
   /** Start with hydraulic erosion enabled (default false). */
   erosion?: boolean;
+  /** Start with waves on (default false). */
+  waves?: boolean;
+  /** Geomorphic acceleration to start with (default: ErosionParams default). */
+  speedup?: number;
   name?: string;
 }
 
@@ -40,7 +45,7 @@ export interface PresetDef {
   id: PresetId;
   name: string;
   description: string;
-  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH' | 'erosion'>;
+  defaults: Pick<GenerateOptions, 'cellSizeM' | 'reliefM' | 'seaLevelM' | 'roughness' | 'rainMmH' | 'erosion' | 'waves' | 'speedup'>;
 }
 
 export const PRESETS: readonly PresetDef[] = [
@@ -49,7 +54,7 @@ export const PRESETS: readonly PresetDef[] = [
   { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
   { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
   { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
-  { id: 'coastal-headland', name: 'Coastal headlands', description: 'Alternating hard and soft rock bands meeting the sea.', defaults: { cellSizeM: 10, reliefM: 120, seaLevelM: 0, roughness: 0.4 } },
+  { id: 'coastal-headland', name: 'Coastal headlands', description: 'Straight coast across alternating hard chalk and soft clay bands; waves from the south carve bays in the clay, leaving chalk headlands.', defaults: { cellSizeM: 10, reliefM: 60, seaLevelM: 0, roughness: 0.4, erosion: true, waves: true, speedup: 1000 } },
   { id: 'plateau', name: 'Layered plateau', description: 'Resistant cap rock over weaker strata with escarpments.', defaults: { cellSizeM: 25, reliefM: 400, seaLevelM: -100, roughness: 0.35 } },
   { id: 'continental', name: 'Continental', description: 'Large-scale mixed terrain: uplands, lowlands and coast.', defaults: { cellSizeM: 120, reliefM: 1500, seaLevelM: 0, roughness: 0.55 } },
   { id: 'flat', name: 'Flat test world', description: 'Level plain 10 m above sea level for controlled tests.', defaults: { cellSizeM: 10, reliefM: 0, seaLevelM: 0, roughness: 0 } },
@@ -156,16 +161,21 @@ const shapes: Record<PresetId, ShapeFn> = {
   },
 
   'coastal-headland': (c) => {
-    // Sea to the south; bands of rock run north–south so they meet the coast perpendicular.
-    const [wu, wv] = warp(c, 0.03);
-    const bandCoord = wu * 4 + 0.15 * c.n.fbm(wv * 2, 1.3, 3);
-    // Continuous hardness factor (0 soft clay … 1 hard chalk) so geometry has no 1-cell steps.
+    // Straight coastline (sea to the south) cut across alternating north–south bands of hard
+    // chalk and soft clay, with cliffs at the waterline and water deepening offshore — waves,
+    // not the generator, carve the bays.
+    const [wu, wv] = warp(c, 0.02);
+    const bandCoord = wu * 4 + 0.1 * c.n.fbm(wv * 2, 1.3, 3);
     const hard = smoothstep(-0.3, 0.4, Math.sin(bandCoord * Math.PI * 2));
-    const coastV = 0.35 + 0.12 * (1 - hard) + 0.03 * c.n.fbm(wu * 6, 2.1, 3);
-    const landRise = smoothstep(coastV - 0.02, coastV + 0.3, wv);
-    const cliff = hard * smoothstep(coastV - 0.012, coastV + 0.04, wv) * 0.45;
-    const e =
-      -0.25 + 0.27 * smoothstep(0, coastV, wv) + Math.max(cliff, 0.25 * landRise) + 0.45 * landRise * (0.6 + 0.4 * c.n.fbm(wu * 3, wv * 3, 4)) + 0.02 * c.n.fbm(wu * 14, wv * 14, 3);
+    const coastV = 0.32 + 0.01 * c.n.fbm(wu * 6, 2.1, 3);
+    const land = wv - coastV;
+    let e: number;
+    if (land < 0) e = -0.06 + land * 1.2; // ~7 m deep at the cliff foot, deepening offshore
+    else {
+      const top = 0.18 + 0.27 * hard; // chalk headlands stand higher than clay
+      const rise = smoothstep(0, 0.02 + 0.06 * (1 - hard), land); // chalk: sheer; clay: slumped
+      e = top * rise + 0.25 * smoothstep(0.05, 0.6, land) * (0.6 + 0.4 * c.n.fbm(wu * 3, wv * 3, 4)) + 0.015 * c.n.fbm(wu * 14, wv * 14, 3);
+    }
     return { e, mat: hard > 0.5 ? CHALK : CLAY };
   },
 
@@ -207,6 +217,8 @@ export function generateWorld(o: GenerateOptions): WorldState {
   world.water.rainMPerS = (o.rainMmH ?? 0) * MM_PER_H;
   world.water.boundary = o.boundary ?? 'open';
   world.erosion.enabled = o.erosion ?? false;
+  world.coast.wavesOn = o.waves ?? false;
+  if (o.speedup) world.erosion.speedup = o.speedup;
   const shape = shapes[o.presetId] ?? shapes.flat;
   const surf = new Float32Array(size * size);
   const ctx: Ctx = { u: 0, v: 0, n, n2, o };
@@ -252,6 +264,12 @@ export function generateWorld(o: GenerateOptions): WorldState {
   setUniformStrata(world);
   if (o.presetId === 'plateau') applyPlateauStrata(world, o, nd);
   refreshAllExposed(world);
+
+  // Settle over-steep slopes to the dry stability limits the simulator uses (talus aprons).
+  if (o.presetId !== 'flat') {
+    settleSlopes(world);
+    for (let i = 0; i < surf.length; i++) surf[i] = world.bedrockElevationM[i] + world.looseSedimentThicknessM[i];
+  }
 
   // Drainage conditioning: fill closed hollows with alluvium so rain organises into rivers.
   if (o.drainage !== false && o.presetId !== 'flat') {
