@@ -13,6 +13,7 @@ import { SlumpLab } from './SlumpLab';
 import { ArchLab } from './ArchLab';
 import { ShorelineLab } from './ShorelineLab';
 import { SubductionLab } from './SubductionLab';
+import { FoldLab } from './FoldLab';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
@@ -44,6 +45,7 @@ export function App() {
       {dialog === 'arch' && <ArchLab />}
       {dialog === 'shore' && <ShorelineLab />}
       {dialog === 'subduction' && <SubductionLab />}
+      {dialog === 'folds' && <FoldLab />}
     </div>
   );
 }

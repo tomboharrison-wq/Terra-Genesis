@@ -447,6 +447,22 @@ const km = (t) => +(t.match(/arc ([\d.]+) km/)?.[1] ?? NaN);
 check('subduction lab: steeper slab moves the arc towards the trench', km(arc2) < km(arc1), `${km(arc1)} km → ${km(arc2)} km`);
 await page.click('.dialog [aria-label="Close"]');
 
+// --- Fold mountains lab (M07-C04) ---
+await page.click('.plates-panel button:has-text("Open fold mountains cross-section")');
+await page.waitForSelector('svg[aria-label="Fold mountains cross-section"]');
+const sl = page.locator('.dialog input[type=range]').first();
+await sl.focus();
+for (let k = 0; k < 15; k++) await page.keyboard.press('ArrowRight'); // 30 % → 45 %
+await page.click('.dialog label.check:has-text("thrust") input');
+await page.locator('.dialog input[type=range]').nth(2).focus();
+for (let k = 0; k < 25; k++) await page.keyboard.press('ArrowRight'); // erode 25 %
+await page.waitForTimeout(300);
+const fl = await page.textContent('.slump-readout');
+await shot('35-fold-lab');
+const thick = +(fl.match(/Layers ([\d.]+)×/)?.[1] ?? 0);
+check('fold lab: squeezing thickens layers and a thrust slips', thick > 1.5 && /Thrust slip/.test(fl), fl);
+await page.click('.dialog [aria-label="Close"]');
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

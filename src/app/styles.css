@@ -282,3 +282,4 @@ fieldset.plain:disabled { opacity: 0.45; }
 .plate-head b { flex: 1; font-size: 13px; }
 .plate-head select { font-size: 12px; }
 .plate-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.plates-panel > button + button { margin-top: 6px; }

@@ -2,8 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M07-C04 | Continental collision folding: guided fold-mountain cross-section (solid geometry) + map fold-belt strata | READY |
-| M07-C05 | Earthquake tool: fault type/orientation/offsets, persistent deformation | TODO |
+| M07-C05 | Earthquake tool: fault type/orientation/offsets, persistent deformation | READY |
+| M07-C04 | Fold mountains: guided fold lab (length + area conserved, thrust, erosion) + map strata folding | DONE |
 | M07-C03 | Subduction trench + arc volcanoes (o–c, o–o islands) + guided subduction cross-section lab | DONE |
 | M07-C02 | Rift fault blocks (normal scarps) + transform slip shifting whole columns | DONE |
 | M07-C01 | Kinematic plates: map, motions, boundary uplift/rift/trench, overlay, profile strip | DONE |

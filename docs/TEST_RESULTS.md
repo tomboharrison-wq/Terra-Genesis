@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-22 M07-C04
+- npm test PASS 185 (+ folds: amplitude grows with shortening, top layer keeps its length L0; every layer's area conserved (to 1e-2 rel) and thickening = 1/(1−s); thrust: slip > 0, gentler folds, two pieces per cut layer, area within 1 %; anticlines/synclines found, erosion below crests; map: collision belt boundaries alternate above/below their starting depth)
+- Fixed in-chunk: per-vertex thrust displacement stretched crossing edges (8 % area error) → clip layers at the ramp and translate the hanging wall (≤1 %).
+
 ## 2026-10-22 M07-C03
 - npm test PASS 180 (+ subduction: ocean→continent trench + vents only on the overriding plate at 7.5 ± 1.5 cells (2.5 × belt), volcanic top layer, cone > 80 m in 10 kyr; o–o arc islands rise above sea on the higher-id plate; c–c collision has no arc; lab geometry: steeper dip ⇒ arc nearer the trench, quakes 0–680 km, most shallow)
 - e2e: fixed the flaky smooth-stroke check for good (keep moving during the stroke) — 34/34 before C03.

@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M07 — Plate tectonics (C01–C03 done)
-Current chunk: M07-C04 — collision folding (see NEXT_TASK)
+Current milestone: M07 — Plate tectonics (C01–C04 done)
+Current chunk: M07-C05 — earthquake tool (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -29,6 +29,7 @@ Verified working:
   (v9), rigid velocities, boundary classification, Gaussian belts (uplift / trench) moving rock + strata;
   C02: rifts as stepped fault blocks; transform slip shifts whole columns of the higher-id plate per cell.
   C03: subducting side trench, arc vents 2.5 belt widths inboard growing volcanic cones; Subduction lab (SVG).
+  C04: Fold lab (src/local/folds) + c–c belts fold strata boundaries (surface unchanged).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -40,6 +41,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
 forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (180) · build PASS · e2e PASS 35/35 · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (185) · build PASS · e2e PASS 36/36 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

@@ -108,3 +108,7 @@
 ## M07-C03 — Subduction and volcanic arcs
 - Where an ocean plate sinks under a continent (or one ocean plate under another), a trench deepens on the sinking side and a line of volcanoes grows inland on the other plate, built of new volcanic rock; two ocean plates make volcanic islands.
 - New Subduction zone cross-section (Plates panel): the sinking slab, earthquakes along it, melting where the slab reaches 100 km depth and the volcano above — change the speed, the slab's dip and the type of plate on top, and play the motion.
+
+## M07-C04 — Fold mountains
+- New Fold mountains cross-section (Plates panel): squeeze a pile of rock layers between two continents and watch them buckle into anticlines and synclines and thicken; allow a thrust fault to carry rock up and over; erode the top to see the bands of old and young rock exposed. Each layer keeps its length and its area.
+- On the map, colliding continents now fold their rock layers too, so wearing down the range exposes folded bands.

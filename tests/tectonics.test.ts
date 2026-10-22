@@ -222,3 +222,25 @@ describe('M07-C03 subduction: trench, volcanic arc, guided cross-section', () =>
     expect(shallowQuakes).toBeGreaterThan(steep.quakes.length / 3); // most quakes are shallow
   });
 });
+
+describe('M07-C04 folding in continental collision belts (map)', () => {
+  it('strata boundaries fold into anticlines and synclines across the belt; the surface is not folded', () => {
+    const { w, t } = twoPlates({ vxMmYr: 20 }, { vxMmYr: -20 });
+    w.tectonics.beltWidthM = 6000; // folds a few cells apart on 500 m cells
+    for (let i = 0; i < 64 * 32; i++) {
+      w.strataBoundsM[i * 3] = 80; // 20 m below the 100 m surface
+      w.strataMaterial[i * 4] = 1;
+      w.strataMaterial[i * 4 + 1] = 3;
+    }
+    t.run(20000);
+    // Depth of the boundary below the bedrock surface along a row across the belt (west side).
+    const depth = Array.from({ length: 14 }, (_, k) => {
+      const i = 16 * 64 + (31 - k);
+      return w.bedrockElevationM[i] - w.strataBoundsM[i * 3];
+    });
+    const above = depth.filter((d) => d < 20 - 1).length; // anticline: layer raised towards the surface
+    const below = depth.filter((d) => d > 20 + 1).length; // syncline: layer pushed down
+    expect(above).toBeGreaterThan(0);
+    expect(below).toBeGreaterThan(0);
+  });
+});

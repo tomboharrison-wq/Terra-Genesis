@@ -26,6 +26,9 @@ import { settleSlopes } from '../../terrain/settle';
  *     (the ~100 km slab-depth rule, scaled), and volcanic cones grow there (arcFactor · c, conical,
  *     radius 0.45 w) as a new volcanic top layer — ledgered as volcanic addition. Oceanic–oceanic
  *     arcs grow islands.
+ *   continent–continent collision also folds the strata: boundaries gain an extra
+ *     FOLD_GAIN·|uplift|·sin(2πd/(0.6w))·exp(−(d/w)²) (anticlines and synclines parallel to the belt),
+ *     leaving the surface unchanged; erosion of the range then exposes folded rock bands.
  *   divergent: fault-bounded blocks — graben (d < w/4) at the full rate, steps at 0.6 and 0.3, a
  *     shoulder rising at 0.12 — so rifts grow normal-fault scarps.
  *   w = beltWidthM (continental–continental ×1.5).
@@ -186,6 +189,9 @@ function subducts(a: Plate, b: Plate): boolean {
 
 /** Arc volcanoes sit this many belt widths inboard of the trench (scaled ~100 km slab-depth rule). */
 export const ARC_DISTANCE = 2.5;
+/** Fold wavelength (in belt widths) and amplitude growth (× uplift) of strata in collision belts. */
+const FOLD_WAVELENGTH = 0.6;
+const FOLD_GAIN = 1.5;
 const VOLCANIC = 5;
 
 function cellHash(i: number): number {
@@ -327,6 +333,9 @@ export class TectonicsSim {
     const r = this.rate;
     r.fill(0);
     const arcCand: number[] = [];
+    if (this.fold.length !== n) this.fold = new Float32Array(n);
+    const fold = this.fold;
+    fold.fill(0);
     for (let i = 0; i < n; i++) {
       const b = near[i];
       if (b < 0) continue;
@@ -346,6 +355,7 @@ export class TectonicsSim {
           const k = me.kind === 'continental' && them.kind === 'oceanic' ? 1.3 : me.kind === 'oceanic' ? 0.5 : 1;
           r[i] = p.upliftFactor * c * Math.exp(-((d / wid) ** 2)) * k;
           if (subducts(them, me)) arcCand.push(i);
+          if (cc) fold[i] = Math.sin((2 * Math.PI * d) / (FOLD_WAVELENGTH * wid)) * Math.exp(-((d / wid) ** 2));
         }
       } else if (type === 2) {
         // Fault-bounded blocks: graben, two step blocks, raised shoulder (normal-fault scarps between).
@@ -357,6 +367,9 @@ export class TectonicsSim {
     this.arcVolcanoes(arcCand, dist, near, conv);
     return r;
   }
+
+  /** Fold phase per cell in continental collision belts (−1 … 1) from the last rates() call. */
+  fold = new Float32Array(0);
 
   /** Volcanic vents on the overriding plate, ARC_DISTANCE × belt width inboard of a subduction trench. */
   vents: number[] = [];
@@ -533,9 +546,12 @@ export class TectonicsSim {
       const dz = nb - b[i];
       if (dz === 0) continue;
       b[i] = nb;
+      // Strata move with the rock; in collision belts they also fold (anticlines / synclines across
+      // the belt), so erosion of the range exposes alternating rock bands.
+      const fz = this.fold[i] ? FOLD_GAIN * Math.abs(dz) * this.fold[i] : 0;
       for (let k = 0; k < STRATA_BOUNDS; k++) {
         const o = i * STRATA_BOUNDS + k;
-        if (w.strataBoundsM[o] !== STRATA_NONE) w.strataBoundsM[o] += dz;
+        if (w.strataBoundsM[o] !== STRATA_NONE) w.strataBoundsM[o] += dz + fz;
       }
       refreshExposed(w, i);
       this.surface[i] = b[i] + w.looseSedimentThicknessM[i];

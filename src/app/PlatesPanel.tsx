@@ -78,6 +78,9 @@ export function PlatesPanel() {
       <button className="small" onClick={() => set({ dialog: 'subduction' })}>
         Open subduction zone cross-section
       </button>
+      <button className="small" onClick={() => set({ dialog: 'folds' })}>
+        Open fold mountains cross-section
+      </button>
       <h3>Run</h3>
       <label className="field check">
         <input type="checkbox" checked={t.enabled} disabled={plates.length < 2} onChange={(e) => engine.setTectonicsParams({ enabled: e.target.checked })} />
