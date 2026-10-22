@@ -2,7 +2,7 @@ import type { CellRect } from '../utils/rect';
 import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 
-export const WORLD_FORMAT_VERSION = 5;
+export const WORLD_FORMAT_VERSION = 6;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -113,6 +113,8 @@ export interface WorldState {
   /** Pipe-model outflow per cell, 4 per cell [west, east, south, north] (m³/s), ≥ 0. */
   waterFluxM3PerS: Float32Array;
   water: WaterParams;
+  /** Snowpack as snow water equivalent (m of water), ≥ 0. Counts as stored water. */
+  snowSweM: Float32Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
   sedimentSuspendedM: Float32Array;
   erosion: ErosionParams;
@@ -156,6 +158,7 @@ export function createWorld(init: WorldInit): WorldState {
     waterFluxM3PerS: new Float32Array(n * 4),
     water: defaultWaterParams(),
     sedimentSuspendedM: new Float32Array(n),
+    snowSweM: new Float32Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
     climate: defaultClimateParams(),
@@ -253,6 +256,7 @@ export function cloneWorld(w: WorldState): WorldState {
     waterFluxM3PerS: w.waterFluxM3PerS.slice(),
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
     sedimentSuspendedM: w.sedimentSuspendedM.slice(),
+    snowSweM: w.snowSweM.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
     climate: { ...w.climate },

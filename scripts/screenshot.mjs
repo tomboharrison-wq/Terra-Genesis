@@ -301,6 +301,32 @@ const cl = await eng(() => {
 check('climate: wetter windward slopes and drier rain shadow', !!rx && +rx[2] > 1.5 && +rx[1] < 0.7, rx ? rx[0] : climText.slice(0, 80));
 check('climate: water budget closes with spatial rain on ' + cl.backend, cl.closure < 1e-4 && cl.evap > 0, `closure=${cl.closure.toExponential(2)} rain=${cl.rain.toFixed(0)} evap=${cl.evap.toFixed(0)} m³`);
 
+// --- Snow (M06-C02): cold spell builds a snowpack on the GPU, warm spell melts it ---
+await page.click('.climate-panel button:has-text("Temperature")'); // back to natural colours
+const sn = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  const L = e.water.ledger;
+  const closure = () => {
+    const stored = e.water.storedVolume();
+    const inn = L.initialStored + L.rainIn + L.sourceIn + L.toolIn;
+    return Math.abs(inn - (L.infiltrated + L.evaporated + L.seaOut + L.edgeOut + L.toolOut) - stored) / inn;
+  };
+  e.setClimateParams({ seaLevelTempC: -3, seasonalAmpC: 0 });
+  e.setWaterParams({ rainMPerS: 20 / 3.6e6 });
+  e.advance(3 * 3600);
+  const cold = e.water.snowVolume();
+  const c1 = closure();
+  e.setWaterParams({ rainMPerS: 0 });
+  e.setClimateParams({ seaLevelTempC: 18, meltMmPerDegDay: 10 });
+  e.advance(6 * 3600);
+  const warm = e.water.snowVolume();
+  e.setClimateParams({ seaLevelTempC: -3 });
+  return { backend: e.backend, cold, warm, c1, c2: closure(), melt: L.snowmelt };
+});
+await page.waitForTimeout(1500);
+await shot('28-snow');
+check('snow: cold spell builds a snowpack, warm spell melts it (' + sn.backend + ')', sn.cold > 1e4 && sn.warm < sn.cold && sn.melt > 0 && sn.c1 < 1e-4 && sn.c2 < 1e-4, `snow ${sn.cold.toFixed(0)} → ${sn.warm.toFixed(0)} m³, closure ${sn.c1.toExponential(1)} / ${sn.c2.toExponential(1)}`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

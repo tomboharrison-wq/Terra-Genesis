@@ -71,6 +71,12 @@ export function WaterPanel() {
       <dl className="budget">
         <dt>Stored on land</dt>
         <dd>{fmtVol(sim.storedM3)}</dd>
+        {sim.climate.snowM3 > 0 && (
+          <>
+            <dt>of which snow</dt>
+            <dd>{fmtVol(sim.climate.snowM3)}</dd>
+          </>
+        )}
         <dt>Total in</dt>
         <dd>{fmtVol(sim.inM3)}</dd>
         <dt>Total out</dt>

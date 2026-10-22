@@ -11,12 +11,15 @@ export interface WaterLedger {
   edgeOut: number;
   /** Flowed into sea cells (fixed-head sink). */
   seaOut: number;
-  /** Stored surface water at reset (m³). */
+  /** Stored water (surface water + snow) at reset (m³). */
   initialStored: number;
+  /** Internal transfers between stores (not inputs/outputs): rain → snowpack, snowpack → water. */
+  snowfall: number;
+  snowmelt: number;
 }
 
 export function emptyLedger(initialStored = 0): WaterLedger {
-  return { rainIn: 0, sourceIn: 0, toolIn: 0, toolOut: 0, infiltrated: 0, evaporated: 0, edgeOut: 0, seaOut: 0, initialStored };
+  return { rainIn: 0, sourceIn: 0, toolIn: 0, toolOut: 0, infiltrated: 0, evaporated: 0, edgeOut: 0, seaOut: 0, initialStored, snowfall: 0, snowmelt: 0 };
 }
 
 export function ledgerIn(l: WaterLedger) {

@@ -75,3 +75,8 @@
 - Rain is heavier on slopes the wind blows up and lighter in the rain shadow behind high ground; the rainfall setting is the map average, so total rain is unchanged.
 - Evaporation rises with temperature and stops below freezing. Temperature and rainfall map colours with legends; the inspector shows local temperature and rain.
 - Runs on both the GPU and CPU water solvers with exact water budgets; climate settings are saved (older saves load with climate off).
+
+## M06-C02 — Snow
+- With climate on, rain falls as snow wherever it is below 0 °C and builds a snowpack; above 0 °C it melts (adjustable melt rate per °C per day) into streams.
+- Snow shows as white on the map from the simulated snowpack; the inspector shows snow depth (as water), and the Climate panel shows snow stored, area covered, fallen and melted.
+- Snow is counted as stored water, so the water budget still balances; it runs on both the GPU and CPU and is saved with the world.

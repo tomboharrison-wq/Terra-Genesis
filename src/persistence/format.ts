@@ -12,11 +12,12 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
+ * v6 adds snowSweM (snowpack). Older files migrate with no snow.
  * v5 adds header.climate. Older files migrate with climate off (uniform rain, as they ran).
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
@@ -26,6 +27,7 @@ const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'sedimentSuspendedM', type: 'f32', perCell: 1 },
   { name: 'strataBoundsM', type: 'f32', perCell: STRATA_BOUNDS },
   { name: 'strataMaterial', type: 'u8', perCell: STRATA_LAYERS },
+  { name: 'snowSweM', type: 'f32', perCell: 1 },
 ];
 
 export interface FileHeader {
@@ -134,6 +136,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     waterFluxM3PerS: has('waterFluxM3PerS') ? new Float32Array(get('waterFluxM3PerS')) : new Float32Array(n * 4),
     water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
     sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
+    snowSweM: has('snowSweM') ? new Float32Array(get('snowSweM')) : new Float32Array(n),
     erosion: { ...defaultErosionParams(), ...h.erosion },
     coast: { ...defaultCoastParams(), ...h.coast },
     climate: { ...defaultClimateParams(), ...h.climate },
@@ -147,7 +150,8 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.materialId.length !== n ||
     world.waterDepthM.length !== n ||
     world.waterFluxM3PerS.length !== n * 4 ||
-    world.sedimentSuspendedM.length !== n
+    world.sedimentSuspendedM.length !== n ||
+    world.snowSweM.length !== n
   )
     throw new Error('Field size mismatch');
   return { world, extras: h.extras };

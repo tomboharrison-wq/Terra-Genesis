@@ -16,9 +16,13 @@ import type { WorldState } from '../../engine/world';
  * Evaporation factor: exp(0.065 · (T − T₀)) above 0 °C (≈ Clausius–Clapeyron, 6.5 % per °C),
  *   0 at or below freezing — so the Water panel's evaporation is the rate at the sea-level
  *   annual-mean temperature.
+ * Snow (M06-C02, in the water solvers): with climate on, precipitation on a cell below 0 °C is added
+ *   to its snowpack (snow water equivalent, m) instead of its surface water; a snowpack melts at
+ *   meltMmPerDegDay · max(0, T) (degree-day law) into surface water; snow on a cell that becomes sea
+ *   joins the sea. Snow is stored water: the water ledger's stored volume includes it.
  * Climate off ⇒ all factors 1 (uniform forcing, exactly as before). Simplifications: no moisture
- * budget or advection of humidity, no wind field over terrain; precipitation stays liquid until the
- * snow model (M06-C02).
+ * budget or advection of humidity, no wind field over terrain; no sublimation, avalanching or
+ * wind-drift of snow.
  */
 export interface ClimateParams {
   enabled: boolean;
@@ -40,6 +44,8 @@ export interface ClimateParams {
   shadowScaleM: number;
   /** How far upwind barriers are looked for (m). */
   shadowReachM: number;
+  /** Degree-day snowmelt factor (mm of water per °C above 0 per day). */
+  meltMmPerDegDay: number;
 }
 
 export function defaultClimateParams(): ClimateParams {
@@ -54,6 +60,7 @@ export function defaultClimateParams(): ClimateParams {
     orographic: 1,
     shadowScaleM: 400,
     shadowReachM: 30000,
+    meltMmPerDegDay: 4,
   };
 }
 

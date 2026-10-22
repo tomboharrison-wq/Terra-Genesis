@@ -72,8 +72,20 @@ export function ClimatePanel() {
         </label>
         <p className="hint small tight">
           Now: land from {Number.isFinite(c.landTempMinC) ? c.landTempMinC.toFixed(1) : '—'} to {Number.isFinite(c.landTempMaxC) ? c.landTempMaxC.toFixed(1) : '—'} °C ·
-          freezing level {freezeM > 0 ? `${Math.round(freezeM)} m above sea level` : 'below sea level'}. No evaporation below 0 °C; snow is planned
-          (rain stays liquid for now).
+          freezing level {freezeM > 0 ? `${Math.round(freezeM)} m above sea level` : 'below sea level'}. No evaporation below 0 °C.
+        </p>
+        <h3>Snow</h3>
+        <label className="field">
+          <span className="field-label">
+            Melt rate <b>{c.meltMmPerDegDay.toFixed(1)} mm per °C per day</b>
+          </span>
+          <input type="range" min={1} max={10} step={0.5} value={c.meltMmPerDegDay} onChange={(e) => setC({ meltMmPerDegDay: +e.target.value })} />
+        </label>
+        <p className="hint small tight">
+          Below 0 °C rain falls as snow and builds a snowpack; above 0 °C the pack melts into streams. Snow on the map:{' '}
+          <b>{c.snowM3 >= 1e6 ? `${(c.snowM3 / 1e6).toFixed(2)} million` : Math.round(c.snowM3).toLocaleString()} m³</b> of water, covering{' '}
+          {c.snowCoverPct.toFixed(0)}% of the land. Fallen so far {Math.round(c.snowfallM3).toLocaleString()} m³, melted{' '}
+          {Math.round(c.snowmeltM3).toLocaleString()} m³.
         </p>
         <h3>Wind and rain shadow</h3>
         <div className="compass-row">

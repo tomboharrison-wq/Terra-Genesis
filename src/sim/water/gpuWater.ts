@@ -26,6 +26,7 @@ import { MATERIALS } from '../../terrain/materials';
  *           erosion through a hard cap immediately meets the weaker rock below.
  *   state:  r = water depth d, g = vx, b = vy (m/s)
  *   flux:   outflow discharge west, east, south, north (m³/s)
+ *   snow:   r = snowpack water equivalent (m), g = snowfall, b = melt since last sync (m)
  *   state.a: evaporated depth since last sync (climate makes evaporation vary per cell)
  *   acc:    water depth-equivalents since last sync: infiltrated, rain added, into sea, off edges
  *   climate: r = rain factor, g = evaporation factor (static; re-uploaded when the climate changes)
@@ -63,25 +64,41 @@ uniform sampler2D uAcc;
 uniform float uRain;
 uniform float uInf;
 uniform float uEvap;
-uniform sampler2D uClimate; // r = rain factor, g = evaporation factor (climate; 1 = uniform)
+uniform sampler2D uClimate; // r = rain factor, g = evaporation factor, b = temperature (°C)
+uniform sampler2D uSnow;    // r = snow water equivalent, g = snowfall, b = melt since sync (m)
+uniform int uSnowOn;
+uniform float uMeltK;       // degree-day factor (m of water per °C per s)
 uniform vec4 uSrc[${MAX_SOURCES}];
 uniform int uNSrc;
 layout(location = 0) out vec4 oState;
 layout(location = 1) out vec4 oAcc;
+layout(location = 2) out vec4 oSnow;
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   vec4 s = texelFetch(uState, c, 0);
   vec4 acc = texelFetch(uAcc, c, 0);
+  vec4 sn = texelFetch(uSnow, c, 0);
   float d = s.r;
   if (seaAt(c)) {
     acc.b += d; // water on a cell that became sea joins the sea (ledgered)
     oState = vec4(0.0, 0.0, 0.0, s.a);
     oAcc = acc;
+    oSnow = vec4(sn.r, sn.g, sn.b, 1.0); // a = drowned: the CPU sends the pack to the sea on sync
     return;
   }
   vec4 clim = texelFetch(uClimate, c, 0);
-  d += uRain * clim.r * uDt;
-  acc.g += uRain * clim.r * uDt;
+  float pr = uRain * clim.r * uDt;
+  acc.g += pr;
+  // Snowpack = r (at last sync) + g (fallen since) − b (melted since): small deltas stay precise.
+  if (uSnowOn == 1 && clim.b < 0.0) sn.g += pr;
+  else d += pr;
+  float pack = sn.r + sn.g - sn.b;
+  if (uSnowOn == 1 && pack > 0.0 && clim.b > 0.0) {
+    float m = min(pack, uMeltK * clim.b * uDt);
+    sn.b += m;
+    d += m;
+  }
+  oSnow = sn;
   for (int k = 0; k < ${MAX_SOURCES}; k++) {
     if (k >= uNSrc) break;
     if (ivec2(uSrc[k].xy) == c) d += uSrc[k].z * uDt;
@@ -148,6 +165,8 @@ uniform sampler2D uFlux;
 uniform sampler2D uAcc;
 layout(location = 0) out vec4 oState;
 layout(location = 1) out vec4 oAcc;
+layout(location = 2) out vec4 oSnow;
+uniform sampler2D uSnow;
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   float A = uCs * uCs;
@@ -159,6 +178,7 @@ void main() {
   float inN = c.y < uSize.y - 1 ? texelFetch(uFlux, c + ivec2(0, 1), 0).z : 0.0;
   float inflow = inW + inE + inS + inN;
   float evapAcc = texelFetch(uState, c, 0).a;
+  oSnow = texelFetch(uSnow, c, 0);
   if (seaAt(c)) {
     acc.b += inflow * uDt / A;
     oState = vec4(0.0, 0.0, 0.0, evapAcc);
@@ -378,6 +398,7 @@ export class GpuWater implements Stepper {
   private state: Pair;
   private flux: Pair;
   private acc: Pair;
+  private snow: Pair;
   private sedA: Pair;
   private sedB: Pair;
   private strataB: WebGLTexture;
@@ -422,6 +443,7 @@ export class GpuWater implements Stepper {
     this.state = pair();
     this.flux = pair();
     this.acc = pair();
+    this.snow = pair();
     this.sedA = pair();
     this.sedB = pair();
     this.strataB = this.tex();
@@ -432,7 +454,7 @@ export class GpuWater implements Stepper {
         this.erodTable[m.id] = m.erodibility;
         this.tanCliffTable[m.id] = Math.tan((m.cliffDeg * Math.PI) / 180);
       }
-    this.fbStateAcc = [this.fb([this.state[0], this.acc[0]]), this.fb([this.state[1], this.acc[1]])];
+    this.fbStateAcc = [this.fb([this.state[0], this.acc[0], this.snow[0]]), this.fb([this.state[1], this.acc[1], this.snow[1]])];
     this.fbFlux = [this.fb([this.flux[0]]), this.fb([this.flux[1]])];
     this.fbBed = [this.fb([this.bed[0], this.sedA[0], this.sedB[0]]), this.fb([this.bed[1], this.sedA[1], this.sedB[1]])];
     this.vao = gl.createVertexArray()!;
@@ -551,6 +573,7 @@ export class GpuWater implements Stepper {
     for (let i = 0; i < n; i++) {
       c[i * 4] = cl ? cl.rainFactor[i] : 1;
       c[i * 4 + 1] = cl ? cl.evapFactor[i] : 1;
+      c[i * 4 + 2] = cl ? cl.temperatureC[i] : 10;
     }
     this.write(this.climateTex, c);
   }
@@ -566,6 +589,9 @@ export class GpuWater implements Stepper {
       st[i * 4 + 2] = this.sim.vy[i];
     }
     this.write(this.state[this.s], st);
+    const sn = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) sn[i * 4] = this.world.snowSweM[i];
+    this.write(this.snow[this.s], sn);
     this.write(this.flux[this.f], this.world.waterFluxM3PerS);
     this.write(this.acc[this.s], new Float32Array(n * 4));
   }
@@ -582,6 +608,29 @@ export class GpuWater implements Stepper {
     const ac = new Float32Array(n * 4);
     this.read(this.fbStateAcc[this.s], 0, st);
     this.read(this.fbStateAcc[this.s], 1, ac);
+    const sn = new Float32Array(n * 4);
+    this.read(this.fbStateAcc[this.s], 2, sn);
+    let fell = 0;
+    let melt = 0;
+    let drowned = 0;
+    let touched = false;
+    for (let i = 0; i < n; i++) {
+      const o = i * 4;
+      if (sn[o + 1] === 0 && sn[o + 2] === 0 && sn[o + 3] === 0) continue;
+      touched = true;
+      fell += sn[o + 1];
+      melt += sn[o + 2];
+      // Fold in float64 from the CPU's exact pack (the texture's r is its float32 copy).
+      let pack = Math.max(0, this.sim.snowAt(i) + sn[o + 1] - sn[o + 2]);
+      if (sn[o + 3] > 0) {
+        drowned += pack;
+        pack = 0;
+      }
+      this.sim.setSnow(i, pack);
+      sn[o] = pack;
+      sn[o + 1] = sn[o + 2] = sn[o + 3] = 0;
+    }
+    if (touched) this.write(this.snow[this.s], sn);
     this.read(this.fbFlux[this.f], 0, w.waterFluxM3PerS);
     const d = w.waterDepthM;
     let lost = 0;
@@ -602,6 +651,9 @@ export class GpuWater implements Stepper {
       edge += ac[o + 3];
     }
     const L = this.sim.ledger;
+    L.seaOut += drowned * A;
+    L.snowfall += fell * A;
+    L.snowmelt += melt * A;
     L.infiltrated += lost * A;
     L.evaporated += evap * A;
     if (evap > 0) this.write(this.state[this.s], st); // clear the evaporation accumulators
@@ -721,6 +773,9 @@ export class GpuWater implements Stepper {
     this.bindTex(this.forcing, 'uState', 1, this.state[s0]);
     this.bindTex(this.forcing, 'uAcc', 2, this.acc[s0]);
     this.bindTex(this.forcing, 'uClimate', 3, this.climateTex);
+    this.bindTex(this.forcing, 'uSnow', 4, this.snow[s0]);
+    gl.uniform1i(this.uni(this.forcing, 'uSnowOn'), w.climate.enabled && this.sim.climate ? 1 : 0);
+    gl.uniform1f(this.uni(this.forcing, 'uMeltK'), w.climate.meltMmPerDegDay / 1000 / 86400);
     gl.uniform1f(this.uni(this.forcing, 'uRain'), p.rainMPerS);
     gl.uniform1f(this.uni(this.forcing, 'uInf'), p.infiltrationMPerS);
     gl.uniform1f(this.uni(this.forcing, 'uEvap'), p.evaporationMPerS);
@@ -745,6 +800,7 @@ export class GpuWater implements Stepper {
     this.bindTex(this.update, 'uState', 1, this.state[s1]);
     this.bindTex(this.update, 'uFlux', 2, this.flux[f1]);
     this.bindTex(this.update, 'uAcc', 3, this.acc[s1]);
+    this.bindTex(this.update, 'uSnow', 4, this.snow[s1]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbStateAcc[s0]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     this.f = f1;
@@ -787,7 +843,7 @@ export class GpuWater implements Stepper {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.sedA, ...this.sedB, this.strataB, this.strataM, this.climateTex]) gl.deleteTexture(t);
+    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.snow, ...this.sedA, ...this.sedB, this.strataB, this.strataM, this.climateTex]) gl.deleteTexture(t);
     for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed]) gl.deleteFramebuffer(fb);
     for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment]) gl.deleteProgram(pr.p);
     gl.deleteVertexArray(this.vao);

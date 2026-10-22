@@ -2,8 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M06-C02 | Snowpack (SWE) accumulation below 0 °C, degree-day melt into hydrology, snow rendering | READY |
-| M06-C03..C05 | Glaciers + glacial erosion, vegetation, biome presets | TODO |
+| M06-C03 | Glaciers: snow→ice, shallow-ice flow, ablation, glacial erosion | READY |
+| M06-C04..C05 | Vegetation, biome presets | TODO |
+| M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | TODO |
+| M06-C02 | Snowpack (SWE) below 0 °C, degree-day melt, snow cover rendering | DONE |
 | M01-C08 | Mountain preset: soften needle peaks (pre-erosion / slope cap) | TODO |
 | M06-C01 | Climate: temperature, season, lapse rate, rain shadow, spatial rainfall/evaporation | DONE |
 | M05-C04c | Couple shoreline model to the world heightfield (bars/spits as real terrain) | TODO |

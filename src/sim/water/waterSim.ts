@@ -22,6 +22,11 @@ const G = 9.81;
  */
 export class WaterSim implements Stepper {
   ledger: WaterLedger;
+  /**
+   * Float64 mirror of world.snowSweM: tiny per-step snowfall/melt on a deep pack would be lost to
+   * float32 round-off. Re-seeded from the world field wherever that was changed externally.
+   */
+  private snow64: Float64Array;
   /** Spatial rain / evaporation factors (climate); null = uniform forcing. */
   climate: ClimateField | null = null;
   /** Cell-centred velocity components (m/s), x east, y north. Derived, not saved. */
@@ -44,6 +49,7 @@ export class WaterSim implements Stepper {
     this.vy = new Float32Array(n);
     this.sea = new Uint8Array(n);
     this.prevDepth = new Float32Array(n);
+    this.snow64 = Float64Array.from(world.snowSweM);
     this.refreshSea();
     this.ledger = emptyLedger(this.storedVolume());
     this.refreshStats();
@@ -57,6 +63,8 @@ export class WaterSim implements Stepper {
     const z = this.surface;
     const sl = this.world.seaLevelM;
     const d = this.world.waterDepthM;
+    if (this.snow64) this.syncSnow();
+    const snow = this.world.snowSweM;
     for (let i = 0; i < z.length; i++) {
       const s = z[i] < sl ? 1 : 0;
       this.sea[i] = s;
@@ -64,14 +72,49 @@ export class WaterSim implements Stepper {
         this.ledger && (this.ledger.seaOut += d[i] * this.cellArea);
         d[i] = 0;
       }
+      if (s && snow[i] > 0) {
+        this.ledger && (this.ledger.seaOut += (this.snow64 ? this.snow64[i] : snow[i]) * this.cellArea);
+        snow[i] = 0;
+        if (this.snow64) this.snow64[i] = 0;
+      }
     }
   }
 
+  /** All water held on the map: surface water + snowpack (m³). */
   storedVolume(): number {
+    return this.surfaceVolume() + this.snowVolume();
+  }
+
+  surfaceVolume(): number {
     const d = this.world.waterDepthM;
     let v = 0;
     for (let i = 0; i < d.length; i++) v += d[i];
     return v * this.cellArea;
+  }
+
+  snowVolume(): number {
+    this.syncSnow();
+    const s = this.snow64;
+    let v = 0;
+    for (let i = 0; i < s.length; i++) v += s[i];
+    return v * this.cellArea;
+  }
+
+  /** Adopt external changes to world.snowSweM (load, GPU sync, edits) into the float64 mirror. */
+  private syncSnow() {
+    const f = this.world.snowSweM;
+    const s = this.snow64;
+    for (let i = 0; i < f.length; i++) if (Math.fround(s[i]) !== f[i]) s[i] = f[i];
+  }
+
+  /** Set a cell's snowpack exactly (GPU sync folds deltas in float64 through this). */
+  setSnow(i: number, v: number) {
+    this.snow64[i] = v;
+    this.world.snowSweM[i] = v;
+  }
+
+  snowAt(i: number): number {
+    return Math.fround(this.snow64[i]) === this.world.snowSweM[i] ? this.snow64[i] : this.world.snowSweM[i];
   }
 
   resetLedger() {
@@ -118,16 +161,43 @@ export class WaterSim implements Stepper {
     const sea = this.sea;
     const rf = this.climate?.rainFactor;
     const ef = this.climate?.evapFactor;
+    const cl = this.climate;
+    const snowOn = !!cl && w.climate.enabled;
+    const snow = this.snow64;
+    const snow32 = w.snowSweM;
+    if (snowOn) this.syncSnow();
     if (p.rainMPerS > 0) {
       const add = p.rainMPerS * dt;
       let total = 0;
+      let fell = 0;
       for (let i = 0; i < n; i++) {
         if (sea[i]) continue;
         const a = rf ? add * rf[i] : add;
-        d[i] += a;
+        if (snowOn && cl.temperatureC[i] < 0) {
+          snow[i] += a;
+          snow32[i] = snow[i];
+          fell += a;
+        } else d[i] += a;
         total += a;
       }
       this.ledger.rainIn += total * A;
+      this.ledger.snowfall += fell * A;
+    }
+    if (snowOn) {
+      // Degree-day melt into surface water.
+      const k = (w.climate.meltMmPerDegDay / 1000 / 86400) * dt;
+      let melted = 0;
+      for (let i = 0; i < n; i++) {
+        const s = snow[i];
+        const t = cl.temperatureC[i];
+        if (s <= 0 || t <= 0) continue;
+        const m = Math.min(s, k * t);
+        snow[i] = s - m;
+        snow32[i] = snow[i];
+        d[i] += m;
+        melted += m;
+      }
+      this.ledger.snowmelt += melted * A;
     }
     for (const s of p.sources) {
       if (s.x < 0 || s.y < 0 || s.x >= w.width || s.y >= w.height || s.rateM3PerS <= 0) continue;
@@ -310,7 +380,7 @@ export class WaterSim implements Stepper {
   }
 
   clearWater() {
-    const v = this.storedVolume();
+    const v = this.surfaceVolume();
     this.world.waterDepthM.fill(0);
     this.world.waterFluxM3PerS.fill(0);
     this.vx.fill(0);

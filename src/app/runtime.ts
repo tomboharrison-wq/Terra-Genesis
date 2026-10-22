@@ -95,7 +95,24 @@ export function syncSim() {
           rMin = Math.min(rMin, c.rainFactor[i]);
           rMax = Math.max(rMax, c.rainFactor[i]);
         }
-        return { ...w.climate, landTempMinC: tMin, landTempMaxC: tMax, rainMinX: rMin, rainMaxX: rMax };
+        let covered = 0;
+        let land = 0;
+        for (let i = 0; i < engine.surface.length; i++) {
+          if (engine.surface[i] < w.seaLevelM) continue;
+          land++;
+          if (w.snowSweM[i] > 0.005) covered++;
+        }
+        return {
+          ...w.climate,
+          landTempMinC: tMin,
+          landTempMaxC: tMax,
+          rainMinX: rMin,
+          rainMaxX: rMax,
+          snowM3: engine.water.snowVolume(),
+          snowCoverPct: land ? (100 * covered) / land : 0,
+          snowfallM3: L.snowfall,
+          snowmeltM3: L.snowmelt,
+        };
       })(),
       sed: (() => {
         const S = engine.sediment.ledger;

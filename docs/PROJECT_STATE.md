@@ -30,11 +30,14 @@ Verified working:
 - M06-C01 climate (src/sim/climate/climate.ts, Engine.setClimateParams, ClimatePanel, temperature/rainfall overlays):
   T = T0 + season − lapse·z; rain factor = saturating windward uplift × upwind-barrier shadow, mean 1 over land;
   evap ∝ exp(0.065ΔT), 0 below 0 °C. CPU + GPU (climate texture; GPU evaporation counted in state.a). Format v5.
+- M06-C02 snow: world.snowSweM (format v6); snowfall below 0 °C, degree-day melt; stored volume = water + snow;
+  CPU float64 mirror, GPU snow texture (r pack, g fallen, b melted since sync, folded in float64). White cover.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 - Headlands preset: straight coast across chalk/clay bands, waves from S, ×1000: clay bays retreat 2–3 cells
   vs chalk headlands in 4 accelerated days (96² CPU run).
 
 Known failures / gaps:
+- Water depth is float32: a closed basin lake over simulated years drifts ~% in the ledger (backlog M02-C07).
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
 - On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
@@ -42,6 +45,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/coast/{coastSim,params}.ts, src/engine/engine.ts (setSeaLevel, coastHook),
 src/app/CoastPanel.tsx, src/terrain/{settle,generate}.ts, src/renderer/TerrainScene.ts ('waves' overlay)
-Last checks: typecheck PASS · npm test PASS (138) · build PASS · e2e PASS 28/28 · gpu-check 8/8 · gpu-check 7/7 (M04)
+Last checks: typecheck PASS · npm test PASS (144) · build PASS · e2e PASS 29/29 · gpu-check 9/9 · gpu-check 7/7 (M04)
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

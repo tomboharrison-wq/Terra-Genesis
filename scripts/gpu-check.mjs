@@ -19,6 +19,11 @@ for (const r of res) {
   const volRel = Math.abs(r.gpuStoredM3 - r.cpuStoredM3) / Math.max(1, r.cpuStoredM3);
   let ok = r.gpuClosure < 1e-3 && (r.name === 'river-catchment' ? r.meanAbsDiffM < 1e-3 && volRel < 1e-3 : r.maxAbsDiffM < 0.01);
   let extra = '';
+  if (r.cpuSnowM3 > 0 || r.cpuMeltM3 > 0) {
+    const rel = (a, b) => Math.abs(a - b) / Math.max(1e-6, Math.abs(a));
+    ok = ok && rel(r.cpuSnowM3, r.gpuSnowM3) < 1e-3 && rel(r.cpuMeltM3, r.gpuMeltM3) < 1e-3;
+    extra += ` | snow cpu ${r.cpuSnowM3.toFixed(1)} gpu ${r.gpuSnowM3.toFixed(1)} m³, melted cpu ${r.cpuMeltM3.toFixed(1)} gpu ${r.gpuMeltM3.toFixed(1)} m³`;
+  }
   if (r.cpuEvapM3 > 0 || r.cpuRainM3 > 0) {
     const rel = (a, b) => Math.abs(a - b) / Math.max(1e-6, Math.abs(a));
     ok = ok && rel(r.cpuEvapM3, r.gpuEvapM3) < 0.01 && rel(r.cpuRainM3, r.gpuRainM3) < 1e-3;

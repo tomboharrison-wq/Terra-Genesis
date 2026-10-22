@@ -1,5 +1,11 @@
 # Test results (latest first)
 
+## 2026-10-22 M06-C02
+- npm test PASS 144 (+ snow: cold plateau gets ≈10 mm SWE/h while lowland rains; 4 mm/°C/day at +5 °C melts exactly 20 mm/day; a seasonal year builds and melts a plateau pack (snowmelt > ½ snowfall); climate off → no snow; drowned snow ledgered to sea; save/load)
+- gpu-check 9/9 (+ snow-ridge: snow cpu 274164.9 gpu 274164.9 m³, melted 29737.5 both)
+- e2e 29/29 (+ GPU cold spell 1.57 M m³ snow → warm spell 0.83 M m³; closure 1.5e-7 / 2.0e-6)
+- Found: float32 round-off of small per-step increments on deep stores (snow fixed with float64 mirror / GPU delta fold; water depth logged M02-C07).
+
 ## 2026-10-22 M06-C01
 - npm test PASS 138 (+ climate: lapse 6.5 °C/km exact; season ±amp; ridge with W wind: windward > plain, > 2× lee, lee < plain, mean 1, reversing wind swaps sides; climate off bit-identical to old forcing; ledger closes <1e-5 with spatial rain + evaporation, total rain unchanged; no evaporation below 0 °C; seasons advance 0.25 in a quarter year; save/load + migration)
 - gpu-check 8/8 (+ climate-ridge: rain cpu 115200.0 gpu 115200.2 m³, evaporated cpu 13000.0 gpu 12977.6 m³)

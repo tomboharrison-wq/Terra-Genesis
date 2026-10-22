@@ -49,6 +49,9 @@ const TEMP_ZERO = new Color(0xdedbd2);
 const TEMP_WARM = new Color(0xc8402a);
 const RAIN_LO = new Color(0xb4c6d3);
 const RAIN_HI = new Color(0x0a3a6b);
+const SNOW = new Color(0xf2f4f7);
+/** Snow water equivalent giving full white cover (≈ 20–30 cm of settled snow). */
+const SNOW_FULL_M = 0.03;
 const WAVE_LO = new Color(0xffe627);
 const WAVE_MID = new Color(0xff912a);
 const WAVE_HI = new Color(0xed3f23);
@@ -90,6 +93,9 @@ export class TerrainScene {
   private waterLayer: WaterLayer | null = null;
   private waterView: WaterView = 'water';
   private terrainOverlay: TerrainOverlay = 'none';
+  private snowTimer = 0;
+  private snowRev = -1;
+  private hadSnow = false;
   private heightTex: DataTexture | null = null;
   private heightHalf = new Uint16Array(0);
   private sky: Mesh;
@@ -463,6 +469,14 @@ export class TerrainScene {
           this.col,
           o,
         );
+        const swe = w.snowSweM[i];
+        if (swe > 0 && this.terrainOverlay === 'none') {
+          // Snow cover from the simulated snowpack (thin cover lets the ground show through).
+          const a = Math.min(1, Math.sqrt(swe / SNOW_FULL_M));
+          this.col[o] += (SNOW.r - this.col[o]) * a;
+          this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
+          this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
+        }
         if (tempOverlay) {
           const t = clim.temperatureC[i];
           if (t < 0) tmp.copy(TEMP_ZERO).lerp(TEMP_COLD, Math.min(1, -t / 20));
@@ -542,6 +556,20 @@ export class TerrainScene {
       this.updateHeightTexture();
       this.waterLayer?.updateGround();
       if (dirty.x0 <= 1 || dirty.y0 <= 1 || dirty.x1 >= this.engine.world.width - 1 || dirty.y1 >= this.engine.world.height - 1) this.updateSkirts();
+    }
+    // Snow changes with the simulation, not with terrain edits: recolour twice a second while it does.
+    this.snowTimer += rawDt;
+    if (this.snowTimer > 0.5) {
+      this.snowTimer = 0;
+      const w = this.engine.world;
+      const rev = this.engine.waterRevision;
+      if (rev !== this.snowRev) {
+        this.snowRev = rev;
+        let any = false;
+        for (let i = 0; i < w.snowSweM.length && !any; i++) any = w.snowSweM[i] > 0;
+        if (any || this.hadSnow) this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
+        this.hadSnow = any;
+      }
     }
     if (this.brushVisible) this.updateBrushRing();
     if (this.profileEnds) this.updateProfileLine();

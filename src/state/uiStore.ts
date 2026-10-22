@@ -58,6 +58,11 @@ export interface SimInfo {
     landTempMaxC: number;
     rainMinX: number;
     rainMaxX: number;
+    meltMmPerDegDay: number;
+    snowM3: number;
+    snowCoverPct: number;
+    snowfallM3: number;
+    snowmeltM3: number;
   };
   sed: { weathered: number; rockfall: number; erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
 }
@@ -76,6 +81,7 @@ export interface HoverInfo {
   waterSpeedMS: number;
   /** Climate on: local temperature (°C) and rainfall (mm/h). */
   temperatureC?: number;
+  snowSweM?: number;
   rainHereMmH?: number;
   isSea: boolean;
 }

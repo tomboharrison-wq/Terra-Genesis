@@ -19,6 +19,10 @@ export interface SelfTestCase {
   gpuEvapM3: number;
   cpuRainM3: number;
   gpuRainM3: number;
+  cpuSnowM3: number;
+  gpuSnowM3: number;
+  cpuMeltM3: number;
+  gpuMeltM3: number;
   steps: number;
   gpuMsPerStep: number;
   /** Erosion cases: max |Δ surface| CPU vs GPU (m), sediment ledger closures, eroded volumes. */
@@ -99,6 +103,15 @@ function fixture(name: string): WorldState {
       w.climate = { ...w.climate, enabled: true, windFromDeg: 270, seaLevelTempC: 18 };
       return w;
     }
+    case 'snow-ridge': {
+      // Peak below freezing (snow builds), valleys above (an initial pack melts), closed edges.
+      const w = mk(48, 50, (x) => 50 + 600 * Math.max(0, 1 - Math.abs(x - 24) / 8), 0);
+      w.water.boundary = 'closed';
+      w.water.rainMPerS = 20 * MM_PER_H;
+      w.snowSweM.fill(0.05);
+      w.climate = { ...w.climate, enabled: true, seaLevelTempC: 2, seasonalAmpC: 0, meltMmPerDegDay: 200 };
+      return w;
+    }
     case 'bowl-overflow': {
       const w = mk(33, 10, (x, y) => {
         const rim = y === 0 || y === 32 || x === 0 || x === 32 ? 8 : 0;
@@ -123,7 +136,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge']) {
+  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge', 'snow-ridge']) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -195,6 +208,10 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
       gpuEvapM3: gsim.ledger.evaporated,
       cpuRainM3: cpu.ledger.rainIn,
       gpuRainM3: gsim.ledger.rainIn,
+      cpuSnowM3: cpu.snowVolume(),
+      gpuSnowM3: gsim.snowVolume(),
+      cpuMeltM3: cpu.ledger.snowmelt,
+      gpuMeltM3: gsim.ledger.snowmelt,
       steps,
       gpuMsPerStep: gpuMs / steps,
     });
