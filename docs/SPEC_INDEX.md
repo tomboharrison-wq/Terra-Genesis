@@ -1,0 +1,78 @@
+# Spec index — `sed -n START,ENDp docs/MASTER_SPEC.md`
+
+- L1: # TERRA GENESIS
+- L2: ## Master product specification, engineering blueprint and low-context AI build protocol
+- L14: # A. INSTRUCTIONS FOR THE AI BUILD AGENT — READ FIRST
+- L16: ## A1. Mission and authority
+- L24: ## A2. The mandatory low-context rule
+- L48: ## A3. Persistent project memory files
+- L57: # Project state
+- L74: # One next executable task
+- L97: ## A4. Work in small, verifiable chunks
+- L123: ## A5. Context and usage efficiency rules
+- L141: ## A6. Standard minimal handoff at the end of every chunk
+- L155: ## A7. What to do if usage, rate limits or context are nearly exhausted
+- L163: ## A8. Bootstrap prompt to use with this file
+- L177: ## A9. Short resume prompt for a new AI session
+- L189: # B. PRODUCT VISION, SCOPING AND USER EXPERIENCE
+- L191: ## B1. Core vision
+- L203: ## B2. Quality pillars
+- L214: ## B3. What the product is not
+- L223: ## B4. Initial definition of useful minimum product
+- L229: # C. TECHNICAL ARCHITECTURE
+- L231: ## C1. Platform and toolchain
+- L246: ## C2. Directory design
+- L290: ## C3. World data contract
+- L308: ## C4. Fixed-timestep simulation and rendering
+- L325: ## C5. World dimensions and performance
+- L331: ## C6. Data conventions
+- L342: # D. VISUAL WORLD, CAMERA AND EDITING
+- L344: ## D1. World creation
+- L350: ## D2. Sculpting
+- L356: ## D3. Terrain appearance
+- L360: ## D4. Camera and input
+- L364: ## D5. Visual fluidity
+- L370: # E. SIMULATION SYSTEMS — IMPLEMENT IN DEPENDENCY ORDER
+- L374: ## E1. Hydrology — first essential physics milestone
+- L393: ## E2. Sediment, hydraulic erosion and deposition — second essential physics milestone
+- L411: ## E3. Geology and landscape materials
+- L417: ## E4. Weathering, hillslopes and landslides
+- L425: ## E5. Rivers and fluvial landform modules
+- L431: ## E6. Coasts, waves and coastal landforms
+- L447: ## E7. Climate, rainfall and seasons
+- L451: ## E8. Snow, glaciers and glacial erosion
+- L455: ## E9. Plate tectonics, uplift and earthquakes
+- L469: ## E10. Volcanoes and lava
+- L473: ## E11. Biomes, ecology and vegetation
+- L477: ## E12. Natural disasters
+- L481: ## E13. Cross-system couplings
+- L498: # F. USER CONTROLS, MODES AND PRESENTATION
+- L500: ## F1. Main layout
+- L506: ## F2. Contextual tools
+- L510: ## F3. Time, checkpoints and replay
+- L514: ## F4. Data overlays and inspection
+- L518: ## F5. Visual effects/audio
+- L522: ## F6. Challenge mode (defer until core physics works)
+- L528: # G. GEOGRAPHY EDUCATION MODE — OPTIONAL, BUT DESIGNED INTO THE ARCHITECTURE
+- L530: ## G1. Rationale
+- L539: ## G2. Curriculum modules
+- L549: ## G3. Teaching sequence contract
+- L572: ## G4. Classroom mode
+- L576: ## G5. Curriculum validation
+- L582: # H. SAVE, LOAD, EXPORT AND SHARING
+- L594: # I. SCIENTIFIC, VISUAL AND SOFTWARE ACCEPTANCE TESTS
+- L596: ## I1. Physics correctness is non-negotiable
+- L614: ## I2. Visual validation
+- L618: ## I3. Performance tests
+- L622: ## I4. User-facing honesty
+- L636: # J. EXECUTION ROADMAP
+- L705: ## J1. Small test fixtures to create alongside development
+- L722: # K. DEFINITION OF DONE
+- L741: # L. FIRST BUILD — EXACT INITIAL TASK
+- L760: # M. READY-TO-USE FIRST MESSAGE, RESUME MESSAGE AND QUALITY REVIEW
+- L762: ## M1. Initial AI build message (copy into the coding AI alongside this file)
+- L782: ## M2. Resume prompt after any usage limit / new chat (copy this, not the entire master spec)
+- L795: ## M3. When the coding AI drifts into mockups instead of physics
+- L806: ## M4. When graphics look blocky or inaccurate
+- L818: ## M5. When an AI claims a milestone is complete prematurely
+- L830: # N. FINAL GUIDANCE TO THE BUILD AGENT

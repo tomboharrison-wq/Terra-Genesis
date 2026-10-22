@@ -1,0 +1,10 @@
+# Decisions (append-only)
+
+- 2026-10-22 — Stack pinned to known-stable versions (three 0.170, React 19.1, Vite 6.3, Vitest 3.2, TS 5.8, zustand 5) rather than newest majors; reason: API certainty. Trade-off: upgrade later deliberately.
+- 2026-10-22 — Renderer ownership: one imperative `TerrainScene` class owns all Three objects; React only mounts a container and calls methods. Reason: avoid dual scene ownership (spec C1).
+- 2026-10-22 — Terrain mesh: one BufferGeometry, vertex per cell centre; dirty-region updates recompute normals/colours on CPU for the dirty rect and upload a contiguous row range via `addUpdateRange`. Reason: no chunk seams at ≤512². Trade-off: 1024² may need true chunking (revisit at M01-C07/M09).
+- 2026-10-22 — Picking via heightfield ray-march (`terrain/heightfield.ts`), not Mesh.raycast. Reason: O(steps) not O(triangles); testable without WebGL.
+- 2026-10-22 — Brush edit rule: positive dz adds bedrock; negative dz removes loose sediment first, then bedrock; sediment brushes edit sediment only. `materialId` = bedrock lithology. Surface colour blends lithology with loose-sediment colour by thickness.
+- 2026-10-22 — Generation runs on main thread (≤512² is tens of ms). Workers reserved for M02+ solvers.
+- 2026-10-22 — Static sea-level plane rendered at `seaLevelM` as a representation of the sea-level parameter only; it is NOT hydrology (M02) or a coastal model (M05).
+- 2026-10-22 — Save format `.tgw`: magic+JSON header+raw little-endian typed arrays, gzip via CompressionStream. IndexedDB stores the same bytes.
