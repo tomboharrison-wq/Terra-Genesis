@@ -2,7 +2,9 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M07-C05 | Earthquake tool: fault type/orientation/offsets, persistent deformation | READY |
+| M08-C01 | Volcano vent + lava flow (depth/temperature fields, viscosity from temperature, gravity flow) | READY |
+| M08-C02..C04 | Cooling to volcanic rock, shield vs composite, island preset + caldera + erosion | TODO |
+| M07-C05 | Earthquake tool (W&C scaling, normal/reverse/strike-slip, shaking map, landslides, undo) | DONE |
 | M07-C04 | Fold mountains: guided fold lab (length + area conserved, thrust, erosion) + map strata folding | DONE |
 | M07-C03 | Subduction trench + arc volcanoes (o–c, o–o islands) + guided subduction cross-section lab | DONE |
 | M07-C02 | Rift fault blocks (normal scarps) + transform slip shifting whole columns | DONE |

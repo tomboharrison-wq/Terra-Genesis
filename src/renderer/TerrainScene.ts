@@ -43,7 +43,7 @@ import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare' | 'plates';
+export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare' | 'plates' | 'shaking';
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
@@ -197,7 +197,7 @@ export class TerrainScene {
       if (e.type === 'world-replaced') this.buildWorld(true);
       if (e.type === 'sea-level-changed') this.applySeaLevel();
       if (e.type === 'water-params-changed' || e.type === 'climate-changed') this.updatePlateArrows();
-      if ((e.type === 'climate-changed' || e.type === 'water-params-changed') && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare' || this.terrainOverlay === 'plates')) {
+      if ((e.type === 'climate-changed' || e.type === 'water-params-changed') && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare' || this.terrainOverlay === 'plates' || this.terrainOverlay === 'shaking')) {
         const w = engine.world;
         this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
       }
@@ -533,7 +533,17 @@ export class TerrainScene {
           this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
           this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
         }
-        if (this.terrainOverlay === 'plates') {
+        if (this.terrainOverlay === 'shaking') {
+          // Shaking intensity of the last earthquake: sequential yellow → orange → red (I 3 … 10).
+          const I = this.engine.lastQuake?.shaking[i] ?? 0;
+          const t = Math.min(1, Math.max(0, (I - 3) / 7));
+          const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
+          if (I >= 3) tmp.copy(t < 0.5 ? WAVE_LO.clone().lerp(WAVE_MID, t * 2) : WAVE_MID.clone().lerp(WAVE_HI, t * 2 - 1));
+          else tmp.setRGB(grey, grey, grey);
+          this.col[o] = tmp.r;
+          this.col[o + 1] = tmp.g;
+          this.col[o + 2] = tmp.b;
+        } else if (this.terrainOverlay === 'plates') {
           // Plate colour over shaded terrain; boundary cells by type (collide / pull apart / slide past).
           const shade = 0.55 + 0.45 * inv;
           const bt = this.engine.tectonics.boundary[i];
@@ -656,11 +666,19 @@ export class TerrainScene {
     if (this.brushVisible) this.updateBrushRing();
     if (this.profileEnds) this.updateProfileLine();
     this.controls.update();
+    let shook: Vector3 | null = null;
+    if (this.shakeT < 1.6) {
+      this.shakeT += rawDt;
+      const a = this.shakeAmp * Math.exp(-3 * this.shakeT);
+      shook = new Vector3((Math.random() - 0.5) * a, (Math.random() - 0.5) * a, (Math.random() - 0.5) * a);
+      this.camera.position.add(shook);
+    }
     this.sky.position.copy(this.camera.position);
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
     this.waterLayer?.update(now / 1000);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
+    if (shook) this.camera.position.sub(shook);
     const cpuMs = performance.now() - t0;
     this.fpsEma += ((rawDt > 0 ? 1 / rawDt : 60) - this.fpsEma) * 0.08;
     this.msEma += (cpuMs - this.msEma) * 0.08;
@@ -800,6 +818,14 @@ export class TerrainScene {
     this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
     this.updatePlateArrows();
   }
+
+  /** Short decaying camera shake for an earthquake (feel only — the deformation is the mechanism). */
+  shake(mw: number) {
+    this.shakeAmp = Math.min(1, Math.max(0, (mw - 4.5) / 4)) * this.reliefM * 0.02 + 1;
+    this.shakeT = 0;
+  }
+  private shakeAmp = 0;
+  private shakeT = 10;
 
   /** One arrow per plate at its centre, along its motion (length ∝ speed), while 'plates' is shown. */
   private updatePlateArrows() {

@@ -26,7 +26,8 @@ export const TOOLS: ToolDef[] = [
   { group: 'water', id: 'climate', label: 'Climate', key: 'K', hint: 'Temperature, seasons, prevailing wind, wetter windward slopes and rain shadows. Drives where rain falls and how fast water evaporates.' },
   { group: 'coast', id: 'coast', label: 'Coast', key: 'C', hint: 'Sea level and wave climate. Waves erode cliffs (weak rock fastest, sheltered bays least) and drift sand along the shore.' },
   { group: 'earth', id: 'plates', label: 'Plates', key: 'E', hint: 'Tectonic plates: set each plate moving; colliding plates push up mountains, separating plates open rifts.' },
-  { group: 'events', id: 'landslide', label: 'Landslide', key: 'L', hint: 'Click a slope to saturate it: steep rock breaks up and debris slides downhill (radius = brush radius). Undoable.' },
+  { group: 'earth', id: 'earthquake', label: 'Quake', key: 'Q', hint: 'Click the map to set off an earthquake on a fault: choose the fault type, size and direction. The ground moves for good; undo (Ctrl+Z) puts it back.' },
+  { group: 'events', id: 'landslide', label: 'Landslide', key: 'L', hint: 'Click a slope to saturate it: steep rock breaks up and debris slides downhill (radius = brush radius). The ground moves for good; undo (Ctrl+Z) puts it back.' },
   { group: 'water', id: 'spring', label: 'Spring', key: '-', hint: 'Click to place a constant inflow (spring or river inlet). Remove springs in the list below.' },
 ];
 

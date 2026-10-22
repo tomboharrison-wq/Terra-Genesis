@@ -1,5 +1,8 @@
 # Test results (latest first)
 
+## 2026-10-22 M07-C05
+- npm test PASS 191 (+ earthquakes: W&C M7 → 40.7 km, 1.07 m; normal drops the hanging wall (footwall up a little) with strata following; reverse raises; M8.4 strike-slip offsets a ridge on 10 m cells; undo restores bedrock + strata bounds exactly (history now records bounds); strong shaking on steep slopes triggers landslides)
+
 ## 2026-10-22 M07-C04
 - npm test PASS 185 (+ folds: amplitude grows with shortening, top layer keeps its length L0; every layer's area conserved (to 1e-2 rel) and thickening = 1/(1−s); thrust: slip > 0, gentler folds, two pieces per cut layer, area within 1 %; anticlines/synclines found, erosion below crests; map: collision belt boundaries alternate above/below their starting depth)
 - Fixed in-chunk: per-vertex thrust displacement stretched crossing edges (8 % area error) → clip layers at the ramp and translate the hanging wall (≤1 %).

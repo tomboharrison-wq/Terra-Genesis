@@ -15,6 +15,7 @@ import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
 import { VegetationSim, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { compareClimate, type ClimateChange, type CompareResult } from '../terrain/biomes';
 import { generatePlates, TectonicsSim, type Plate, type TectonicsParams } from '../sim/tectonics/plates';
+import { earthquake, type QuakeOptions, type QuakeResult } from '../sim/tectonics/earthquake';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -91,6 +92,7 @@ export class Engine {
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
     this.referenceSurface = this.surface.slice();
     this.compareResult = null;
+    this.lastQuake = null;
     const water = this.water;
     const sediment = this.sediment;
     this.cpuStepper = {
@@ -522,6 +524,27 @@ export class Engine {
       this.history.push(cmd);
       this.emit({ type: 'history-changed' });
     }
+  }
+
+  /** Last earthquake (its shaking map drives the 'shaking' overlay). */
+  lastQuake: QuakeResult | null = null;
+
+  /** Earthquake event: persistent fault deformation (+ optional landslides), undoable as one edit. */
+  earthquake(o: QuakeOptions): QuakeResult {
+    this.syncWater();
+    const rec = new StrokeRecorder(this.world, `M${o.mw.toFixed(1)} earthquake`);
+    const res = earthquake(this.world, this.surface, o, rec.capture);
+    const cmd = rec.finish();
+    if (cmd) {
+      this.history.push(cmd);
+      this.emit({ type: 'history-changed' });
+    }
+    this.lastQuake = res;
+    this.markDirty(res.rect);
+    if (this.gpu) this.gpu.uploadWater(); // strike-slip moved water columns
+    this.vegetationRevision++;
+    this.emit({ type: 'climate-changed' }); // overlay refresh
+    return res;
   }
 
   /**

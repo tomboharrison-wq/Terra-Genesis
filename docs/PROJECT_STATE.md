@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M07 — Plate tectonics (C01–C04 done)
-Current chunk: M07-C05 — earthquake tool (see NEXT_TASK)
+Current milestone: M08 — Volcanoes (M07 tectonics complete)
+Current chunk: M08-C01 — vent + lava flow (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -30,6 +30,7 @@ Verified working:
   C02: rifts as stepped fault blocks; transform slip shifts whole columns of the higher-id plate per cell.
   C03: subducting side trench, arc vents 2.5 belt widths inboard growing volcanic cones; Subduction lab (SVG).
   C04: Fold lab (src/local/folds) + c–c belts fold strata boundaries (surface unchanged).
+  C05: Quake tool (sim/tectonics/earthquake.ts): W&C scaling, fault deformation, shaking overlay, undo incl. strata.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -37,10 +38,10 @@ Known failures / gaps:
 - Real M4 GPU speed unmeasured. Coastal processes are CPU-only (fine at 600 s cadence).
 - On the world map, grid drift still cannot make bars/lagoons/recurves (they live in the shoreline lab).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
-- Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea. Glaciers do not carve U-shaped cross-sections (plan-view SIA).
+- Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea. No glacial U-shaped cross-sections (plan-view SIA).
 
 Relevant paths: src/sim/climate/climate.ts, src/sim/water/{waterSim,gpuWater,gpuSelfTest}.ts (snow + climate
 forcing), src/engine/engine.ts (setClimateParams, advanceSeason), src/app/ClimatePanel.tsx, TerrainScene (snow, overlays)
-Last checks: typecheck PASS · npm test PASS (185) · build PASS · e2e PASS 36/36 · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (191) · build PASS · e2e PASS 37/37 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

@@ -463,6 +463,24 @@ const thick = +(fl.match(/Layers ([\d.]+)×/)?.[1] ?? 0);
 check('fold lab: squeezing thickens layers and a thrust slips', thick > 1.5 && /Thrust slip/.test(fl), fl);
 await page.click('.dialog [aria-label="Close"]');
 
+// --- Earthquake tool (M07-C05): persistent fault deformation, shaking map, undo ---
+await page.click('.rail-btn:has-text("Quake")');
+await page.waitForTimeout(300);
+const q0 = await sum();
+await page.mouse.move(720, 500);
+await page.mouse.down();
+await page.mouse.up();
+await page.waitForSelector('.toast:has-text("earthquake")', { timeout: 15000 }).catch(() => {});
+const q1 = await sum();
+const qLabel = await page.evaluate(() => window.__terraGenesis.engine.history.undoLabel);
+await page.click('.quake-panel button:has-text("Show shaking strength")').catch(() => {});
+await page.waitForTimeout(1200);
+await shot('36-earthquake-shaking');
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(400);
+const q2 = await sum();
+check('earthquake deforms the ground for good and undo restores it', q1 !== q0 && /earthquake/.test(qLabel ?? '') && Math.abs(q2 - q0) < 1e-6 * Math.abs(q0) + 1e-3, `Δ=${(q1 - q0).toFixed(1)} undo='${qLabel}' restored Δ=${(q2 - q0).toFixed(4)}`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

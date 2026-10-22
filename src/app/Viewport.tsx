@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
-import { attachScene, engine, syncSim } from './runtime';
+import { attachScene, engine, getScene, syncSim } from './runtime';
 import { useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
@@ -17,7 +17,7 @@ function currentBrush(): BrushParams | null {
 function ringRadius(): number | null {
   const s = useUi.getState();
   if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain' || s.tool === 'landslide') return s.radiusM;
-  if (s.tool === 'spring' || s.tool === 'profile') return (s.world?.cellSizeM ?? 10) * 2;
+  if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'earthquake') return (s.world?.cellSizeM ?? 10) * 2;
   return null;
 }
 
@@ -82,6 +82,15 @@ export function Viewport() {
       e.stopPropagation();
       e.preventDefault();
       const ui = useUi.getState();
+      if (ui.tool === 'earthquake') {
+        const q = ui.quake;
+        const r = engine.earthquake({ xM: hit.xM, yM: hit.yM, mw: q.mw, type: q.type, strikeDeg: q.strikeDeg, landslides: q.landslides });
+        ui.set({ lastQuake: { mw: q.mw, type: q.type, ruptureKm: r.ruptureKm, avgSlipM: r.avgSlipM, maxUpM: r.maxUpM, maxDownM: r.maxDownM, lateralCells: r.lateralCells, landslides: r.landslides } });
+        if (q.shake) getScene()?.shake(q.mw);
+        const move = q.type === 'strike-slip' ? (r.lateralCells ? `ground shifted ${r.lateralCells} cell${r.lateralCells > 1 ? 's' : ''} sideways` : 'sideways slip smaller than one map cell') : `up to ${r.maxUpM.toFixed(2)} m raised, ${r.maxDownM.toFixed(2)} m dropped`;
+        ui.toast(`M${q.mw.toFixed(1)} earthquake: ${r.ruptureKm.toFixed(1)} km rupture, ${move}${r.landslides ? `, ${r.landslides} landslide${r.landslides > 1 ? 's' : ''}` : ''}`, 'success');
+        return;
+      }
       if (ui.tool === 'landslide') {
         const r = engine.landslide(hit.xM, hit.yM, ui.radiusM);
         const total = r.failedRockM3 + r.movedM3;

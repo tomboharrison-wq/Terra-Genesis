@@ -112,3 +112,7 @@
 ## M07-C04 — Fold mountains
 - New Fold mountains cross-section (Plates panel): squeeze a pile of rock layers between two continents and watch them buckle into anticlines and synclines and thicken; allow a thrust fault to carry rock up and over; erode the top to see the bands of old and young rock exposed. Each layer keeps its length and its area.
 - On the map, colliding continents now fold their rock layers too, so wearing down the range exposes folded bands.
+
+## M07-C05 — Earthquakes
+- New Earth → Quake tool (Q): choose the fault type (normal, reverse/thrust or strike-slip), magnitude and direction, then click the map. The rupture length and slip follow real-world averages for that magnitude; one side of the fault drops or rises (or slides sideways), the rock layers move with it, and strong shaking can set off landslides on steep slopes. Undo puts it all back.
+- Show shaking strength colours the map by how strongly the ground shook; an optional short camera shake is for effect only.

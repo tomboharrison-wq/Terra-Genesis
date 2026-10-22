@@ -96,6 +96,14 @@ export function TimeBar() {
           <span>+10 m</span>
         </div>
       )}
+      {terrainOverlay === 'shaking' && (
+        <div className="legend" aria-label="Shaking intensity legend">
+          <i className="ramp waves" />
+          <span>III felt</span>
+          <span>VI</span>
+          <span>X violent</span>
+        </div>
+      )}
       {terrainOverlay === 'plates' && (
         <div className="legend swatches" aria-label="Plate boundary legend">
           <span><i style={{ background: '#ed3f23' }} />colliding</span>
