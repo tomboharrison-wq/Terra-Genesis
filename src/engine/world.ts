@@ -3,8 +3,9 @@ import { defaultCoastParams, type CoastParams } from '../sim/coast/params';
 import { defaultClimateParams, type ClimateParams } from '../sim/climate/climate';
 import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacierSim';
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
+import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 
-export const WORLD_FORMAT_VERSION = 8;
+export const WORLD_FORMAT_VERSION = 9;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -121,6 +122,8 @@ export interface WorldState {
   iceThicknessM: Float32Array;
   /** Rock debris carried in the ice (m of rock over the cell), ≥ 0. */
   iceDebrisM: Float32Array;
+  /** Tectonic plate index per cell (into tectonics.plates). */
+  plateId: Uint8Array;
   /** Plant cover fraction 0 … 1 (vegetation). */
   vegCover: Float32Array;
   /** Suspended sediment carried by surface water, as bulk deposit thickness (m), ≥ 0. */
@@ -134,6 +137,8 @@ export interface WorldState {
   glacier: GlacierParams;
   /** Plant growth and its effect on erosion. */
   vegetation: VegetationParams;
+  /** Kinematic plates and boundary deformation (spec E9). */
+  tectonics: TectonicsParams;
   meta: WorldMeta;
 }
 
@@ -174,11 +179,13 @@ export function createWorld(init: WorldInit): WorldState {
     iceThicknessM: new Float32Array(n),
     iceDebrisM: new Float32Array(n),
     vegCover: new Float32Array(n),
+    plateId: new Uint8Array(n),
     erosion: defaultErosionParams(),
     coast: defaultCoastParams(),
     climate: defaultClimateParams(),
     glacier: defaultGlacierParams(),
     vegetation: defaultVegetationParams(),
+    tectonics: defaultTectonicsParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -277,11 +284,13 @@ export function cloneWorld(w: WorldState): WorldState {
     iceThicknessM: w.iceThicknessM.slice(),
     iceDebrisM: w.iceDebrisM.slice(),
     vegCover: w.vegCover.slice(),
+    plateId: w.plateId.slice(),
     erosion: { ...w.erosion },
     coast: { ...w.coast },
     climate: { ...w.climate },
     glacier: { ...w.glacier },
     vegetation: { ...w.vegetation },
+    tectonics: { ...w.tectonics, plates: w.tectonics.plates.map((q) => ({ ...q })) },
     meta: { ...w.meta },
   };
 }

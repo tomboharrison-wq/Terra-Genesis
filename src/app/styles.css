@@ -275,3 +275,10 @@ fieldset.plain:disabled { opacity: 0.45; }
 .compare-table th, .compare-table td { text-align: right; padding: 2px 4px; border-bottom: 1px solid var(--panel-border); }
 .compare-table th:first-child, .compare-table td:first-child { text-align: left; color: var(--muted); }
 .compare-table th:last-child { color: var(--scouts-yellow); }
+.legend.swatches { gap: 10px; }
+.legend.swatches i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.plate-row { border: 1px solid var(--panel-border); border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
+.plate-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.plate-head b { flex: 1; font-size: 13px; }
+.plate-head select { font-size: 12px; }
+.plate-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }

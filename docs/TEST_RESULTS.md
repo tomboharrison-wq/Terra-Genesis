@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-22 M07-C01
+- npm test PASS 173 (+ tectonics: no plate fragments <2 %; classification convergent/divergent/transform/interior; converging continents +120 m at the boundary in 10 kyr (0.3 × 40 mm/yr), decaying, ledger = Δ bedrock volume; rift sinks; transform no change; ocean–continent trench + continental uplift; strata move with rock; engine tectonic time, seeded plate maps, save/load)
+- Fixed: nearest-boundary BFS re-queued cells until the array overflowed → two-pass sweep (linear).
+- Screenshot review: warped-Voronoi plate specks became 6.8 km pillars and belts vertical walls → fragments < 2 % merged, belt width 12 % of the map, over-steep uplift collapses to talus (settleSlopes), uplift factor 0.2. After: one coherent range, 4.85 km after 400 kyr (no isostasy/erosion cap yet).
+
 ## 2026-10-22 M06-C05
 - npm test PASS 166 (+ biomes: temperate cover >20 % on 96² (≈50 % at 256²), no ice; alpine ice + plants, treeline < snowline, no plants under ice; rain-shadow west cover > 2× east; tundra no forest, sparse, ice; reproducible; what-if warmer ⇒ less ice + higher treeline, wetter ⇒ more cover, world untouched)
 - Measured: 150-yr flowing glacier spin-up took 35 s at 256² → static starting ice (≤120 m) laid above the snowline (<1 s), deterministic.

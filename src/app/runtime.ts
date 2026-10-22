@@ -114,6 +114,30 @@ export function syncSim() {
           snowmeltM3: L.snowmelt,
         };
       })(),
+      tectonics: (() => {
+        const t = w.tectonics;
+        const s = engine.tectonics;
+        let c = 0;
+        let d = 0;
+        let tr = 0;
+        for (const b of s.boundary) b === 1 ? c++ : b === 2 ? d++ : b === 3 ? tr++ : 0;
+        let maxE = -Infinity;
+        for (const z of engine.surface) if (z > maxE) maxE = z;
+        return {
+          enabled: t.enabled,
+          yearsPerSimHour: t.yearsPerSimHour,
+          beltWidthM: t.beltWidthM,
+          plates: t.plates.map((q) => ({ ...q })),
+          upliftedM3: s.ledger.uplifted,
+          subsidedM3: s.ledger.subsided,
+          years: s.ledger.years,
+          convergent: c,
+          divergent: d,
+          transform: tr,
+          maxElevM: maxE,
+          revision: engine.plateRevision,
+        };
+      })(),
       vegetation: (() => {
         const v = w.vegetation;
         const st = engine.vegetation.stats();

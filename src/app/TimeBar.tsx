@@ -96,6 +96,13 @@ export function TimeBar() {
           <span>+10 m</span>
         </div>
       )}
+      {terrainOverlay === 'plates' && (
+        <div className="legend swatches" aria-label="Plate boundary legend">
+          <span><i style={{ background: '#ed3f23' }} />colliding</span>
+          <span><i style={{ background: '#006ddf' }} />pulling apart</span>
+          <span><i style={{ background: '#ffe627' }} />sliding past</span>
+        </div>
+      )}
       {terrainOverlay === 'compare' && (
         <div className="legend" aria-label="What-if plant cover difference legend">
           <i className="ramp compare" />

@@ -3,6 +3,7 @@ import { WaterPanel } from './WaterPanel';
 import { ErosionPanel } from './ErosionPanel';
 import { ProfilePanel } from './ProfilePanel';
 import { ClimatePanel } from './ClimatePanel';
+import { PlatesPanel } from './PlatesPanel';
 import { CoastPanel } from './CoastPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
@@ -51,6 +52,7 @@ export function ToolPanel() {
   const events = t.id === 'landslide';
   const coastTool = t.id === 'coast';
   const climateTool = t.id === 'climate';
+  const platesTool = t.id === 'plates';
 
   return (
     <aside className="panel" aria-label="Tool settings">
@@ -131,11 +133,12 @@ export function ToolPanel() {
       )}
       {coastTool && <CoastPanel />}
       {climateTool && <ClimatePanel />}
+      {platesTool && <PlatesPanel />}
       {(measure || s.profile) && <ProfilePanel />}
-      {(water || (!brush && !measure && !events && !coastTool && !climateTool)) && <WaterPanel />}
-      {(water || (!brush && !measure && !coastTool && !climateTool)) && <ErosionPanel />}
+      {(water || (!brush && !measure && !events && !coastTool && !climateTool && !platesTool)) && <WaterPanel />}
+      {(water || (!brush && !measure && !coastTool && !climateTool && !platesTool)) && <ErosionPanel />}
 
-      {!brush && !water && !measure && !events && !coastTool && !climateTool && (
+      {!brush && !water && !measure && !events && !coastTool && !climateTool && !platesTool && (
         <div className="cam-buttons">
           <button onClick={() => getScene()?.fitWorld()}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>

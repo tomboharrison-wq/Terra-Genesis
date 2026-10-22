@@ -404,6 +404,32 @@ const iceRow = cmpRows.find((r) => r[0] === 'Ice volume');
 check('alpine preset starts with climate, ice and plants', pre.climate && pre.glaciers && pre.ice > 0 && pre.plants > 1, `plants ${pre.plants.toFixed(0)}%`);
 check('what-if 2 °C warmer: less ice', !!iceRow && parseFloat(iceRow[2]) < parseFloat(iceRow[1]), cmpRows.map((r) => r.join(' ')).join(' | '));
 
+// --- Plates (M07-C01): converging plates raise mountains along their boundary ---
+await page.click('text=New');
+await page.click('.preset:has-text("Continental")');
+await page.selectOption('.dialog select >> nth=0', '128');
+await page.click('label.check:has-text("Start simulation") input').catch(() => {});
+await page.click('text=Generate world');
+await page.waitForTimeout(1500);
+await page.click('.rail-btn:has-text("Plates")');
+await page.click('.plates-panel button:has-text("New plates")');
+await page.click('.plates-panel label.check:has-text("Plates move") input');
+const pl = await eng(() => {
+  const e = window.__terraGenesis.engine;
+  let z0 = -Infinity;
+  for (const z of e.surface) z0 = Math.max(z0, z);
+  e.setTectonicsParams({ yearsPerSimHour: 200000 });
+  e.advance(2 * 3600);
+  let z1 = -Infinity;
+  for (const z of e.surface) z1 = Math.max(z1, z);
+  let c = 0;
+  for (const b of e.tectonics.boundary) if (b === 1) c++;
+  return { z0, z1, up: e.tectonics.ledger.uplifted, down: e.tectonics.ledger.subsided, years: e.tectonics.ledger.years, conv: c, plates: e.world.tectonics.plates.length };
+});
+await page.waitForTimeout(1500);
+await shot('33-plates');
+check('plates: boundaries deform the land in tectonic time', pl.plates === 3 && pl.years > 3e5 && (pl.conv === 0 || pl.up > 0) && pl.up + pl.down > 0, `${pl.plates} plates, ${Math.round(pl.years).toLocaleString()} yr: raised ${(pl.up / 1e9).toFixed(2)} km³, lowered ${(pl.down / 1e9).toFixed(2)} km³, top ${pl.z0.toFixed(0)} → ${pl.z1.toFixed(0)} m`);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

@@ -95,3 +95,8 @@
 ## M06-C05 — Biome presets and "what if?"
 - Four new worlds: Temperate valley (forested), Alpine glaciers (ice above the snowline, forest below), Rain-shadow desert (wet windward forest, dry lee) and Tundra (sparse plants, ice caps). Each starts with its climate set and mature plants (and starting ice) already in place.
 - Climate panel → What if?: compare the world now with 2 °C warmer / colder or 30 % wetter / drier — plant cover, forest, treeline, snowline and ice side by side, plus a map of where plants would gain or lose. Your world is not changed.
+
+## M07-C01 — Moving plates
+- New Earth → Plates tool (E): divide the map into 2–8 plates, then set each plate's type (continental or oceanic), speed (mm/yr) and direction.
+- Where plates collide the ground rises into a mountain belt (wider where two continents meet); where an ocean plate meets a continent a trench forms on the ocean side; where plates pull apart a rift valley sinks; where they slide past there is no vertical change. Rock layers move with the rock.
+- Runs in tectonic time (thousands of years per simulated hour). Plate colours with boundaries coloured by type and motion arrows on the map; the Profile cross-section shows the plates crossed and their motion.

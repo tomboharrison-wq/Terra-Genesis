@@ -2,7 +2,7 @@ import type { ToolId } from '../state/uiStore';
 
 export interface ToolDef {
   id: ToolId;
-  group: 'terrain' | 'water' | 'coast' | 'measure' | 'events';
+  group: 'terrain' | 'water' | 'coast' | 'earth' | 'measure' | 'events';
   label: string;
   key: string;
   hint: string;
@@ -25,6 +25,7 @@ export const TOOLS: ToolDef[] = [
   { group: 'measure', id: 'profile', label: 'Profile', key: '=', hint: 'Click two points to draw a cross-section: today’s surface, the change-map reference and water level.' },
   { group: 'water', id: 'climate', label: 'Climate', key: 'K', hint: 'Temperature, seasons, prevailing wind, wetter windward slopes and rain shadows. Drives where rain falls and how fast water evaporates.' },
   { group: 'coast', id: 'coast', label: 'Coast', key: 'C', hint: 'Sea level and wave climate. Waves erode cliffs (weak rock fastest, sheltered bays least) and drift sand along the shore.' },
+  { group: 'earth', id: 'plates', label: 'Plates', key: 'E', hint: 'Tectonic plates: set each plate moving; colliding plates push up mountains, separating plates open rifts.' },
   { group: 'events', id: 'landslide', label: 'Landslide', key: 'L', hint: 'Click a slope to saturate it: steep rock breaks up and debris slides downhill (radius = brush radius). Undoable.' },
   { group: 'water', id: 'spring', label: 'Spring', key: '-', hint: 'Click to place a constant inflow (spring or river inlet). Remove springs in the list below.' },
 ];

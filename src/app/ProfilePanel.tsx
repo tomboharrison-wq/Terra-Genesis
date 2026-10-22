@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useUi } from '../state/uiStore';
 import { engine } from './runtime';
 import { sampleBilinear } from '../terrain/heightfield';
+import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 // Validated (dataviz validator, dark surface #12291f): Scouts orange / pink / blue steps.
 const C_SURFACE = '#d9781c';
@@ -19,6 +20,8 @@ interface Sample {
   reference: number;
   /** Water surface elevation, or null where dry. */
   water: number | null;
+  /** Plate index at the sample (nearest cell). */
+  plate: number;
 }
 
 function sampleProfile(ax: number, ay: number, bx: number, by: number): Sample[] {
@@ -36,7 +39,9 @@ function sampleProfile(ax: number, ay: number, bx: number, by: number): Sample[]
     const z = sampleBilinear(surf, x, y);
     const d = sampleBilinear(dep, x, y);
     const water = z < w.seaLevelM ? w.seaLevelM : d > 0.01 ? z + d : null;
-    out.push({ distM: len * t, surface: z, reference: sampleBilinear(ref, x, y), water });
+    const cx = Math.max(0, Math.min(w.width - 1, Math.round(x / w.cellSizeM)));
+    const cy = Math.max(0, Math.min(w.height - 1, Math.round(y / w.cellSizeM)));
+    out.push({ distM: len * t, surface: z, reference: sampleBilinear(ref, x, y), water, plate: w.plateId[cy * w.width + cx] });
   }
   return out;
 }
@@ -102,6 +107,21 @@ export function ProfilePanel() {
   const yTicks = niceTicks(lo, hi, 4);
   const xTicks = niceTicks(0, len, 3);
   const h = hover !== null ? data[hover] : null;
+  // Plate strip (schematic): one coloured segment per plate crossed, arrow = motion along the line.
+  const plates = engine.world.tectonics.plates;
+  const ux = (profile.bx - profile.ax) / Math.max(1e-9, len);
+  const uy = (profile.by - profile.ay) / Math.max(1e-9, len);
+  const plateSegs: { d0: number; d1: number; colour: string; along: number; dir: number }[] = [];
+  if (plates.length > 1) {
+    let start = 0;
+    for (let k = 1; k <= data.length; k++) {
+      if (k < data.length && data[k].plate === data[start].plate) continue;
+      const pl = plates[data[start].plate];
+      const along = pl ? pl.vxMmYr * ux + pl.vyMmYr * uy : 0;
+      plateSegs.push({ d0: data[start].distM, d1: data[k - 1].distM, colour: `#${PLATE_COLOURS[data[start].plate % PLATE_COLOURS.length].toString(16).padStart(6, '0')}`, along, dir: along >= 0 ? 1 : -1 });
+      start = k;
+    }
+  }
   const last = data[data.length - 1];
 
   return (
@@ -141,6 +161,19 @@ export function ProfilePanel() {
           <path d={path((s) => s.reference)} fill="none" stroke={C_REF} strokeWidth={2} strokeDasharray="4 3" strokeLinecap="round" />
           <path d={path((s) => s.water)} fill="none" stroke={C_WATER} strokeWidth={2} strokeLinecap="round" />
           <path d={path((s) => s.surface)} fill="none" stroke={C_SURFACE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          {plateSegs.map((g, k) => (
+            <g key={`p${k}`}>
+              <rect x={px(g.d0)} y={H - M.b - 7} width={Math.max(1, px(g.d1) - px(g.d0))} height={6} fill={g.colour} opacity={0.85} />
+              {Math.abs(g.along) > 0.5 && (
+                <path
+                  d={`M${(px(g.d0) + px(g.d1)) / 2 - g.dir * 9},${H - M.b - 12}l${g.dir * 18},0l${-g.dir * 5},-3m${g.dir * 5},3l${-g.dir * 5},3`}
+                  stroke="#f4f1ea"
+                  strokeWidth={1.5}
+                  fill="none"
+                />
+              )}
+            </g>
+          ))}
           <text x={W - M.r} y={py(last.surface) - 5} className="direct" textAnchor="end">
             now
           </text>
@@ -167,7 +200,10 @@ export function ProfilePanel() {
           <span>Hover the chart to read values</span>
         )}
       </div>
-      <p className="hint small tight">Elevation (m) along {fmtDist(len)}. Reset the reference in Erosion to compare from a new start.</p>
+      <p className="hint small tight">
+        Elevation (m) along {fmtDist(len)}. Reset the reference in Erosion to compare from a new start.
+        {plateSegs.length > 1 ? ' Coloured strip: plates crossed (schematic); arrows show each plate’s motion along this line.' : ''}
+      </p>
       <div className="row">
         <button className="small" onClick={() => setTable(!table)}>{table ? 'Hide values' : 'Show values'}</button>
         <button className="small ghost" onClick={() => useUi.getState().set({ profile: null, profileStart: null })}>Clear</button>

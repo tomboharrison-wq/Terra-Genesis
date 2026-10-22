@@ -2,8 +2,9 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M07-C01 | Kinematic plates: regions, velocities, uplift/subsidence on the heightfield, cross-section | READY |
-| M07-C02..C05 | Divergent/transform faults, subduction + arc, collision folding, earthquake tool | TODO |
+| M07-C02 | Divergent rift normal faults + transform faults with persistent lateral surface offset | READY |
+| M07-C03..C05 | Subduction + arc, collision folding (guided solid geometry), earthquake tool | TODO |
+| M07-C01 | Kinematic plates: map, motions, boundary uplift/rift/trench, overlay, profile strip | DONE |
 | M06-C05 | Biome presets (temperate, alpine, rain shadow, tundra) + what-if compare | DONE |
 | M06-C04 | Vegetation: suitability, growth/dieback, erosion shield, trees | DONE |
 | M06-C03b | Guided U-shaped valley / corrie / arête cross-section lab (plan-view SIA deepens V centres) | TODO |

@@ -26,6 +26,8 @@ import {
   WebGLRenderer,
   ClampToEdgeWrapping,
   DoubleSide,
+  ArrowHelper,
+  Group,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Engine } from '../engine/engine';
@@ -37,10 +39,11 @@ import { MATERIALS } from '../terrain/materials';
 import { STRATA_BOUNDS, STRATA_LAYERS } from '../engine/world';
 import { WaterLayer, type WaterView } from './waterLayer';
 import { TreeLayer } from './treeLayer';
+import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare';
+export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare' | 'plates';
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
@@ -54,6 +57,9 @@ const SNOW = new Color(0xf2f4f7);
 const ICE = new Color(0xcfe2ee);
 const GRASS = new Color(0x7f9a4a);
 const CMP_MORE = new Color(0x25b755);
+const B_CONV = new Color(0xed3f23);
+const B_DIV = new Color(0x006ddf);
+const B_TRANS = new Color(0xffe627);
 const CMP_LESS = new Color(0xa0522d);
 const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
@@ -102,6 +108,7 @@ export class TerrainScene {
   private terrainOverlay: TerrainOverlay = 'none';
   private snowTimer = 0;
   private trees: TreeLayer | null = null;
+  private plateArrows = new Group();
   private treeRev = -1;
   private treesStale = false;
   private treeTimer = 0;
@@ -189,7 +196,8 @@ export class TerrainScene {
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') this.buildWorld(true);
       if (e.type === 'sea-level-changed') this.applySeaLevel();
-      if (e.type === 'climate-changed' && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare')) {
+      if (e.type === 'water-params-changed' || e.type === 'climate-changed') this.updatePlateArrows();
+      if ((e.type === 'climate-changed' || e.type === 'water-params-changed') && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare' || this.terrainOverlay === 'plates')) {
         const w = engine.world;
         this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
       }
@@ -269,6 +277,7 @@ export class TerrainScene {
     this.terrain.castShadow = true;
     this.terrain.receiveShadow = true;
     this.scene.add(this.terrain);
+    if (!this.plateArrows.parent) this.scene.add(this.plateArrows);
     if (!this.trees) {
       this.trees = new TreeLayer(this.engine);
       this.scene.add(this.trees.group);
@@ -524,7 +533,16 @@ export class TerrainScene {
           this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
           this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
         }
-        if (this.terrainOverlay === 'compare') {
+        if (this.terrainOverlay === 'plates') {
+          // Plate colour over shaded terrain; boundary cells by type (collide / pull apart / slide past).
+          const shade = 0.55 + 0.45 * inv;
+          const bt = this.engine.tectonics.boundary[i];
+          if (bt) tmp.copy(bt === 1 ? B_CONV : bt === 2 ? B_DIV : B_TRANS);
+          else tmp.setHex(PLATE_COLOURS[w.plateId[i] % PLATE_COLOURS.length]);
+          this.col[o] = tmp.r * shade;
+          this.col[o + 1] = tmp.g * shade;
+          this.col[o + 2] = tmp.b * shade;
+        } else if (this.terrainOverlay === 'compare') {
           // What-if minus now plant cover: brown = fewer plants, green = more, grey = no change.
           const d = this.engine.compareResult?.coverDiff[i] ?? 0;
           const grey = (this.col[o] + this.col[o + 1] + this.col[o + 2]) / 3;
@@ -780,6 +798,44 @@ export class TerrainScene {
     this.strataUniforms.uStrataOn.value = o === 'none' ? 1 : 0;
     const w = this.engine.world;
     this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
+    this.updatePlateArrows();
+  }
+
+  /** One arrow per plate at its centre, along its motion (length ∝ speed), while 'plates' is shown. */
+  private updatePlateArrows() {
+    for (const c of [...this.plateArrows.children]) {
+      this.plateArrows.remove(c);
+      (c as ArrowHelper).dispose();
+    }
+    if (this.terrainOverlay !== 'plates') return;
+    const w = this.engine.world;
+    const plates = w.tectonics.plates;
+    if (plates.length < 2) return;
+    const W = w.width;
+    const cs = w.cellSizeM;
+    const sx = new Float64Array(plates.length);
+    const sy = new Float64Array(plates.length);
+    const n = new Float64Array(plates.length);
+    let zmax = -Infinity;
+    for (let i = 0; i < w.plateId.length; i++) {
+      const k = w.plateId[i];
+      if (k >= plates.length) continue;
+      sx[k] += i % W;
+      sy[k] += Math.floor(i / W);
+      n[k]++;
+      zmax = Math.max(zmax, this.engine.surface[i]);
+    }
+    const size = (Math.max(W, w.height) - 1) * cs;
+    for (const p of plates) {
+      if (!n[p.id]) continue;
+      const speed = Math.hypot(p.vxMmYr, p.vyMmYr);
+      if (speed < 0.5) continue;
+      const len = size * 0.12 * Math.min(2, speed / 30);
+      const dir = new Vector3(p.vxMmYr, 0, -p.vyMmYr).normalize();
+      const origin = new Vector3((sx[p.id] / n[p.id]) * cs, zmax + size * 0.03, -(sy[p.id] / n[p.id]) * cs).addScaledVector(dir, -len / 2);
+      const a = new ArrowHelper(dir, origin, len, PLATE_COLOURS[p.id % PLATE_COLOURS.length], len * 0.3, len * 0.18);
+      this.plateArrows.add(a);
+    }
   }
 
   setWaterView(v: WaterView) {

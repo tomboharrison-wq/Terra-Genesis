@@ -4,9 +4,9 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate';
+export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates';
 
-export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && t !== 'climate' && !t.startsWith('water-') && t !== 'spring';
+export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && t !== 'climate' && t !== 'plates' && !t.startsWith('water-') && t !== 'spring';
 
 /** Transect end points in world metres (x east, y north). */
 export interface ProfileLine {
@@ -63,6 +63,20 @@ export interface SimInfo {
     snowCoverPct: number;
     snowfallM3: number;
     snowmeltM3: number;
+  };
+  tectonics: {
+    enabled: boolean;
+    yearsPerSimHour: number;
+    beltWidthM: number;
+    plates: { id: number; name: string; kind: 'continental' | 'oceanic'; vxMmYr: number; vyMmYr: number }[];
+    upliftedM3: number;
+    subsidedM3: number;
+    years: number;
+    convergent: number;
+    divergent: number;
+    transform: number;
+    maxElevM: number;
+    revision: number;
   };
   vegetation: { enabled: boolean; annualPrecipMm: number; yearsPerSimHour: number; erosionShield: number; coverPct: number; forestPct: number; treelineM: number };
   glacier: {

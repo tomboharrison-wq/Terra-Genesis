@@ -14,6 +14,7 @@ import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate
 import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
 import { VegetationSim, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { compareClimate, type ClimateChange, type CompareResult } from '../terrain/biomes';
+import { generatePlates, TectonicsSim, type Plate, type TectonicsParams } from '../sim/tectonics/plates';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
 export type EngineEvent =
@@ -48,6 +49,8 @@ export class Engine {
   glacier!: GlacierSim;
   /** Vegetation (slow cadence, CPU, accelerated plant time). */
   vegetation!: VegetationSim;
+  /** Plate tectonics (slow cadence, CPU, accelerated tectonic time). */
+  tectonics!: TectonicsSim;
   private climateDirty = false;
   private climateClock = 0;
   private seasonDay = -1;
@@ -82,6 +85,7 @@ export class Engine {
     this.water.climate = this.climate;
     this.glacier = new GlacierSim(world, this.surface, this.climate);
     this.vegetation = new VegetationSim(world, this.surface, this.climate);
+    this.tectonics = new TectonicsSim(world, this.surface);
     this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
@@ -171,6 +175,7 @@ export class Engine {
       this.coastHook(done);
       this.glacierHook(done);
       this.vegetationHook(done);
+      this.tectonicsHook(done);
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -198,6 +203,7 @@ export class Engine {
       this.coastHook(d);
       this.glacierHook(d);
       this.vegetationHook(d);
+      this.tectonicsHook(d);
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -290,6 +296,49 @@ export class Engine {
     this.vegetationRevision++;
     this.markRenderDirtyAll();
   }
+
+  /** Move plates when their cadence is due (pull GPU bed, deform bedrock, push back). */
+  private tectonicsHook(simSeconds: number) {
+    if (!this.tectonics.accumulate(simSeconds)) return;
+    if (this.gpu) this.gpu.syncToCpu();
+    if (!this.tectonics.update()) return;
+    this.water.refreshSea();
+    this.groundDirty = true;
+    this.markRenderDirtyAll();
+  }
+
+  setTectonicsParams(p: Partial<TectonicsParams>): void {
+    Object.assign(this.world.tectonics, p);
+    this.tectonics.classify();
+    this.plateRevision++;
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Change one plate's motion or kind. */
+  setPlate(id: number, p: Partial<Plate>): void {
+    const pl = this.world.tectonics.plates.find((q) => q.id === id);
+    if (!pl) return;
+    Object.assign(pl, p);
+    this.tectonics.classify();
+    this.plateRevision++;
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Divide the map into n new plates (seeded). */
+  newPlates(n: number, seed: number): void {
+    this.syncWater();
+    this.world.tectonics.plates = generatePlates(this.world, n, seed, this.surface);
+    // Belts scale with the map (the model compresses plate-scale geology onto a small map).
+    const extent = Math.max(this.world.width, this.world.height) * this.world.cellSizeM;
+    this.world.tectonics.beltWidthM = Math.round((0.12 * extent) / 100) * 100;
+    this.tectonics.classify();
+    this.plateRevision++;
+    this.emit({ type: 'water-params-changed' });
+    this.emit({ type: 'climate-changed' }); // overlay refresh
+  }
+
+  /** Increments when plates or their motions change (overlay / profile redraw). */
+  plateRevision = 0;
 
   /** Last "what if?" comparison (its plant-cover difference drives the 'compare' overlay). */
   compareResult: CompareResult | null = null;
