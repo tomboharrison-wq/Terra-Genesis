@@ -1,4 +1,4 @@
-import { WORLD_FORMAT_VERSION, type WorldMeta, type WorldState } from '../engine/world';
+import { WORLD_FORMAT_VERSION, defaultWaterParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
  * Terra Genesis world file (.tgw), format version 1:
@@ -7,14 +7,17 @@ import { WORLD_FORMAT_VERSION, type WorldMeta, type WorldState } from '../engine
  *   bytes 8..8+H UTF-8 JSON header (FileHeader)
  *   padding to a 4-byte boundary, then raw little-endian field arrays at header offsets.
  * The whole file is gzip-compressed on disk / in IndexedDB (see compress/decompress).
+ * v2 adds waterDepthM, waterFluxM3PerS and header.water. v1 files migrate with dry water.
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId';
-const FIELDS: { name: FieldName; type: 'f32' | 'u8' }[] = [
-  { name: 'bedrockElevationM', type: 'f32' },
-  { name: 'looseSedimentThicknessM', type: 'f32' },
-  { name: 'materialId', type: 'u8' },
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS';
+const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
+  { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
+  { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
+  { name: 'materialId', type: 'u8', perCell: 1 },
+  { name: 'waterDepthM', type: 'f32', perCell: 1 },
+  { name: 'waterFluxM3PerS', type: 'f32', perCell: 4 },
 ];
 
 export interface FileHeader {
@@ -28,6 +31,7 @@ export interface FileHeader {
   seed: number;
   simTimeSeconds: number;
   meta: WorldMeta;
+  water?: WaterParams;
   fields: { name: string; type: 'f32' | 'u8'; offset: number; byteLength: number }[];
   /** Free-form non-physical data (e.g. camera pose). */
   extras?: Record<string, unknown>;
@@ -40,7 +44,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
   const fields: FileHeader['fields'] = [];
   let off = 0;
   for (const f of FIELDS) {
-    const byteLength = n * (f.type === 'f32' ? 4 : 1);
+    const byteLength = n * f.perCell * (f.type === 'f32' ? 4 : 1);
     fields.push({ name: f.name, type: f.type, offset: off, byteLength });
     off = align4(off + byteLength);
   }
@@ -55,6 +59,7 @@ export function encodeWorld(w: WorldState, extras?: Record<string, unknown>): Ui
     seed: w.seed,
     simTimeSeconds: w.simTimeSeconds,
     meta: w.meta,
+    water: w.water,
     fields,
     extras,
   };
@@ -88,6 +93,7 @@ export function readHeader(bytes: Uint8Array): { header: FileHeader; dataStart: 
 export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Record<string, unknown> } {
   const { header: h, dataStart } = readHeader(bytes);
   const n = h.width * h.height;
+  const has = (name: FieldName) => h.fields.some((x) => x.name === name);
   const get = (name: FieldName): ArrayBuffer => {
     const f = h.fields.find((x) => x.name === name);
     if (!f) throw new Error(`World file missing field ${name}`);
@@ -107,9 +113,19 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     bedrockElevationM: new Float32Array(get('bedrockElevationM')),
     looseSedimentThicknessM: new Float32Array(get('looseSedimentThicknessM')),
     materialId: new Uint8Array(get('materialId')),
+    // v1 → v2 migration: worlds without water start dry with default hydrology parameters.
+    waterDepthM: has('waterDepthM') ? new Float32Array(get('waterDepthM')) : new Float32Array(n),
+    waterFluxM3PerS: has('waterFluxM3PerS') ? new Float32Array(get('waterFluxM3PerS')) : new Float32Array(n * 4),
+    water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
     meta: h.meta,
   };
-  if (world.bedrockElevationM.length !== n || world.materialId.length !== n) throw new Error('Field size mismatch');
+  if (
+    world.bedrockElevationM.length !== n ||
+    world.materialId.length !== n ||
+    world.waterDepthM.length !== n ||
+    world.waterFluxM3PerS.length !== n * 4
+  )
+    throw new Error('Field size mismatch');
   return { world, extras: h.extras };
 }
 

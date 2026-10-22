@@ -1,6 +1,37 @@
 import type { CellRect } from '../utils/rect';
 
-export const WORLD_FORMAT_VERSION = 1;
+export const WORLD_FORMAT_VERSION = 2;
+
+export type BoundaryMode = 'open' | 'closed';
+
+/** Fixed inflow (spring / river inlet) at a cell. */
+export interface WaterSource {
+  id: number;
+  x: number;
+  y: number;
+  rateM3PerS: number;
+}
+
+/** Hydrology forcing and boundary parameters (SI). */
+export interface WaterParams {
+  /** Map-wide rainfall intensity (m/s). 1 mm/h = 1/3.6e6 m/s. */
+  rainMPerS: number;
+  /** Potential infiltration into the ground (m/s); removed water is ledgered. */
+  infiltrationMPerS: number;
+  /** Potential evaporation (m/s). */
+  evaporationMPerS: number;
+  /** Map edges: open = free outfall, closed = wall. */
+  boundary: BoundaryMode;
+  /** Manning roughness n (s/m^(1/3)). */
+  manningN: number;
+  sources: WaterSource[];
+}
+
+export const MM_PER_H = 1 / 3.6e6;
+
+export function defaultWaterParams(): WaterParams {
+  return { rainMPerS: 0, infiltrationMPerS: 0, evaporationMPerS: 0, boundary: 'open', manningN: 0.035, sources: [] };
+}
 
 export interface WorldMeta {
   name: string;
@@ -26,6 +57,11 @@ export interface WorldState {
   looseSedimentThicknessM: Float32Array;
   /** Bedrock lithology id, see terrain/materials.ts. */
   materialId: Uint8Array;
+  /** Surface water depth above the ground surface (m), ≥ 0. Zero on sea cells (sea is a fixed-head sink). */
+  waterDepthM: Float32Array;
+  /** Pipe-model outflow per cell, 4 per cell [west, east, south, north] (m³/s), ≥ 0. */
+  waterFluxM3PerS: Float32Array;
+  water: WaterParams;
   meta: WorldMeta;
 }
 
@@ -56,6 +92,9 @@ export function createWorld(init: WorldInit): WorldState {
     bedrockElevationM: new Float32Array(n),
     looseSedimentThicknessM: new Float32Array(n),
     materialId: new Uint8Array(n),
+    waterDepthM: new Float32Array(n),
+    waterFluxM3PerS: new Float32Array(n * 4),
+    water: defaultWaterParams(),
     meta: {
       name: 'Untitled world',
       presetId: 'flat',
@@ -94,6 +133,15 @@ export function validateWorld(w: WorldState): string[] {
   if (w.bedrockElevationM.length !== n) errs.push('bedrock length mismatch');
   if (w.looseSedimentThicknessM.length !== n) errs.push('sediment length mismatch');
   if (w.materialId.length !== n) errs.push('material length mismatch');
+  if (w.waterDepthM.length !== n) errs.push('water length mismatch');
+  if (w.waterFluxM3PerS.length !== n * 4) errs.push('flux length mismatch');
+  for (let i = 0; i < n; i++) {
+    const d = w.waterDepthM[i];
+    if (!(d >= 0) || !Number.isFinite(d)) {
+      errs.push(`invalid water depth ${d} at ${i}`);
+      break;
+    }
+  }
   for (let i = 0; i < n; i++) {
     if (!Number.isFinite(w.bedrockElevationM[i])) {
       errs.push(`non-finite bedrock at ${i}`);
@@ -116,6 +164,9 @@ export function cloneWorld(w: WorldState): WorldState {
     bedrockElevationM: w.bedrockElevationM.slice(),
     looseSedimentThicknessM: w.looseSedimentThicknessM.slice(),
     materialId: w.materialId.slice(),
+    waterDepthM: w.waterDepthM.slice(),
+    waterFluxM3PerS: w.waterFluxM3PerS.slice(),
+    water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
     meta: { ...w.meta },
   };
 }
