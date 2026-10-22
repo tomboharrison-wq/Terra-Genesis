@@ -4,3 +4,4 @@ dist
 .DS_Store
 tests/screenshots/
 !tests/screenshots/.gitkeep
+exports/
