@@ -34,7 +34,10 @@ export class StrokeRecorder {
   private t: number[] = [];
   private rect: CellRect | null = null;
 
-  constructor(private world: WorldState, readonly label: string) {
+  constructor(
+    private world: WorldState,
+    readonly label: string,
+  ) {
     this.touched = new Uint8Array(world.width * world.height);
   }
 
@@ -65,15 +68,33 @@ export class StrokeRecorder {
       let strataChanged = false;
       for (let l = 0; l < STRATA_LAYERS; l++) if (w.strataMaterial[i * STRATA_LAYERS + l] !== this.m[k * STRATA_LAYERS + l]) strataChanged = true;
       for (let l = 0; l < STRATA_BOUNDS; l++) if (w.strataBoundsM[i * STRATA_BOUNDS + l] !== Math.fround(this.bd[k * STRATA_BOUNDS + l])) strataChanged = true;
-      if (w.bedrockElevationM[i] !== Math.fround(this.b[k]) || w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) || w.tephraM[i] !== Math.fround(this.t[k]) || strataChanged) keep.push(k);
+      if (
+        w.bedrockElevationM[i] !== Math.fround(this.b[k]) ||
+        w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) ||
+        w.tephraM[i] !== Math.fround(this.t[k]) ||
+        strataChanged
+      )
+        keep.push(k);
     }
     if (!keep.length || !this.rect) return null;
     const n = keep.length;
     const cmd: EditCommand = {
       label: this.label,
       indices: new Int32Array(n),
-      before: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS), tephra: new Float32Array(n) },
-      after: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS), tephra: new Float32Array(n) },
+      before: {
+        bedrock: new Float32Array(n),
+        sediment: new Float32Array(n),
+        material: new Uint8Array(n * STRATA_LAYERS),
+        bounds: new Float32Array(n * STRATA_BOUNDS),
+        tephra: new Float32Array(n),
+      },
+      after: {
+        bedrock: new Float32Array(n),
+        sediment: new Float32Array(n),
+        material: new Uint8Array(n * STRATA_LAYERS),
+        bounds: new Float32Array(n * STRATA_BOUNDS),
+        tephra: new Float32Array(n),
+      },
       rect: this.rect,
     };
     keep.forEach((k, j) => {

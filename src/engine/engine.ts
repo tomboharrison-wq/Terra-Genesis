@@ -36,7 +36,9 @@ export interface EpisodePlan {
  */
 export function episodePlan(type: VolcanoType, k: number): EpisodePlan {
   if (type === 'shield') return { kind: 'basalt', style: 'lava', rateM3PerS: 200, seconds: 4 * 3600 };
-  return k % 2 === 0 ? { kind: 'andesite', style: 'explosive', rateM3PerS: 200, seconds: 3 * 3600 } : { kind: 'andesite', style: 'lava', rateM3PerS: 60, seconds: 6 * 3600 };
+  return k % 2 === 0
+    ? { kind: 'andesite', style: 'explosive', rateM3PerS: 200, seconds: 3 * 3600 }
+    : { kind: 'andesite', style: 'lava', rateM3PerS: 60, seconds: 6 * 3600 };
 }
 
 /** A volcano being built eruption by eruption (call step() once per frame until it returns false). */
@@ -279,7 +281,9 @@ export class Engine {
    * (wind, orographic, enabling) recomputes the rain pattern too.
    */
   setClimateParams(p: Partial<ClimateParams>): void {
-    const seasonal = Object.keys(p).every((k) => k === 'seasonPhase' || k === 'seasonsRun' || k === 'seaLevelTempC' || k === 'seasonalAmpC' || k === 'lapseRateCPerKm');
+    const seasonal = Object.keys(p).every(
+      (k) => k === 'seasonPhase' || k === 'seasonsRun' || k === 'seaLevelTempC' || k === 'seasonalAmpC' || k === 'lapseRateCPerKm',
+    );
     this.syncWater(); // fold GPU evaporation/rain accumulated under the old factors first
     Object.assign(this.world.climate, p);
     this.seasonDay = Math.floor(this.world.climate.seasonPhase * 365);
