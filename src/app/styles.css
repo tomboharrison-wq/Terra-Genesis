@@ -283,3 +283,13 @@ fieldset.plain:disabled { opacity: 0.45; }
 .plate-head select { font-size: 12px; }
 .plate-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
 .plates-panel > button + button { margin-top: 6px; }
+
+/* Measure tool (M09-C01) */
+.pin-card { border: 1px solid var(--panel-border); border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
+.pin-head { display: flex; align-items: center; gap: 8px; }
+.pin-head .muted { flex: 1; font-variant-numeric: tabular-nums; }
+.pin-label { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--scouts-yellow); color: #1d1a16; font-size: 12px; }
+.pin-values { display: grid; grid-template-columns: 1fr; gap: 1px; margin: 4px 0 0; font-size: 11px; font-variant-numeric: tabular-nums; }
+.pin-values div { display: flex; justify-content: space-between; gap: 6px; border-top: 1px solid var(--panel-border); padding-top: 1px; }
+.pin-values dt { color: var(--muted); }
+.pin-values dd { margin: 0; text-align: right; }

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
 import { attachScene, engine, getScene, runVolcanoBuild, syncSim } from './runtime';
-import { useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
+import { MAX_PINS, useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
 import { materialById } from '../terrain/materials';
@@ -17,7 +17,8 @@ function currentBrush(): BrushParams | null {
 function ringRadius(): number | null {
   const s = useUi.getState();
   if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain' || s.tool === 'landslide') return s.radiusM;
-  if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'earthquake' || s.tool === 'volcano') return (s.world?.cellSizeM ?? 10) * 2;
+  if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'measure' || s.tool === 'earthquake' || s.tool === 'volcano')
+    return (s.world?.cellSizeM ?? 10) * 2;
   return null;
 }
 
@@ -146,6 +147,18 @@ export function Viewport() {
         );
         return;
       }
+      if (ui.tool === 'measure') {
+        if (ui.pins.length >= MAX_PINS) {
+          ui.toast(`Up to ${MAX_PINS} pins: remove one first`, 'info');
+          return;
+        }
+        const used = new Set(ui.pins.map((p) => p.label));
+        const label = 'ABCDEFGH'.split('').find((l) => !used.has(l))!;
+        // Snap to the cell centre: every value shown for the pin then refers to that one map cell.
+        const cs = engine.world.cellSizeM;
+        ui.set({ pins: [...ui.pins, { label, xM: Math.round(hit.xM / cs) * cs, yM: Math.round(hit.yM / cs) * cs }] });
+        return;
+      }
       if (ui.tool === 'profile') {
         if (!ui.profileStart || ui.profile) {
           ui.set({ profileStart: { x: hit.xM, y: hit.yM }, profile: null });
@@ -213,9 +226,11 @@ export function Viewport() {
     };
     scene.setWaterView(useUi.getState().waterView);
     scene.setTerrainOverlay(useUi.getState().terrainOverlay);
+    scene.setPins(useUi.getState().pins);
     const unsubView = useUi.subscribe((st, prev) => {
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
       if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
+      if (st.pins !== prev.pins) scene.setPins(st.pins);
       if (st.profile !== prev.profile || st.profileStart !== prev.profileStart) {
         const p = st.profile;
         const a = st.profileStart;

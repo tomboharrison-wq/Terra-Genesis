@@ -6,6 +6,7 @@ import { ClimatePanel } from './ClimatePanel';
 import { PlatesPanel } from './PlatesPanel';
 import { QuakePanel } from './QuakePanel';
 import { VolcanoPanel } from './VolcanoPanel';
+import { MeasurePanel } from './MeasurePanel';
 import { CoastPanel } from './CoastPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
@@ -50,7 +51,7 @@ export function ToolPanel() {
   const extent = world ? (Math.max(world.width, world.height) - 1) * cs : 1000;
   const brush = isBrushTool(t.id);
   const water = isWaterTool(t.id);
-  const measure = t.id === 'profile';
+  const measure = t.id === 'profile' || t.id === 'measure';
   const events = t.id === 'landslide';
   const coastTool = t.id === 'coast';
   const climateTool = t.id === 'climate';
@@ -71,7 +72,14 @@ export function ToolPanel() {
         <>
           <LogSlider label="Radius" unit="m" value={s.radiusM} min={cs * 1.5} max={extent / 3} onChange={(v) => s.set({ radiusM: v })} />
           {t.rateLabel && (
-            <LogSlider label={t.rateLabel} unit="" value={s.rates[s.tool as keyof typeof DEFAULT_RATES]} min={t.rateMin!} max={t.rateMax!} onChange={(v) => s.setRate(s.tool as keyof typeof DEFAULT_RATES, v)} />
+            <LogSlider
+              label={t.rateLabel}
+              unit=""
+              value={s.rates[s.tool as keyof typeof DEFAULT_RATES]}
+              min={t.rateMin!}
+              max={t.rateMax!}
+              onChange={(v) => s.setRate(s.tool as keyof typeof DEFAULT_RATES, v)}
+            />
           )}
           <label className="field">
             <span className="field-label">
@@ -84,7 +92,12 @@ export function ToolPanel() {
               <span className="field-label">Bedrock lithology</span>
               <div className="swatches">
                 {BEDROCK_MATERIALS.map((m) => (
-                  <button key={m.id} className={`swatch ${s.paintMaterialId === m.id ? 'active' : ''}`} onClick={() => s.set({ paintMaterialId: m.id })} title={`${m.name} — relative erodibility ${m.erodibility} (used from erosion milestone)`}>
+                  <button
+                    key={m.id}
+                    className={`swatch ${s.paintMaterialId === m.id ? 'active' : ''}`}
+                    onClick={() => s.set({ paintMaterialId: m.id })}
+                    title={`${m.name} — relative erodibility ${m.erodibility} (used from erosion milestone)`}
+                  >
                     <i style={{ background: `#${m.colour.toString(16).padStart(6, '0')}` }} />
                     {m.name}
                   </button>
@@ -127,7 +140,9 @@ export function ToolPanel() {
       {events && (
         <>
           <LogSlider label="Zone radius" unit="m" value={s.radiusM} min={cs * 1.5} max={extent / 3} onChange={(v) => s.set({ radiusM: v })} />
-          <p className="hint small">Saturation lowers the stable angle of debris to half its dry value and weakens rock in the zone. Where nothing is steep enough, nothing moves.</p>
+          <p className="hint small">
+            Saturation lowers the stable angle of debris to half its dry value and weakens rock in the zone. Where nothing is steep enough, nothing moves.
+          </p>
           <button className="small" onClick={() => s.set({ dialog: 'slump' })}>
             Open rotational slump lab (cross-section)
           </button>
@@ -139,7 +154,8 @@ export function ToolPanel() {
       {platesTool && <PlatesPanel />}
       {t.id === 'earthquake' && <QuakePanel />}
       {t.id === 'volcano' && <VolcanoPanel />}
-      {(measure || s.profile) && <ProfilePanel />}
+      {t.id === 'measure' && <MeasurePanel />}
+      {(t.id === 'profile' || s.profile) && <ProfilePanel />}
       {(water || (!brush && !measure && !events && !coastTool && !climateTool && !platesTool && !quakeTool)) && <WaterPanel />}
       {(water || (!brush && !measure && !coastTool && !climateTool && !platesTool && !quakeTool)) && <ErosionPanel />}
 

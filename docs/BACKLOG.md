@@ -2,7 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M09-C01 | Data inspector, real measurements and elevation transect (spec M09-C01) | READY |
+| M09-C02 | Scientific overlay maps with proper legends/units (elevation, slope, aspect, flow accumulation, water depth/speed, erosion/deposition, geology…) | READY |
+| M09-C01 | Measure tool (pins A–F: real cell values, distance/bearing/rise/gradient), transect layers (rock/soil/ice/lava/water), VE label, CSV export | DONE |
 | M08-C04 | Volcanic island preset (Surtseyan explosive → lava cap), caldera piston collapse (undoable), crater lake, plants on ash not bare lava | DONE |
 | M08-C03 | Volcano builds: repeated eruptions (shield = basalt lava; composite = andesite explosive/lava alternating), crater ring, rest years compressed, undoable | DONE |
 | M08-C02 | Explosive / mixed eruption styles: Mastin plume height, cinder cone at repose, Pyle-style ash thinning stretched downwind, tephra ledger | DONE |

@@ -229,6 +229,7 @@ function scheduleAutosave() {
 
 engine.on((e) => {
   if (e.type === 'world-replaced') {
+    useUi.getState().set({ pins: [], profile: null, profileStart: null }); // positions belong to the old world
     syncWorldInfo();
     syncSim();
     scheduleAutosave();
@@ -338,6 +339,7 @@ export { syncHistory };
 /** Read-only debug/testing handle (used by scripts/screenshot.mjs browser checks). */
 (globalThis as unknown as { __terraGenesis: unknown }).__terraGenesis = {
   engine,
+  ui: () => useUi.getState(),
   gpuSelfTest: (seconds?: number) => runGpuSelfTest(undefined, seconds),
   info: () => {
     const r = scene?.renderer;

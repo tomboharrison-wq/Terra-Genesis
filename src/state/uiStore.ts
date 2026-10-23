@@ -4,9 +4,20 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates' | 'earthquake' | 'volcano';
+export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates' | 'earthquake' | 'volcano' | 'measure';
 
-export const isBrushTool = (t: ToolId): t is BrushKind => t !== 'navigate' && t !== 'profile' && t !== 'landslide' && t !== 'coast' && t !== 'climate' && t !== 'plates' && t !== 'earthquake' && t !== 'volcano' && !t.startsWith('water-') && t !== 'spring';
+export const isBrushTool = (t: ToolId): t is BrushKind =>
+  t !== 'navigate' &&
+  t !== 'profile' &&
+  t !== 'landslide' &&
+  t !== 'coast' &&
+  t !== 'climate' &&
+  t !== 'plates' &&
+  t !== 'earthquake' &&
+  t !== 'volcano' &&
+  t !== 'measure' &&
+  !t.startsWith('water-') &&
+  t !== 'spring';
 
 /** Transect end points in world metres (x east, y north). */
 export interface ProfileLine {
@@ -15,6 +26,12 @@ export interface ProfileLine {
   bx: number;
   by: number;
 }
+export interface MeasurePin {
+  label: string;
+  xM: number;
+  yM: number;
+}
+export const MAX_PINS = 6;
 export const isWaterTool = (t: ToolId): t is WaterToolId => t === 'water-add' || t === 'water-drain' || t === 'spring';
 
 export interface SimInfo {
@@ -42,7 +59,16 @@ export interface SimInfo {
   slopeFailure: boolean;
   zMin: number;
   zMax: number;
-  coast: { wavesOn: boolean; waveHeightM: number; wavePeriodS: number; waveFromDeg: number; cliffEroded: number; cliffBedrock: number; nearshoreDeposited: number; drifted: number };
+  coast: {
+    wavesOn: boolean;
+    waveHeightM: number;
+    wavePeriodS: number;
+    waveFromDeg: number;
+    cliffEroded: number;
+    cliffBedrock: number;
+    nearshoreDeposited: number;
+    drifted: number;
+  };
   climate: {
     enabled: boolean;
     seaLevelTempC: number;
@@ -96,7 +122,15 @@ export interface SimInfo {
     volcanicM3: number;
     vents: number;
   };
-  vegetation: { enabled: boolean; annualPrecipMm: number; yearsPerSimHour: number; erosionShield: number; coverPct: number; forestPct: number; treelineM: number };
+  vegetation: {
+    enabled: boolean;
+    annualPrecipMm: number;
+    yearsPerSimHour: number;
+    erosionShield: number;
+    coverPct: number;
+    forestPct: number;
+    treelineM: number;
+  };
   glacier: {
     enabled: boolean;
     yearsPerSimHour: number;
@@ -113,7 +147,17 @@ export interface SimInfo {
     years: number;
     lagYears: number;
   };
-  sed: { weathered: number; rockfall: number; erodedLoose: number; erodedBedrock: number; deposited: number; seaDeposited: number; exported: number; suspended: number; closure: number };
+  sed: {
+    weathered: number;
+    rockfall: number;
+    erodedLoose: number;
+    erodedBedrock: number;
+    deposited: number;
+    seaDeposited: number;
+    exported: number;
+    suspended: number;
+    closure: number;
+  };
 }
 
 export interface HoverInfo {
@@ -194,7 +238,16 @@ interface UiState {
   volcanoBuild: { type: string; done: number; total: number } | null;
   quake: QuakeSettings;
   /** Summary of the last earthquake (for the panel). */
-  lastQuake: { mw: number; type: string; ruptureKm: number; avgSlipM: number; maxUpM: number; maxDownM: number; lateralCells: number; landslides: number } | null;
+  lastQuake: {
+    mw: number;
+    type: string;
+    ruptureKm: number;
+    avgSlipM: number;
+    maxUpM: number;
+    maxDownM: number;
+    lateralCells: number;
+    landslides: number;
+  } | null;
   radiusM: number;
   hardness: number;
   rates: Record<BrushKind, number>;
@@ -215,6 +268,8 @@ interface UiState {
   waterView: WaterView;
   terrainOverlay: TerrainOverlay;
   profile: ProfileLine | null;
+  /** Measurement pins (world metres), labelled A, B, C… */
+  pins: MeasurePin[];
   profileStart: { x: number; y: number } | null;
   /** Water brush rate (m/s of brush time). */
   waterRate: number;
@@ -251,6 +306,7 @@ export const useUi = create<UiState>((set) => ({
   waterView: 'water',
   terrainOverlay: 'none',
   profile: null,
+  pins: [],
   profileStart: null,
   waterRate: 0.5,
   springRate: 20,

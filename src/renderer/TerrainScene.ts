@@ -28,6 +28,9 @@ import {
   DoubleSide,
   ArrowHelper,
   Group,
+  CanvasTexture,
+  Sprite,
+  SpriteMaterial,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Engine } from '../engine/engine';
@@ -130,6 +133,9 @@ export class TerrainScene {
   private brushVisible = false;
   private profileLine: Line;
   private profileEnds: [number, number, number, number] | null = null;
+  /** Measurement pins: a stick and a lettered marker each (world metres). */
+  private pinGroup = new Group();
+  private pins: { label: string; xM: number; yM: number; stick: Line; sprite: Sprite }[] = [];
   private brushCentre = new Vector2();
   private brushRadius = 100;
   private raf = 0;
@@ -147,7 +153,11 @@ export class TerrainScene {
   onSim: (() => void) | null = null;
   private statsTimer = 0;
 
-  constructor(private container: HTMLElement, private engine: Engine, quality: Quality = 'balanced') {
+  constructor(
+    private container: HTMLElement,
+    private engine: Engine,
+    quality: Quality = 'balanced',
+  ) {
     this.renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'balanced' ? 1.5 : 1));
     this.renderer.toneMapping = ACESFilmicToneMapping;
@@ -195,6 +205,7 @@ export class TerrainScene {
     this.profileLine.frustumCulled = false;
     this.profileLine.visible = false;
     this.scene.add(this.profileLine);
+    this.scene.add(this.pinGroup);
 
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(container);
@@ -204,7 +215,14 @@ export class TerrainScene {
       if (e.type === 'world-replaced') this.buildWorld(true);
       if (e.type === 'sea-level-changed') this.applySeaLevel();
       if (e.type === 'water-params-changed' || e.type === 'climate-changed') this.updatePlateArrows();
-      if ((e.type === 'climate-changed' || e.type === 'water-params-changed') && (this.terrainOverlay === 'temperature' || this.terrainOverlay === 'rainfall' || this.terrainOverlay === 'compare' || this.terrainOverlay === 'plates' || this.terrainOverlay === 'shaking')) {
+      if (
+        (e.type === 'climate-changed' || e.type === 'water-params-changed') &&
+        (this.terrainOverlay === 'temperature' ||
+          this.terrainOverlay === 'rainfall' ||
+          this.terrainOverlay === 'compare' ||
+          this.terrainOverlay === 'plates' ||
+          this.terrainOverlay === 'shaking')
+      ) {
         const w = engine.world;
         this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
       }
@@ -259,11 +277,19 @@ export class TerrainScene {
         const d = c + 1;
         // Alternate diagonals to avoid directional grid bias.
         if ((x + y) & 1) {
-          idx[k++] = a; idx[k++] = b; idx[k++] = d;
-          idx[k++] = a; idx[k++] = d; idx[k++] = c;
+          idx[k++] = a;
+          idx[k++] = b;
+          idx[k++] = d;
+          idx[k++] = a;
+          idx[k++] = d;
+          idx[k++] = c;
         } else {
-          idx[k++] = a; idx[k++] = b; idx[k++] = c;
-          idx[k++] = b; idx[k++] = d; idx[k++] = c;
+          idx[k++] = a;
+          idx[k++] = b;
+          idx[k++] = c;
+          idx[k++] = b;
+          idx[k++] = d;
+          idx[k++] = c;
         }
       }
     }
@@ -393,7 +419,10 @@ export class TerrainScene {
       return g;
     };
     this.skirt = new Mesh(mk(true), new MeshStandardMaterial({ vertexColors: true, roughness: 1, side: DoubleSide }));
-    this.waterSkirt = new Mesh(mk(false), new MeshStandardMaterial({ color: 0x1b5a86, transparent: true, opacity: 0.72, roughness: 0.2, side: DoubleSide, depthWrite: false }));
+    this.waterSkirt = new Mesh(
+      mk(false),
+      new MeshStandardMaterial({ color: 0x1b5a86, transparent: true, opacity: 0.72, roughness: 0.2, side: DoubleSide, depthWrite: false }),
+    );
     this.skirt.receiveShadow = true;
     this.waterSkirt.renderOrder = 3;
     this.skirt.frustumCulled = this.waterSkirt.frustumCulled = false;
@@ -703,6 +732,7 @@ export class TerrainScene {
     }
     if (this.brushVisible) this.updateBrushRing();
     if (this.profileEnds) this.updateProfileLine();
+    if (this.pins.length) this.updatePins();
     this.controls.update();
     let shook: Vector3 | null = null;
     if (this.shakeT < 1.6) {
@@ -773,6 +803,60 @@ export class TerrainScene {
   setProfileLine(ends: [number, number, number, number] | null) {
     this.profileEnds = ends;
     this.profileLine.visible = !!ends;
+  }
+
+  /** Show measurement pins (labelled sticks) at world positions; [] hides them. */
+  setPins(pins: { label: string; xM: number; yM: number }[]) {
+    for (const p of this.pins) {
+      p.stick.geometry.dispose();
+      (p.stick.material as LineBasicMaterial).dispose();
+      p.sprite.material.map?.dispose();
+      p.sprite.material.dispose();
+    }
+    this.pinGroup.clear();
+    this.pins = pins.map((p) => {
+      const g = new BufferGeometry();
+      g.setAttribute('position', new BufferAttribute(new Float32Array(6), 3));
+      const stick = new Line(g, new LineBasicMaterial({ color: 0xffe627, depthTest: false, transparent: true }));
+      stick.renderOrder = 12;
+      stick.frustumCulled = false;
+      const c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const ctx = c.getContext('2d')!;
+      ctx.fillStyle = '#ffe627';
+      ctx.beginPath();
+      ctx.arc(32, 32, 28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#1d1a16';
+      ctx.stroke();
+      ctx.fillStyle = '#1d1a16';
+      ctx.font = 'bold 36px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.label, 32, 34);
+      const sprite = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), depthTest: false, transparent: true }));
+      sprite.renderOrder = 13;
+      sprite.frustumCulled = false;
+      this.pinGroup.add(stick, sprite);
+      return { ...p, stick, sprite };
+    });
+    this.updatePins();
+  }
+
+  private updatePins() {
+    const hf = this.engine.heightfield;
+    const h = Math.max(4, this.reliefM * 0.06);
+    const size = Math.max(this.engine.world.cellSizeM * 3, this.camera.position.distanceTo(this.controls.target) * 0.035);
+    for (const p of this.pins) {
+      const z = sampleBilinear(hf, p.xM, p.yM);
+      const a = p.stick.geometry.getAttribute('position') as BufferAttribute;
+      a.setXYZ(0, p.xM, z, -p.yM);
+      a.setXYZ(1, p.xM, z + h, -p.yM);
+      a.needsUpdate = true;
+      p.sprite.position.set(p.xM, z + h + size * 0.5, -p.yM);
+      p.sprite.scale.setScalar(size);
+    }
   }
 
   private updateProfileLine() {

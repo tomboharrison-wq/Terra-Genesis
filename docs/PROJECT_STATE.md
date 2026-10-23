@@ -2,7 +2,7 @@
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M09 — Data tools (M08 volcanoes complete)
-Current chunk: M09-C01 — data inspector + transect (see NEXT_TASK)
+Current chunk: M09-C02 — scientific overlays + legends (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -25,6 +25,8 @@ Verified working:
 - M08 volcanoes (src/sim/lava/): lavaSim (Bingham flow, η,τ(T), cooling, solidify → addTopRock; v10), tephra.ts
   (Mastin plume, cinder ring + settleLoose 8-nbr, wind-stretched fall, tephraM v11), build.ts (shield/composite/
   island plans, rest years skipped; growIsland → 'volcanic-island' preset), caldera.ts (piston). VolcanoPanel (V).
+- M09-C01 measure (src/terrain/measure.ts: readCell, pinPair, transect, transectCsv; MeasurePanel, key M; pins
+  snap to cell centres, drawn as sticks + sprites; ProfilePanel layers, VE, CSV).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -37,6 +39,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/lava/lavaSim.ts, src/engine/engine.ts (stepper, lavaHook), src/app/VolcanoPanel.tsx,
 TerrainScene (lava colour/glow), src/renderer/shaders.ts
-Last checks: typecheck PASS · npm test PASS (211) · build PASS · e2e PASS 41/41 · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (214) · build PASS · e2e PASS 42/42 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

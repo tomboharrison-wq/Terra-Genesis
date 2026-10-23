@@ -8,7 +8,7 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(e.message));
@@ -589,6 +589,37 @@ check(
   'volcanic island preset grows an island; caldera drops exactly its volume and undo restores',
   isl.land > 50 && isl.top > 50 && isl.cells > 50 && Math.abs(isl.drop - isl.vol) < 1e-3 * isl.vol && isl.label === 'Caldera collapse' && Math.abs(islUndo - isl.s0) < 1e-6 * Math.abs(isl.s0) + 1e-3,
   JSON.stringify({ ...isl, s0: undefined }),
+);
+
+// --- Measure tool (M09-C01): pins read real cell values; pair distance; transect CSV ---
+await page.keyboard.press('m');
+await page.waitForTimeout(300);
+for (const [x, y] of [[620, 470], [860, 430]]) {
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+}
+await page.waitForTimeout(1200);
+const ms = await page.evaluate(() => {
+  const t = window.__terraGenesis;
+  const pins = t.ui().pins;
+  const e = t.engine;
+  const w = e.world;
+  const cell = (p) => Math.round(p.yM / w.cellSizeM) * w.width + Math.round(p.xM / w.cellSizeM);
+  return { n: pins.length, d: pins.length === 2 ? Math.hypot(pins[1].xM - pins[0].xM, pins[1].yM - pins[0].yM) : 0, zA: pins[0] ? e.surface[cell(pins[0])] : null };
+});
+const mp = await page.textContent('.measure-panel');
+const fmtD = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(0)} m`);
+await shot('42-measure-pins');
+await page.click('.measure-panel button:has-text("Cross-section")');
+await page.waitForTimeout(800);
+const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 15000 }), page.click('button:has-text("Download CSV")')]);
+const csvRows = (await (await import('node:fs')).promises.readFile(await dl.path(), 'utf8')).trim().split('\n');
+check(
+  'measure pins show real cell values and the pair distance; transect CSV downloads',
+  ms.n === 2 && mp.includes(fmtD(ms.d)) && mp.includes(`${ms.zA.toFixed(1)} m`) && csvRows.length === 161 && csvRows[0].startsWith('distance_m,'),
+  `pins ${ms.n} d=${fmtD(ms.d)} zA=${ms.zA?.toFixed(1)} csv ${csvRows.length} rows`,
 );
 
 const fps = await page.textContent('.perf');

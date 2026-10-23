@@ -136,3 +136,7 @@
 - The Volcano tool can build a volcanic island anywhere at sea, and has a "Caldera collapse" option: choose its width and drop, click a summit, and the summit falls in as a block along a ring fault, rock layers and all. Rain then gathers in it as a crater lake. Undoable.
 - Cinder cones are now round rather than square-sided (loose material slides to all eight neighbours).
 - Plants return on ash within decades of plant time, but not on bare new lava until weathering has made soil.
+
+## M09-C01 — Measuring: pins, distances and better cross-sections
+- New Measure tool (M): click to drop pins A–F. Each pin lists the real values at that spot — elevation, slope, which way the ground faces, rock, soil depth, water depth, speed and flow, temperature and rain (with climate on), plant cover, snow, ice, ash and lava — updating as the world changes. Between pins: distance, compass bearing, height difference and gradient. One click draws the cross-section from the first pin to the last.
+- The cross-section now shows the layers (bedrock, soil, ice, lava and water), labels its axes with units, states how much the heights are stretched (vertical exaggeration), and can be downloaded as a CSV file for a spreadsheet.

@@ -1,50 +1,23 @@
 import { useMemo, useState } from 'react';
 import { useUi } from '../state/uiStore';
 import { engine } from './runtime';
-import { sampleBilinear } from '../terrain/heightfield';
+import { transect, transectCsv, type TransectSample } from '../terrain/measure';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 // Validated (dataviz validator, dark surface #12291f): Scouts orange / pink / blue steps.
 const C_SURFACE = '#d9781c';
 const C_REF = '#bf62a8';
 const C_WATER = '#3a86f0';
+// Layer fills (natural terrain palette, as on the map).
+const F_ROCK = '#6b6560';
+const F_SOIL = '#a0794f';
+const F_ICE = '#cfe2ee';
+const F_LAVA = '#e8551a';
 
 const N = 160;
 const W = 244;
 const H = 156;
-const M = { l: 40, r: 6, t: 8, b: 22 };
-
-interface Sample {
-  distM: number;
-  surface: number;
-  reference: number;
-  /** Water surface elevation, or null where dry. */
-  water: number | null;
-  /** Plate index at the sample (nearest cell). */
-  plate: number;
-}
-
-function sampleProfile(ax: number, ay: number, bx: number, by: number): Sample[] {
-  const w = engine.world;
-  const base = { width: w.width, height: w.height, cellSizeM: w.cellSizeM };
-  const surf = { ...base, z: engine.surface };
-  const ref = { ...base, z: engine.referenceSurface };
-  const dep = { ...base, z: w.waterDepthM };
-  const len = Math.hypot(bx - ax, by - ay);
-  const out: Sample[] = [];
-  for (let k = 0; k < N; k++) {
-    const t = k / (N - 1);
-    const x = ax + (bx - ax) * t;
-    const y = ay + (by - ay) * t;
-    const z = sampleBilinear(surf, x, y);
-    const d = sampleBilinear(dep, x, y);
-    const water = z < w.seaLevelM ? w.seaLevelM : d > 0.01 ? z + d : null;
-    const cx = Math.max(0, Math.min(w.width - 1, Math.round(x / w.cellSizeM)));
-    const cy = Math.max(0, Math.min(w.height - 1, Math.round(y / w.cellSizeM)));
-    out.push({ distM: len * t, surface: z, reference: sampleBilinear(ref, x, y), water, plate: w.plateId[cy * w.width + cx] });
-  }
-  return out;
-}
+const M = { l: 44, r: 6, t: 8, b: 30 };
 
 function niceTicks(lo: number, hi: number, n: number): number[] {
   const span = Math.max(1e-6, hi - lo);
@@ -67,7 +40,10 @@ export function ProfilePanel() {
   const [hover, setHover] = useState<number | null>(null);
   const [table, setTable] = useState(false);
 
-  const data = useMemo(() => (profile ? sampleProfile(profile.ax, profile.ay, profile.bx, profile.by) : null), [profile, tick, simT]);
+  const data = useMemo(
+    () => (profile ? transect(engine, engine.referenceSurface, profile.ax, profile.ay, profile.bx, profile.by, N) : null),
+    [profile, tick, simT],
+  );
 
   if (!profile || !data) {
     return (
@@ -81,8 +57,8 @@ export function ProfilePanel() {
   let lo = Infinity;
   let hi = -Infinity;
   for (const s of data) {
-    lo = Math.min(lo, s.surface, s.reference);
-    hi = Math.max(hi, s.surface, s.reference, s.water ?? -Infinity);
+    lo = Math.min(lo, s.surfaceM, s.referenceM);
+    hi = Math.max(hi, s.surfaceM, s.referenceM, s.iceTopM, s.lavaTopM, s.waterM ?? -Infinity);
   }
   const pad = Math.max(1, (hi - lo) * 0.08);
   lo -= pad;
@@ -90,7 +66,7 @@ export function ProfilePanel() {
   const len = data[data.length - 1].distM;
   const px = (d: number) => M.l + (d / Math.max(1e-6, len)) * (W - M.l - M.r);
   const py = (z: number) => M.t + (1 - (z - lo) / (hi - lo)) * (H - M.t - M.b);
-  const path = (get: (s: Sample) => number | null) => {
+  const path = (get: (s: TransectSample) => number | null) => {
     let p = '';
     let pen = false;
     for (const s of data) {
@@ -99,11 +75,22 @@ export function ProfilePanel() {
         pen = false;
         continue;
       }
-      p += `${pen ? 'L' : 'M'}${px(s.distM).toFixed(1)},${py(v).toFixed(1)}`;
+      p += `${pen ? 'L' : 'M'}${px(s.distM).toFixed(1)},${py(Math.max(lo, v)).toFixed(1)}`;
       pen = true;
     }
     return p;
   };
+  /** Closed band between two layer tops (only where the upper is above the lower). */
+  const band = (top: (s: TransectSample) => number, bottom: (s: TransectSample) => number) => {
+    let p = '';
+    for (const s of data) p += `${p ? 'L' : 'M'}${px(s.distM).toFixed(1)},${py(Math.max(lo, top(s))).toFixed(1)}`;
+    for (let k = data.length - 1; k >= 0; k--) p += `L${px(data[k].distM).toFixed(1)},${py(Math.max(lo, bottom(data[k]))).toFixed(1)}`;
+    return p + 'Z';
+  };
+  const hasIce = data.some((s) => s.iceTopM - s.surfaceM > 0.5);
+  const hasLava = data.some((s) => s.lavaTopM - s.surfaceM > 0.05);
+  // Vertical exaggeration: metres per pixel across ÷ metres per pixel up.
+  const ve = len / Math.max(1e-6, W - M.l - M.r) / ((hi - lo) / (H - M.t - M.b));
   const yTicks = niceTicks(lo, hi, 4);
   const xTicks = niceTicks(0, len, 3);
   const h = hover !== null ? data[hover] : null;
@@ -118,7 +105,13 @@ export function ProfilePanel() {
       if (k < data.length && data[k].plate === data[start].plate) continue;
       const pl = plates[data[start].plate];
       const along = pl ? pl.vxMmYr * ux + pl.vyMmYr * uy : 0;
-      plateSegs.push({ d0: data[start].distM, d1: data[k - 1].distM, colour: `#${PLATE_COLOURS[data[start].plate % PLATE_COLOURS.length].toString(16).padStart(6, '0')}`, along, dir: along >= 0 ? 1 : -1 });
+      plateSegs.push({
+        d0: data[start].distM,
+        d1: data[k - 1].distM,
+        colour: `#${PLATE_COLOURS[data[start].plate % PLATE_COLOURS.length].toString(16).padStart(6, '0')}`,
+        along,
+        dir: along >= 0 ? 1 : -1,
+      });
       start = k;
     }
   }
@@ -128,9 +121,38 @@ export function ProfilePanel() {
     <section className="profile-panel">
       <h3>Cross-section</h3>
       <div className="legend-row" aria-label="Series">
-        <span><i style={{ background: C_SURFACE }} />Surface now</span>
-        <span><i className="dash" style={{ borderColor: C_REF }} />Reference</span>
-        <span><i style={{ background: C_WATER }} />Water level</span>
+        <span>
+          <i style={{ background: C_SURFACE }} />
+          Surface now
+        </span>
+        <span>
+          <i className="dash" style={{ borderColor: C_REF }} />
+          Reference
+        </span>
+        <span>
+          <i style={{ background: C_WATER }} />
+          Water level
+        </span>
+        <span>
+          <i style={{ background: F_SOIL }} />
+          Soil / loose
+        </span>
+        <span>
+          <i style={{ background: F_ROCK }} />
+          Bedrock
+        </span>
+        {hasIce && (
+          <span>
+            <i style={{ background: F_ICE }} />
+            Ice
+          </span>
+        )}
+        {hasLava && (
+          <span>
+            <i style={{ background: F_LAVA }} />
+            Lava
+          </span>
+        )}
       </div>
       <div className="chart-wrap">
         <svg
@@ -154,13 +176,52 @@ export function ProfilePanel() {
             </g>
           ))}
           {xTicks.map((v) => (
-            <text key={`x${v}`} x={px(v)} y={H - 6} className="tick" textAnchor="middle">
+            <text key={`x${v}`} x={px(v)} y={H - 16} className="tick" textAnchor="middle">
               {fmtDist(v)}
             </text>
           ))}
-          <path d={path((s) => s.reference)} fill="none" stroke={C_REF} strokeWidth={2} strokeDasharray="4 3" strokeLinecap="round" />
-          <path d={path((s) => s.water)} fill="none" stroke={C_WATER} strokeWidth={2} strokeLinecap="round" />
-          <path d={path((s) => s.surface)} fill="none" stroke={C_SURFACE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d={band(
+              (s) => s.bedrockM,
+              () => lo,
+            )}
+            fill={F_ROCK}
+            opacity={0.55}
+          />
+          <path
+            d={band(
+              (s) => s.surfaceM,
+              (s) => s.bedrockM,
+            )}
+            fill={F_SOIL}
+            opacity={0.75}
+          />
+          {hasIce && (
+            <path
+              d={band(
+                (s) => s.iceTopM,
+                (s) => s.surfaceM,
+              )}
+              fill={F_ICE}
+              opacity={0.9}
+            />
+          )}
+          {hasLava && (
+            <path
+              d={band(
+                (s) => s.lavaTopM,
+                (s) => s.surfaceM,
+              )}
+              fill={F_LAVA}
+              opacity={0.9}
+            />
+          )}
+          <text x={10} y={(M.t + H - M.b) / 2} className="tick" textAnchor="middle" transform={`rotate(-90 10 ${(M.t + H - M.b) / 2})`}>
+            Elevation (m)
+          </text>
+          <path d={path((s) => s.referenceM)} fill="none" stroke={C_REF} strokeWidth={2} strokeDasharray="4 3" strokeLinecap="round" />
+          <path d={path((s) => s.waterM)} fill="none" stroke={C_WATER} strokeWidth={2} strokeLinecap="round" />
+          <path d={path((s) => s.surfaceM)} fill="none" stroke={C_SURFACE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           {plateSegs.map((g, k) => (
             <g key={`p${k}`}>
               <rect x={px(g.d0)} y={H - M.b - 7} width={Math.max(1, px(g.d1) - px(g.d0))} height={6} fill={g.colour} opacity={0.85} />
@@ -174,13 +235,16 @@ export function ProfilePanel() {
               )}
             </g>
           ))}
-          <text x={W - M.r} y={py(last.surface) - 5} className="direct" textAnchor="end">
+          <text x={(M.l + W - M.r) / 2} y={H - 3} className="tick" textAnchor="middle">
+            Distance along the line · heights ×{ve >= 10 ? Math.round(ve) : ve.toFixed(1)}
+          </text>
+          <text x={W - M.r} y={py(last.surfaceM) - 5} className="direct" textAnchor="end">
             now
           </text>
           {h && (
             <g>
               <line x1={px(h.distM)} x2={px(h.distM)} y1={M.t} y2={H - M.b} className="crosshair" />
-              <circle cx={px(h.distM)} cy={py(h.surface)} r={4} fill={C_SURFACE} stroke="#12291f" strokeWidth={2} />
+              <circle cx={px(h.distM)} cy={py(h.surfaceM)} r={4} fill={C_SURFACE} stroke="#12291f" strokeWidth={2} />
             </g>
           )}
         </svg>
@@ -189,39 +253,71 @@ export function ProfilePanel() {
         {h ? (
           <>
             <b>{fmtDist(h.distM)}</b>
-            <span>surface {h.surface.toFixed(1)} m</span>
+            <span>surface {h.surfaceM.toFixed(1)} m</span>
+            <span>soil {(h.surfaceM - h.bedrockM).toFixed(2)} m</span>
             <span>
-              change {h.surface - h.reference >= 0 ? '+' : ''}
-              {(h.surface - h.reference).toFixed(2)} m
+              change {h.surfaceM - h.referenceM >= 0 ? '+' : ''}
+              {(h.surfaceM - h.referenceM).toFixed(2)} m
             </span>
-            <span>{h.water === null ? 'dry' : `water ${h.water.toFixed(2)} m`}</span>
+            <span>{h.waterM === null ? 'dry' : `water ${(h.waterM - h.surfaceM).toFixed(2)} m deep`}</span>
+            {h.iceTopM - h.surfaceM > 0.5 && <span>ice {(h.iceTopM - h.surfaceM).toFixed(0)} m</span>}
+            {h.lavaTopM - h.surfaceM > 0.05 && <span>lava {(h.lavaTopM - h.surfaceM).toFixed(1)} m</span>}
           </>
         ) : (
           <span>Hover the chart to read values</span>
         )}
       </div>
       <p className="hint small tight">
-        Elevation (m) along {fmtDist(len)}. Reset the reference in Erosion to compare from a new start.
+        Elevation (m) along {fmtDist(len)}; heights drawn ×{ve >= 10 ? Math.round(ve) : ve.toFixed(1)} (vertical exaggeration). Reset the reference in Erosion
+        to compare from a new start.
         {plateSegs.length > 1 ? ' Coloured strip: plates crossed (schematic); arrows show each plate’s motion along this line.' : ''}
       </p>
       <div className="row">
-        <button className="small" onClick={() => setTable(!table)}>{table ? 'Hide values' : 'Show values'}</button>
-        <button className="small ghost" onClick={() => useUi.getState().set({ profile: null, profileStart: null })}>Clear</button>
+        <button className="small" onClick={() => setTable(!table)}>
+          {table ? 'Hide values' : 'Show values'}
+        </button>
+        <button
+          className="small"
+          onClick={() => {
+            const blob = new Blob([transectCsv(transect(engine, engine.referenceSurface, profile.ax, profile.ay, profile.bx, profile.by, N))], {
+              type: 'text/csv',
+            });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${engine.world.meta.name.replace(/[^\w-]+/g, '_')}-transect.csv`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+          }}
+        >
+          Download CSV
+        </button>
+        <button className="small ghost" onClick={() => useUi.getState().set({ profile: null, profileStart: null })}>
+          Clear
+        </button>
       </div>
       {table && (
         <table className="values">
           <thead>
-            <tr><th>Distance</th><th>Surface</th><th>Change</th><th>Water</th></tr>
+            <tr>
+              <th>Distance</th>
+              <th>Surface</th>
+              <th>Soil</th>
+              <th>Change</th>
+              <th>Water</th>
+            </tr>
           </thead>
           <tbody>
-            {data.filter((_, k) => k % 16 === 0 || k === N - 1).map((s) => (
-              <tr key={s.distM}>
-                <td>{fmtDist(s.distM)}</td>
-                <td>{s.surface.toFixed(1)} m</td>
-                <td>{(s.surface - s.reference).toFixed(2)} m</td>
-                <td>{s.water === null ? '—' : `${(s.water - s.surface).toFixed(2)} m`}</td>
-              </tr>
-            ))}
+            {data
+              .filter((_, k) => k % 16 === 0 || k === N - 1)
+              .map((s) => (
+                <tr key={s.distM}>
+                  <td>{fmtDist(s.distM)}</td>
+                  <td>{s.surfaceM.toFixed(1)} m</td>
+                  <td>{(s.surfaceM - s.bedrockM).toFixed(2)} m</td>
+                  <td>{(s.surfaceM - s.referenceM).toFixed(2)} m</td>
+                  <td>{s.waterM === null ? '—' : `${(s.waterM - s.surfaceM).toFixed(2)} m`}</td>
+                </tr>
+              ))}
           </tbody>
         </table>
       )}

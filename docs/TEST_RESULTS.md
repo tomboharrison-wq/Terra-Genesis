@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-23 M09-C01
+- npm test PASS 214 (+ measure: pinned reading equals world arrays at the nearest cell (elevation, bedrock, soil, slope = atan 0.1, aspect 270° W, rock, water, plants, ash, rain, ice, lava; temperature null with climate off); pin pair 300 m E / 400 m N → 500 m, bearing 36.87°, rise 30 m, 6 %; transect samples equal bilinear surface, soil = 0.5 m, CSV header + 41 rows round-trip)
+- Browser: two pins on River basin read 196.5 / 298.0 m; rise 101.5 m after snapping pins to cell centres (was 102.6 m when the pair used exact click points but the cards used the cells).
+
 ## 2026-10-23 M08-C04
 - npm test PASS 211 (+ island preset (128², 30 m): summit > 50 m above sea, > 50 land cells, sea at every edge, world valid; caldera on a cone drops exactly cells × cs² × depth, strata boundaries drop with it, wall just outside the ring unchanged, undo exact; 1 h of 150 mm/h rain: > 90 % of the rain on the caldera stays (moat > 0.3 m deep), flanks drain; after 40 plant years ash cells > 0.3 cover, bare new lava 0)
 - Browser: Volcanic island preset generates in ≈ 3.5 s (256², 30 m): round cinder cone ≈ 270 m high with a lava-fringed coast.
