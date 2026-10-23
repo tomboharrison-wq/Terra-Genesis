@@ -512,7 +512,7 @@ const vp = await page.textContent('.volcano-panel');
 check('volcano vent erupts lava that spreads with a closed volume ledger', vent === 1 && lava.cells > 3 && Math.abs(lava.erupted - 200 * 1800) < 1 && lava.closure < 1e-4 && /Erupted/.test(vp ?? ''), `vent on land ${vent} ` + JSON.stringify(lava));
 
 // --- Explosive eruption (M08-C02): ash + cinder, thinning downwind, tephra ledger closes ---
-await page.selectOption('.volcano-panel select >> nth=1', 'explosive');
+await page.selectOption('.volcano-panel select >> nth=2', 'explosive'); // selects: what to make, magma, style
 await page.locator('.volcano-panel input[type=range]').nth(0).fill('8'); // 500 m³/s
 await page.mouse.move(980, 520);
 await page.mouse.down();
@@ -534,6 +534,26 @@ await page.waitForTimeout(1500);
 await shot('38-ash-fall');
 const ap = await page.textContent('.volcano-panel');
 check('explosive eruption lays ash and cinder with a closed tephra ledger', ash.deposited > 0 && ash.cells > 50 && ash.closure < 1e-4 && /Ash and cinder/.test(ap ?? ''), JSON.stringify(ash));
+
+// --- Build a composite volcano (M08-C03): repeated eruptions, one undoable edit ---
+await page.selectOption('.volcano-panel select >> nth=0', 'composite');
+await page.locator('.volcano-panel input[type=range]').nth(0).fill('4');
+const v0 = await sum();
+await page.mouse.move(820, 300);
+await page.mouse.down();
+await page.mouse.up();
+await page.waitForFunction(() => window.__terraGenesis.engine.history.undoLabel === 'Build composite volcano', null, { timeout: 300000 }).catch(() => {});
+const vb = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  return { label: e.history.undoLabel, lava: e.lava.ledger.erupted, ash: e.lava.ledger.tephraErupted };
+});
+const v1 = await sum();
+await page.waitForTimeout(1500);
+await shot('39-composite-volcano');
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(500);
+const v2 = await sum();
+check('building a composite volcano raises the ground and undo removes it', vb.label === 'Build composite volcano' && v1 > v0 && Math.abs(v2 - v0) < 1e-6 * Math.abs(v0) + 1e-3, `Δ=${(v1 - v0).toFixed(0)} undoΔ=${(v2 - v0).toFixed(4)} ${JSON.stringify(vb)}`);
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

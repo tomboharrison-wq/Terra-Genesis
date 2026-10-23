@@ -2,7 +2,7 @@
 Updated: 2026-10-22, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M08 — Volcanoes (M07 tectonics complete)
-Current chunk: M08-C03 — shield vs composite cones (see NEXT_TASK)
+Current chunk: M08-C04 — volcanic island, caldera, erosion of new rock (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -23,10 +23,12 @@ Verified working:
   C04: Fold lab (src/local/folds) + c–c belts fold strata boundaries (surface unchanged).
   C05: Quake tool (sim/tectonics/earthquake.ts): W&C scaling, fault deformation, shaking overlay, undo incl. strata.
 - M08-C01 lava (src/sim/lava/lavaSim.ts, VolcanoPanel, key V): lavaDepthM/TempC/Kind (v10) + vents; Bingham flux,
-  η,τ ∝ e^{b(Te−T)}, radiation+convection cooling; sub-steps inside each water step (0.5–5 s, ⅛-difference cap);
+  η,τ ∝ e^{b(Te−T)}, radiation+convection cooling; sub-steps inside each water step (2–5 s, ⅛-difference cap);
   Engine.lavaHook solidifies on 60 s cadence → addTopRock (world.ts) volcanic layer. Glow via lavaGlow attribute.
   C02 tephra (src/sim/lava/tephra.ts): vent style lava/explosive/mixed; Mastin H; cinder exp(−r/150 m) + settleLoose
   (33°); fall footprint exp(−ρ), L = 150 m·H, wind-stretched; loose sediment + tephraM (v11) ash colour; 600 s cadence.
+  C03 Engine.buildVolcano/episodePlan (runtime.runVolcanoBuild, one eruption per frame): real physics per eruption,
+  rest years skipped (freezeAll); cinder ring (r/r₀)e^{−r/r₀} r₀ 60 m → crater; andesite η₀ 1e7; undo incl. tephraM.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -39,6 +41,6 @@ Known failures / gaps:
 
 Relevant paths: src/sim/lava/lavaSim.ts, src/engine/engine.ts (stepper, lavaHook), src/app/VolcanoPanel.tsx,
 TerrainScene (lava colour/glow), src/renderer/shaders.ts
-Last checks: typecheck PASS · npm test PASS (202) · build PASS · e2e 38/39 (see TEST_RESULTS) · gpu-check 10/10
+Last checks: typecheck PASS · npm test PASS (206) · build PASS · e2e PASS 40/40 · gpu-check 10/10
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

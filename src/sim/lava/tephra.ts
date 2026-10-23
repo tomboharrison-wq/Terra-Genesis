@@ -9,8 +9,9 @@ import { LOOSE_REPOSE_DEG } from '../../terrain/materials';
  * Plume height (Mastin et al. 2009, all eruptions):  H[km] = 2.00 · V̇^0.241.
  * Split: coarse cinder / ballistic fraction f_c = clamp(0.6 − 0.03·H, 0.15, 0.6) (weaker columns drop more
  *   near the vent); the rest falls from the plume.
- * Cinder: thickness ∝ exp(−r/r₀), r₀ = 150 m (cinder cones ~1–2 km across), then settles to the
- *   angle of repose (33°), making steep straight-sided cones.
+ * Cinder: ballistic ring, thickness ∝ (r/r₀)·exp(−r/r₀), r₀ = 60 m — most clasts land a little way from
+ *   the vent, so a rim builds round a crater; the pile then avalanches to the angle
+ *   of repose (33°), making steep straight-sided cones with a summit crater.
  * Fall: exponential thinning with distance (Pyle 1989) on elliptical isopachs stretched by the wind:
  *   thickness ∝ exp(−ρ),  ρ = √((u/L_u|d)² + (v/L)²),  u downwind, v crosswind,
  *   L = 150 m × H[km] (half-thickness distance grows with column height),
@@ -23,7 +24,7 @@ import { LOOSE_REPOSE_DEG } from '../../terrain/materials';
 export type EruptionStyle = 'lava' | 'explosive' | 'mixed';
 
 export const BULK_FACTOR = 2.6;
-export const CINDER_R0_M = 150;
+export const CINDER_R0_M = 60;
 export const FALL_L_PER_KM = 150;
 
 export function plumeHeightKm(dreM3PerS: number): number {
@@ -45,7 +46,7 @@ export interface Footprint {
  * Footprint of an exponential elliptical kernel centred on cell (cx, cy): e-folding lengths
  * Ld downwind, Lu upwind, Lc crosswind (m); wind blowing TOWARD bearing `toDeg`.
  */
-export function footprint(w: WorldState, cx: number, cy: number, Ld: number, Lu: number, Lc: number, toDeg: number): Footprint {
+export function footprint(w: WorldState, cx: number, cy: number, Ld: number, Lu: number, Lc: number, toDeg: number, ring = false): Footprint {
   const W = w.width;
   const H = w.height;
   const cs = w.cellSizeM;
@@ -58,7 +59,8 @@ export function footprint(w: WorldState, cx: number, cy: number, Ld: number, Lu:
     const v = -px * dy + py * dx;
     const uu = u / (u >= 0 ? Ld : Lu);
     const vv = v / Lc;
-    return Math.exp(-Math.sqrt(uu * uu + vv * vv));
+    const rho = Math.sqrt(uu * uu + vv * vv);
+    return ring ? rho * Math.exp(-rho) : Math.exp(-rho);
   };
   const reach = Math.ceil((10 * Lmax) / cs);
   const idx: number[] = [];
@@ -80,7 +82,7 @@ export function footprint(w: WorldState, cx: number, cy: number, Ld: number, Lu:
         on += kv;
       }
   } else {
-    total = (Math.PI * Lc * (Ld + Lu)) / (cs * cs);
+    total = ((ring ? 2 : 1) * Math.PI * Lc * (Ld + Lu)) / (cs * cs);
     for (let y = 0; y < H; y++)
       for (let x = 0; x < W; x++) {
         const kv = k((x - cx) * cs, (y - cy) * cs);

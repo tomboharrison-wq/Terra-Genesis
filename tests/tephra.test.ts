@@ -54,7 +54,7 @@ describe('M08-C02 tephra', () => {
     e.advance(3700);
     const w = e.world;
     const at = (dx: number, dy: number) => w.looseSedimentThicknessM[(80 + dy) * 160 + 80 + dx];
-    expect(at(0, 0)).toBeGreaterThan(at(10, 0));
+    expect(at(1, 0)).toBeGreaterThan(at(10, 0)); // cinder rim (≈ 60 m out) > beyond
     expect(at(10, 0)).toBeGreaterThan(at(30, 0));
     expect(at(30, 0)).toBeGreaterThan(5 * at(-30, 0)); // downwind ≫ upwind
     expect(at(30, 0)).toBeGreaterThan(at(0, 30)); // downwind > crosswind
@@ -64,7 +64,7 @@ describe('M08-C02 tephra', () => {
     expect(e.world.lava.vents.length).toBe(0); // finished vent leaves once its tephra is down
   });
 
-  it('cinder builds a steep cone that stands at the angle of repose', { timeout: 30000 }, () => {
+  it('cinder builds a steep cone with a summit crater that stands at the angle of repose', { timeout: 30000 }, () => {
     const e = new Engine(flat(120, 10));
     e.addVent(600, 600, 200, 'basalt', 86400, 'explosive');
     e.advance(86400 + 120);
@@ -73,7 +73,10 @@ describe('M08-C02 tephra', () => {
     let maxSlope = 0;
     for (let x = 40; x < 80; x++) maxSlope = Math.max(maxSlope, Math.abs(z(x + 1, 60) - z(x, 60)) / 10);
     const tan33 = Math.tan((33 * Math.PI) / 180);
-    expect(z(60, 60) - 100).toBeGreaterThan(50); // a cone tens of metres high
+    let rim = 0;
+    for (let x = 40; x < 80; x++) rim = Math.max(rim, z(x, 60));
+    expect(rim - 100).toBeGreaterThan(50); // a cone tens of metres high
+    expect(rim - z(60, 60)).toBeGreaterThan(5); // with a crater round the vent
     expect(maxSlope).toBeGreaterThan(Math.tan((28 * Math.PI) / 180));
     expect(maxSlope).toBeLessThan(tan33 * 1.05);
     expect(tephraClosure(e.lava)).toBeLessThan(1e-4);

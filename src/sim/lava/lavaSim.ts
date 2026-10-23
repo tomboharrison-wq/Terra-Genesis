@@ -31,10 +31,10 @@ import {
  *   modelled, so the mean temperature falls like that of an uncrusted flow (fast for thin flows).
  * Solidification — lava at or below its solidus is frozen in place; Engine calls solidify() on a
  *   cadence to turn it into volcanic rock (a new top layer; buried soil becomes a weak sedimentary
- *   layer). Map edges are walls. Step: dt = 0.2·cs²/max(ρ g h³/3η), kept within 0.5 … 5 s. Each pair
+ *   layer). Map edges are walls. Step: dt = 0.2·cs²/max(ρ g h³/3η), kept within 2 … 5 s. Each pair
  *   transfer is capped at an eighth of the lava-surface difference, so even with four donors or four
  *   receivers no cell overshoots its neighbours (where very thick runny lava near a vent would level
- *   out faster than 0.5 s, the cap levels it within the step instead); a donor never gives more than it has.
+ *   out faster than 2 s, the cap levels it within the step instead); a donor never gives more than it has.
  * Ledger: erupted = flowing + solidified.
  * Vent styles: 'lava' (all magma as lava), 'explosive' (all as tephra, see tephra.ts), 'mixed' (half each).
  * The vent rate is the magma rate (dense rock, m³/s); tephra is laid on the solidify cadence.
@@ -53,7 +53,7 @@ export interface LavaKindDef {
 /** Teaching values within published ranges (basalt η 10²–10³ Pa·s, andesite 10⁶–10⁹ Pa·s). */
 export const LAVA_KINDS: Record<LavaKind, LavaKindDef> = {
   basalt: { label: 'Basalt (runny)', eruptC: 1150, solidC: 900, viscosityPaS: 1e3, yieldPa: 100, densityKgM3: 2600 },
-  andesite: { label: 'Andesite (sticky)', eruptC: 1050, solidC: 850, viscosityPaS: 1e8, yieldPa: 5e4, densityKgM3: 2500 },
+  andesite: { label: 'Andesite (sticky)', eruptC: 1050, solidC: 850, viscosityPaS: 1e7, yieldPa: 5e4, densityKgM3: 2500 },
 };
 const KIND_IDS: LavaKind[] = ['basalt', 'andesite'];
 const B_ETA = 0.04;
@@ -65,7 +65,7 @@ const H_AIR = 10;
 const H_WATER = 500;
 const G = 9.81;
 const MAX_DT = 5;
-const MIN_DT = 0.5;
+const MIN_DT = 2;
 const TEPHRA_INTERVAL_S = 600;
 const HMIN = 1e-4;
 export const VOLCANIC_ID = 5;
@@ -475,7 +475,7 @@ export class LavaSim {
       const key = (s: string) => `${s}:${v.x},${v.y}`;
       const cKey = key('c');
       const fKey = key(`f${H.toFixed(2)}:${e.toFixed(2)}:${toDeg.toFixed(1)}`);
-      if (!this.footprints.has(cKey)) this.footprints.set(cKey, footprint(w, v.x, v.y, CINDER_R0_M, CINDER_R0_M, CINDER_R0_M, 0));
+      if (!this.footprints.has(cKey)) this.footprints.set(cKey, footprint(w, v.x, v.y, CINDER_R0_M, CINDER_R0_M, CINDER_R0_M, 0, true));
       if (!this.footprints.has(fKey)) {
         if (this.footprints.size > 32) this.footprints.clear();
         this.footprints.set(fKey, footprint(w, v.x, v.y, L * e, L / e, L, toDeg));
@@ -510,6 +510,17 @@ export class LavaSim {
     let r = 0;
     for (const v of this.tephraResidual) r += v;
     return this.w.lava.vents.reduce((s, v) => s + (v.pendingTephraM3 ?? 0), 0) + r * this.w.cellSizeM * this.w.cellSizeM;
+  }
+
+  /**
+   * The years between eruptions (time compression for volcano builds): every lava cell cools to its
+   * solidus and turns to rock. Returns the changed rect.
+   */
+  freezeAll(): CellRect | null {
+    const w = this.w;
+    for (let i = 0; i < w.lavaDepthM.length; i++) if (w.lavaDepthM[i] > 0) w.lavaTempC[i] = Math.min(w.lavaTempC[i], lavaKindDef(w.lavaKind[i]).solidC);
+    this.box = this.findBox();
+    return this.solidify();
   }
 
   /** Hottest lava (°C), or null. */

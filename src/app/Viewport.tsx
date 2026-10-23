@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
-import { attachScene, engine, getScene, syncSim } from './runtime';
+import { attachScene, engine, getScene, runVolcanoBuild, syncSim } from './runtime';
 import { useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
@@ -86,6 +86,10 @@ export function Viewport() {
       const ui = useUi.getState();
       if (ui.tool === 'volcano') {
         const v = ui.volcano;
+        if (v.mode !== 'eruption') {
+          if (!ui.volcanoBuild) runVolcanoBuild(hit.xM, hit.yM, v.mode, v.episodes);
+          return;
+        }
         const vent = engine.addVent(hit.xM, hit.yM, v.rateM3PerS, v.kind, v.hours * 3600, v.style);
         syncSim();
         ui.toast(`Vent ${vent.id}: ${v.style === 'lava' ? '' : v.style + ' '}${v.kind} eruption, ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`, 'success');

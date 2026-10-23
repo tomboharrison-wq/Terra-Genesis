@@ -1,5 +1,5 @@
 import { lavaClosure, tephraClosure } from '../sim/lava/lavaSim';
-import { Engine } from '../engine/engine';
+import { Engine, type VolcanoType } from '../engine/engine';
 import type { WorldState } from '../engine/world';
 import { generateWorld, defaultOptions, type GenerateOptions } from '../terrain/generate';
 import type { TerrainScene, CameraPose } from '../renderer/TerrainScene';
@@ -358,3 +358,21 @@ export { syncHistory };
   },
   checksum: () => engine.surface.reduce((a, v) => a + v, 0),
 };
+
+/** Build a volcano one eruption per frame, showing progress (spec E10, M08-C03). */
+export function runVolcanoBuild(xM: number, yM: number, type: VolcanoType, episodes: number): void {
+  const ui = useUi.getState();
+  const b = engine.buildVolcano(xM, yM, type, episodes);
+  ui.set({ volcanoBuild: { type, done: 0, total: b.total } });
+  syncSim();
+  const tick = () => {
+    const more = b.step();
+    useUi.getState().set({ volcanoBuild: more ? { type, done: b.done, total: b.total } : null });
+    if (more) requestAnimationFrame(() => setTimeout(tick, 0));
+    else {
+      syncSim();
+      useUi.getState().toast(`Built a ${type} volcano from ${b.total} eruptions. Use Profile to see its shape; Ctrl+Z undoes it.`, 'success');
+    }
+  };
+  requestAnimationFrame(() => setTimeout(tick, 0));
+}

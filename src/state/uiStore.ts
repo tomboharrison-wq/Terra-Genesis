@@ -178,6 +178,9 @@ export interface QuakeSettings {
 export interface VolcanoSettings {
   kind: 'basalt' | 'andesite';
   style: 'lava' | 'explosive' | 'mixed';
+  /** 'eruption' = one vent in real time; otherwise build a whole volcano from many eruptions. */
+  mode: 'eruption' | 'shield' | 'composite';
+  episodes: number;
   rateM3PerS: number;
   hours: number;
 }
@@ -185,6 +188,8 @@ export interface VolcanoSettings {
 interface UiState {
   tool: ToolId;
   volcano: VolcanoSettings;
+  /** Progress of a volcano build in progress (eruptions done / total). */
+  volcanoBuild: { type: string; done: number; total: number } | null;
   quake: QuakeSettings;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: { mw: number; type: string; ruptureKm: number; avgSlipM: number; maxUpM: number; maxDownM: number; lateralCells: number; landslides: number } | null;
@@ -222,7 +227,8 @@ let toastId = 0;
 
 export const useUi = create<UiState>((set) => ({
   tool: 'navigate',
-  volcano: { kind: 'basalt', style: 'lava', rateM3PerS: 50, hours: 6 },
+  volcano: { kind: 'basalt', style: 'lava', mode: 'eruption', episodes: 8, rateM3PerS: 50, hours: 6 },
+  volcanoBuild: null,
   quake: { type: 'reverse', mw: 7, strikeDeg: 30, landslides: true, shake: true },
   lastQuake: null,
   radiusM: 300,

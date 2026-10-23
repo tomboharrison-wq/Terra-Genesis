@@ -23,7 +23,7 @@ export const MATERIALS: readonly MaterialDef[] = [
   { id: 2, key: 'weak-sed', name: 'Weak sedimentary (mudstone)', kind: 'bedrock', colour: 0x77777a, erodibility: 1.0, cliffDeg: 58, densityKgPerM3: 2300 },
   { id: 3, key: 'clay', name: 'Clay', kind: 'bedrock', colour: 0x94664c, erodibility: 1.6, cliffDeg: 45, densityKgPerM3: 1900 },
   { id: 4, key: 'chalk', name: 'Chalk / limestone', kind: 'bedrock', colour: 0xbdb7a4, erodibility: 0.6, cliffDeg: 72, densityKgPerM3: 2200 },
-  { id: 5, key: 'volcanic', name: 'Volcanic rock (basalt)', kind: 'bedrock', colour: 0x4b4744, erodibility: 0.25, cliffDeg: 78, densityKgPerM3: 2900 },
+  { id: 5, key: 'volcanic', name: 'Volcanic rock (basalt / andesite)', kind: 'bedrock', colour: 0x4b4744, erodibility: 0.25, cliffDeg: 78, densityKgPerM3: 2900 },
 ];
 
 export const BEDROCK_MATERIALS = MATERIALS.filter((m) => m.kind === 'bedrock');

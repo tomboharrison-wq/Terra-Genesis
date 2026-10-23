@@ -19,6 +19,13 @@ const STYLES: { id: VolcanoSettings['style']; label: string; text: string }[] = 
   { id: 'mixed', label: 'Mixed (half lava, half ash)', text: 'Alternating lava and explosions, as at many cone volcanoes.' },
 ];
 
+const BUILD_TEXT: Record<'shield' | 'composite', string> = {
+  shield:
+    'Many eruptions of hot, runny basalt lava. Each flow spreads far before it sets, so layer on layer builds a broad, gently sloping volcano — like Mauna Loa in Hawaii.',
+  composite:
+    'Sticky andesite, taking turns: explosive eruptions throw out ash and cinder, then thick lava flows. The layers build a steep cone with a crater, steepest near the top — like Mount Fuji or Mount St Helens.',
+};
+
 const KIND_TEXT: Record<VolcanoSettings['kind'], string> = {
   basalt: 'Hot, runny lava (about 1150 °C) — like Hawaii or Iceland. It spreads far in thin sheets, even on gentle slopes.',
   andesite: 'Cooler, sticky lava (about 1050 °C) with high silica — like many volcanoes in subduction zones. It piles up thick and only moves on steep slopes.',
@@ -43,56 +50,94 @@ export function VolcanoPanel() {
   const share = lavaShare(v.style);
   const plume = plumeHeightKm((1 - share) * v.rateM3PerS);
   const windMS = lava?.windSpeedMS ?? 10;
+  const building = useUi((s) => s.volcanoBuild);
   return (
     <section className="volcano-panel">
       <label className="field">
-        <span className="field-label">Magma type</span>
-        <select value={v.kind} onChange={(e) => upd({ kind: e.target.value as VolcanoSettings['kind'] })}>
-          {Object.entries(LAVA_KINDS).map(([id, d]) => (
-            <option key={id} value={id}>
-              {d.label}
-            </option>
-          ))}
+        <span className="field-label">What to make</span>
+        <select value={v.mode} onChange={(e) => upd({ mode: e.target.value as VolcanoSettings['mode'] })} disabled={!!building}>
+          <option value="eruption">One eruption (real time)</option>
+          <option value="shield">Build a shield volcano</option>
+          <option value="composite">Build a composite volcano</option>
         </select>
       </label>
-      <p className="hint small tight">{KIND_TEXT[v.kind]}</p>
-      <label className="field">
-        <span className="field-label">Eruption style</span>
-        <select value={v.style} onChange={(e) => upd({ style: e.target.value as VolcanoSettings['style'] })}>
-          {STYLES.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="hint small tight">{STYLES.find((s) => s.id === v.style)?.text}</p>
-      <p className="hint small tight">
-        Erupts at {k.eruptC} °C; sets solid below {k.solidC} °C. Stiffness when erupted {k.viscosityPaS.toExponential(0).replace('e+', ' × 10^')} Pa·s.
-      </p>
-      <label className="field">
-        <span className="field-label">
-          Eruption rate <b>{v.rateM3PerS} m³/s</b>
-        </span>
-        <input type="range" min={0} max={RATES.length - 1} value={rateIdx} onChange={(e) => upd({ rateM3PerS: RATES[+e.target.value] })} />
-      </label>
-      <label className="field">
-        <span className="field-label">
-          Eruption lasts <b>{v.hours < 1 ? `${v.hours * 60} min` : `${v.hours} h`}</b>
-        </span>
-        <input type="range" min={0} max={HOURS.length - 1} value={hourIdx} onChange={(e) => upd({ hours: HOURS[+e.target.value] })} />
-      </label>
-      <p className="hint small tight">
-        Each new vent will erupt {fmtVol(vol)} of magma
-        {share === 0
-          ? `, all blasted into ${fmtVol(vol * BULK_FACTOR)} of loose ash and cinder (fluffier than solid rock)`
-          : share < 1
-            ? `: ${fmtVol(vol * share)} as lava and ${fmtVol(vol * (1 - share) * BULK_FACTOR)} of loose ash and cinder (fluffier than solid rock)`
-            : ' as lava'}
-        {share < 1 ? `, from a column about ${plume.toFixed(1)} km high that drops ${Math.round(coarseFraction(plume) * 100)}% as cinder near the vent` : ''}.
-        Press Play: it runs in real simulated time (try 1–10 min/s).
-      </p>
-      {share < 1 && (
+      {v.mode !== 'eruption' && (
+        <>
+          <p className="hint small tight">{BUILD_TEXT[v.mode]}</p>
+          <label className="field">
+            <span className="field-label">
+              Eruptions <b>{v.episodes}</b>
+            </span>
+            <input type="range" min={2} max={24} value={v.episodes} disabled={!!building} onChange={(e) => upd({ episodes: +e.target.value })} />
+          </label>
+          <p className="hint small tight">
+            Click the map to build. Each eruption runs the real lava and ash physics; the hundreds of years of rest between eruptions are skipped (time is
+            compressed: leftover lava cools to rock, rivers and erosion pause). Ctrl+Z undoes the whole volcano.
+          </p>
+          {building && (
+            <div className="field">
+              <span className="field-label">
+                Building: eruption <b>{Math.min(building.done + 1, building.total)}</b> of {building.total}
+              </span>
+              <progress max={building.total} value={building.done} style={{ width: '100%' }} />
+            </div>
+          )}
+        </>
+      )}
+      {v.mode === 'eruption' && (
+        <>
+          <label className="field">
+            <span className="field-label">Magma type</span>
+            <select value={v.kind} onChange={(e) => upd({ kind: e.target.value as VolcanoSettings['kind'] })}>
+              {Object.entries(LAVA_KINDS).map(([id, d]) => (
+                <option key={id} value={id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint small tight">{KIND_TEXT[v.kind]}</p>
+          <label className="field">
+            <span className="field-label">Eruption style</span>
+            <select value={v.style} onChange={(e) => upd({ style: e.target.value as VolcanoSettings['style'] })}>
+              {STYLES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint small tight">{STYLES.find((s) => s.id === v.style)?.text}</p>
+          <p className="hint small tight">
+            Erupts at {k.eruptC} °C; sets solid below {k.solidC} °C. Stiffness when erupted {k.viscosityPaS.toExponential(0).replace('e+', ' × 10^')} Pa·s.
+          </p>
+          <label className="field">
+            <span className="field-label">
+              Eruption rate <b>{v.rateM3PerS} m³/s</b>
+            </span>
+            <input type="range" min={0} max={RATES.length - 1} value={rateIdx} onChange={(e) => upd({ rateM3PerS: RATES[+e.target.value] })} />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Eruption lasts <b>{v.hours < 1 ? `${v.hours * 60} min` : `${v.hours} h`}</b>
+            </span>
+            <input type="range" min={0} max={HOURS.length - 1} value={hourIdx} onChange={(e) => upd({ hours: HOURS[+e.target.value] })} />
+          </label>
+          <p className="hint small tight">
+            Each new vent will erupt {fmtVol(vol)} of magma
+            {share === 0
+              ? `, all blasted into ${fmtVol(vol * BULK_FACTOR)} of loose ash and cinder (fluffier than solid rock)`
+              : share < 1
+                ? `: ${fmtVol(vol * share)} as lava and ${fmtVol(vol * (1 - share) * BULK_FACTOR)} of loose ash and cinder (fluffier than solid rock)`
+                : ' as lava'}
+            {share < 1
+              ? `, from a column about ${plume.toFixed(1)} km high that drops ${Math.round(coarseFraction(plume) * 100)}% as cinder near the vent`
+              : ''}
+            . Press Play: it runs in real simulated time (try 1–10 min/s).
+          </p>
+        </>
+      )}
+      {(v.mode === 'eruption' ? share < 1 : v.mode === 'composite') && (
         <label className="field">
           <span className="field-label">
             Ash wind speed <b>{windMS} m/s</b>

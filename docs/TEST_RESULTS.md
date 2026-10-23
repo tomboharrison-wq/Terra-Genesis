@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-23 M08-C03
+- npm test PASS 206 (+ volcanoes on a flat 4.8 km plain, 30 m cells: shield of 6 basalt eruptions, mean flank < 8° (measured 1.6°), wide; composite of 6 alternating andesite eruptions, upper flank > 15° and steeper than the lower flank (concave); shield gentler than composite by > 4× and twice as wide; ledgers close; a build is one undo step, ash marks included. Cinder test now checks a summit crater (> 5 m below the rim).)
+- Radial profiles (12 composite eruptions): 203 m high, steepest ≈ 50° just below the rim, then an exponential apron (20 → 1 m over 300–900 m). 8 shield eruptions: 24 m high, 840 m radius, 1.6°.
+- Browser: 10-eruption builds take 8.6 s (composite) and 10.6 s (shield) in headless software rendering.
+
 ## 2026-10-22 M08-C02
 - npm test PASS 202 (+ tephra: thin ash on 3 km sediment conserved to 1e-9; Mastin H(1)=2 km, H(1000)=10.5 km; footprint on-map + off-map = erupted to 1e-5; ash thins away from the vent, downwind > 5× upwind and > crosswind, ledger < 1e-4, finished vent leaves after its ash lands; 1 day of 200 m³/s explosive basalt builds a > 50 m cinder cone whose steepest flank is 28–33°; mixed splits lava/tephra, buries plants, save/load keeps ash + style)
 - Browser (River basin): 3 h at 500 m³/s → 8.9 km column, 10.0 M m³ landed + 4.1 M m³ off the edge = 14.1 M m³ erupted.

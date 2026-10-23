@@ -20,6 +20,32 @@ import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
 import type { EruptionStyle } from '../sim/lava/tephra';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
+export type VolcanoType = 'shield' | 'composite';
+
+/** One eruption of a volcano build (teaching values within real ranges). */
+export interface EpisodePlan {
+  kind: LavaKind;
+  style: EruptionStyle;
+  rateM3PerS: number;
+  seconds: number;
+}
+
+/**
+ * Eruption k of a volcano build. Shield: runny basalt lava every time. Composite: sticky andesite,
+ * alternating explosive (ash + cinder) and lava eruptions — the layered 'strato' volcano.
+ */
+export function episodePlan(type: VolcanoType, k: number): EpisodePlan {
+  if (type === 'shield') return { kind: 'basalt', style: 'lava', rateM3PerS: 200, seconds: 4 * 3600 };
+  return k % 2 === 0 ? { kind: 'andesite', style: 'explosive', rateM3PerS: 200, seconds: 3 * 3600 } : { kind: 'andesite', style: 'lava', rateM3PerS: 60, seconds: 6 * 3600 };
+}
+
+/** A volcano being built eruption by eruption (call step() once per frame until it returns false). */
+export interface VolcanoBuild {
+  readonly total: number;
+  done: number;
+  step(): boolean;
+}
+
 export type EngineEvent =
   | { type: 'world-replaced' }
   | { type: 'terrain-changed'; rect: CellRect }
@@ -376,6 +402,57 @@ export class Engine {
     this.lavaRevision++;
     this.emit({ type: 'water-params-changed' });
     return v;
+  }
+
+  /**
+   * Build a volcano at (xM, yM) from `episodes` eruptions of the given type. Each eruption runs the
+   * real lava / tephra physics for its duration plus 2 h of flow; the years of rest between eruptions
+   * are skipped (labelled time compression: remaining lava is cooled to rock, water and erosion do not
+   * run). Undoable as one edit. Pauses the clock.
+   */
+  buildVolcano(xM: number, yM: number, type: VolcanoType, episodes: number): VolcanoBuild {
+    this.setPlaying(false);
+    this.syncWater();
+    const w = this.world;
+    const x = Math.min(w.width - 1, Math.max(0, Math.round(xM / w.cellSizeM)));
+    const y = Math.min(w.height - 1, Math.max(0, Math.round(yM / w.cellSizeM)));
+    const all = { x0: 0, y0: 0, x1: w.width, y1: w.height };
+    const rec = new StrokeRecorder(w, `Build ${type} volcano`);
+    rec.capture(all);
+    const lava = this.lava;
+    const build: VolcanoBuild = {
+      total: episodes,
+      done: 0,
+      step: () => {
+        if (build.done >= build.total) return false;
+        const p = episodePlan(type, build.done);
+        lava.addVent(x, y, p.rateM3PerS, p.kind, p.seconds, p.style);
+        lava.windFromDeg = w.climate.windFromDeg;
+        for (let t = 0; t < p.seconds + 2 * 3600; t += 600) {
+          lava.advance(600);
+          if (lava.tephraDue()) lava.layTephra();
+          if (lava.solidifyDue()) lava.solidify();
+        }
+        if (lava.pendingTephra() > 0) lava.layTephra();
+        lava.freezeAll();
+        build.done++;
+        const finished = build.done >= build.total;
+        if (finished) {
+          const cmd = rec.finish();
+          if (cmd) {
+            this.history.push(cmd);
+            this.emit({ type: 'history-changed' });
+          }
+        }
+        computeSurface(w, this.surface);
+        this.water.refreshSea();
+        this.vegetationRevision++;
+        this.lavaRevision++;
+        this.markDirty(all);
+        return !finished;
+      },
+    };
+    return build;
   }
 
   /** High-level wind speed carrying volcanic ash (m/s). */

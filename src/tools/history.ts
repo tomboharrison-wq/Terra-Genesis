@@ -5,13 +5,15 @@ import { unionRect } from '../utils/rect';
 /**
  * One undoable edit: sparse per-cell before/after values of the physical fields.
  * `material` holds the STRATA_LAYERS strata lithologies of each cell (exposed lithology is derived)
- * and `bounds` its STRATA_BOUNDS layer boundaries (moved by uplift and earthquakes).
+ * and `bounds` its STRATA_BOUNDS layer boundaries (moved by uplift and earthquakes); `tephra` the ash share
+ * of the loose sediment (volcano builds).
  */
 interface CellValues {
   bedrock: Float32Array;
   sediment: Float32Array;
   material: Uint8Array;
   bounds: Float32Array;
+  tephra: Float32Array;
 }
 export interface EditCommand {
   label: string;
@@ -29,6 +31,7 @@ export class StrokeRecorder {
   private s: number[] = [];
   private m: number[] = [];
   private bd: number[] = [];
+  private t: number[] = [];
   private rect: CellRect | null = null;
 
   constructor(private world: WorldState, readonly label: string) {
@@ -45,6 +48,7 @@ export class StrokeRecorder {
         this.idx.push(i);
         this.b.push(w.bedrockElevationM[i]);
         this.s.push(w.looseSedimentThicknessM[i]);
+        this.t.push(w.tephraM[i]);
         for (let k = 0; k < STRATA_LAYERS; k++) this.m.push(w.strataMaterial[i * STRATA_LAYERS + k]);
         for (let k = 0; k < STRATA_BOUNDS; k++) this.bd.push(w.strataBoundsM[i * STRATA_BOUNDS + k]);
       }
@@ -61,15 +65,15 @@ export class StrokeRecorder {
       let strataChanged = false;
       for (let l = 0; l < STRATA_LAYERS; l++) if (w.strataMaterial[i * STRATA_LAYERS + l] !== this.m[k * STRATA_LAYERS + l]) strataChanged = true;
       for (let l = 0; l < STRATA_BOUNDS; l++) if (w.strataBoundsM[i * STRATA_BOUNDS + l] !== Math.fround(this.bd[k * STRATA_BOUNDS + l])) strataChanged = true;
-      if (w.bedrockElevationM[i] !== Math.fround(this.b[k]) || w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) || strataChanged) keep.push(k);
+      if (w.bedrockElevationM[i] !== Math.fround(this.b[k]) || w.looseSedimentThicknessM[i] !== Math.fround(this.s[k]) || w.tephraM[i] !== Math.fround(this.t[k]) || strataChanged) keep.push(k);
     }
     if (!keep.length || !this.rect) return null;
     const n = keep.length;
     const cmd: EditCommand = {
       label: this.label,
       indices: new Int32Array(n),
-      before: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS) },
-      after: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS) },
+      before: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS), tephra: new Float32Array(n) },
+      after: { bedrock: new Float32Array(n), sediment: new Float32Array(n), material: new Uint8Array(n * STRATA_LAYERS), bounds: new Float32Array(n * STRATA_BOUNDS), tephra: new Float32Array(n) },
       rect: this.rect,
     };
     keep.forEach((k, j) => {
@@ -77,6 +81,8 @@ export class StrokeRecorder {
       cmd.indices[j] = i;
       cmd.before.bedrock[j] = this.b[k];
       cmd.before.sediment[j] = this.s[k];
+      cmd.before.tephra[j] = this.t[k];
+      cmd.after.tephra[j] = w.tephraM[i];
       for (let l = 0; l < STRATA_LAYERS; l++) cmd.before.material[j * STRATA_LAYERS + l] = this.m[k * STRATA_LAYERS + l];
       for (let l = 0; l < STRATA_BOUNDS; l++) cmd.before.bounds[j * STRATA_BOUNDS + l] = this.bd[k * STRATA_BOUNDS + l];
       for (let l = 0; l < STRATA_BOUNDS; l++) cmd.after.bounds[j * STRATA_BOUNDS + l] = w.strataBoundsM[i * STRATA_BOUNDS + l];
@@ -94,6 +100,7 @@ function applyValues(w: WorldState, cmd: EditCommand, which: 'before' | 'after')
     const i = cmd.indices[j];
     w.bedrockElevationM[i] = v.bedrock[j];
     w.looseSedimentThicknessM[i] = v.sediment[j];
+    w.tephraM[i] = v.tephra[j];
     for (let l = 0; l < STRATA_LAYERS; l++) w.strataMaterial[i * STRATA_LAYERS + l] = v.material[j * STRATA_LAYERS + l];
     for (let l = 0; l < STRATA_BOUNDS; l++) w.strataBoundsM[i * STRATA_BOUNDS + l] = v.bounds[j * STRATA_BOUNDS + l];
     refreshExposed(w, i);
