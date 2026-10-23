@@ -86,28 +86,64 @@ export function Viewport() {
       const ui = useUi.getState();
       if (ui.tool === 'volcano') {
         const v = ui.volcano;
+        if (v.mode === 'caldera') {
+          const r = engine.caldera({ xM: hit.xM, yM: hit.yM, radiusM: v.calderaRadiusM, depthM: v.calderaDepthM });
+          syncSim();
+          ui.toast(
+            `Caldera: ${r.volumeM3 >= 1e6 ? `${(r.volumeM3 / 1e6).toFixed(1)} million` : Math.round(r.volumeM3).toLocaleString()} m³ of rock dropped ${v.calderaDepthM} m. Rain will fill it. Ctrl+Z undoes it.`,
+            'success',
+          );
+          return;
+        }
         if (v.mode !== 'eruption') {
           if (!ui.volcanoBuild) runVolcanoBuild(hit.xM, hit.yM, v.mode, v.episodes);
           return;
         }
         const vent = engine.addVent(hit.xM, hit.yM, v.rateM3PerS, v.kind, v.hours * 3600, v.style);
         syncSim();
-        ui.toast(`Vent ${vent.id}: ${v.style === 'lava' ? '' : v.style + ' '}${v.kind} eruption, ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`, 'success');
+        ui.toast(
+          `Vent ${vent.id}: ${v.style === 'lava' ? '' : v.style + ' '}${v.kind} eruption, ${v.rateM3PerS} m³/s for ${v.hours} h${engine.clock.playing ? '' : ' — press Play to run time'}`,
+          'success',
+        );
         return;
       }
       if (ui.tool === 'earthquake') {
         const q = ui.quake;
         const r = engine.earthquake({ xM: hit.xM, yM: hit.yM, mw: q.mw, type: q.type, strikeDeg: q.strikeDeg, landslides: q.landslides });
-        ui.set({ lastQuake: { mw: q.mw, type: q.type, ruptureKm: r.ruptureKm, avgSlipM: r.avgSlipM, maxUpM: r.maxUpM, maxDownM: r.maxDownM, lateralCells: r.lateralCells, landslides: r.landslides } });
+        ui.set({
+          lastQuake: {
+            mw: q.mw,
+            type: q.type,
+            ruptureKm: r.ruptureKm,
+            avgSlipM: r.avgSlipM,
+            maxUpM: r.maxUpM,
+            maxDownM: r.maxDownM,
+            lateralCells: r.lateralCells,
+            landslides: r.landslides,
+          },
+        });
         if (q.shake) getScene()?.shake(q.mw);
-        const move = q.type === 'strike-slip' ? (r.lateralCells ? `ground shifted ${r.lateralCells} cell${r.lateralCells > 1 ? 's' : ''} sideways` : 'sideways slip smaller than one map cell') : `up to ${r.maxUpM.toFixed(2)} m raised, ${r.maxDownM.toFixed(2)} m dropped`;
-        ui.toast(`M${q.mw.toFixed(1)} earthquake: ${r.ruptureKm.toFixed(1)} km rupture, ${move}${r.landslides ? `, ${r.landslides} landslide${r.landslides > 1 ? 's' : ''}` : ''}`, 'success');
+        const move =
+          q.type === 'strike-slip'
+            ? r.lateralCells
+              ? `ground shifted ${r.lateralCells} cell${r.lateralCells > 1 ? 's' : ''} sideways`
+              : 'sideways slip smaller than one map cell'
+            : `up to ${r.maxUpM.toFixed(2)} m raised, ${r.maxDownM.toFixed(2)} m dropped`;
+        ui.toast(
+          `M${q.mw.toFixed(1)} earthquake: ${r.ruptureKm.toFixed(1)} km rupture, ${move}${r.landslides ? `, ${r.landslides} landslide${r.landslides > 1 ? 's' : ''}` : ''}`,
+          'success',
+        );
         return;
       }
       if (ui.tool === 'landslide') {
         const r = engine.landslide(hit.xM, hit.yM, ui.radiusM);
         const total = r.failedRockM3 + r.movedM3;
-        ui.toast(total > 1 ? `Landslide: ${Math.round(r.movedM3).toLocaleString()} m³ displaced downslope; ${Math.round(r.failedRockM3).toLocaleString()} m³ of rock broke up` : 'Slope is stable here even when saturated', total > 1 ? 'success' : 'info');
+        ui.toast(
+          total > 1
+            ? `Landslide: ${Math.round(r.movedM3).toLocaleString()} m³ displaced downslope; ${Math.round(r.failedRockM3).toLocaleString()} m³ of rock broke up`
+            : 'Slope is stable here even when saturated',
+          total > 1 ? 'success' : 'info',
+        );
         return;
       }
       if (ui.tool === 'profile') {

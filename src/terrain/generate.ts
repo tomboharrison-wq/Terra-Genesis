@@ -1,3 +1,4 @@
+import { growIsland } from '../sim/lava/build';
 import { createWorld, MM_PER_H, STRATA_BOUNDS, STRATA_LAYERS, refreshAllExposed, setUniformStrata, type WorldState } from '../engine/world';
 import { Noise2D } from '../utils/noise';
 import { deriveSeed } from '../utils/rng';
@@ -19,7 +20,8 @@ export type PresetId =
   | 'temperate-valley'
   | 'alpine-glaciers'
   | 'rain-shadow'
-  | 'tundra';
+  | 'tundra'
+  | 'volcanic-island';
 
 export interface GenerateOptions {
   presetId: PresetId;
@@ -56,19 +58,91 @@ export interface PresetDef {
 }
 
 export const PRESETS: readonly PresetDef[] = [
-  { id: 'river-basin', name: 'River basin', description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60, erosion: true } },
-  { id: 'river-delta', name: 'River to sea', description: 'Uplands draining across a coastal plain onto a shallow shelf. Rain and erosion on: watch a delta build.', defaults: { cellSizeM: 30, reliefM: 600, seaLevelM: 0, roughness: 0.45, rainMmH: 50, erosion: true } },
-  { id: 'mountain-range', name: 'Mountain range', description: 'Ridged crystalline range with foothills and a lowland plain.', defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 } },
-  { id: 'island', name: 'Island', description: 'Single rugged island rising from shallow sea.', defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 } },
-  { id: 'archipelago', name: 'Archipelago', description: 'Scattered islands across a shelf sea.', defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 } },
-  { id: 'coastal-headland', name: 'Coastal headlands', description: 'Straight coast across alternating hard chalk and soft clay bands; waves from the south carve bays in the clay, leaving chalk headlands.', defaults: { cellSizeM: 10, reliefM: 60, seaLevelM: 0, roughness: 0.4, erosion: true, waves: true, speedup: 1000 } },
-  { id: 'plateau', name: 'Layered plateau', description: 'Resistant cap rock over weaker strata with escarpments.', defaults: { cellSizeM: 25, reliefM: 400, seaLevelM: -100, roughness: 0.35 } },
-  { id: 'continental', name: 'Continental', description: 'Large-scale mixed terrain: uplands, lowlands and coast.', defaults: { cellSizeM: 120, reliefM: 1500, seaLevelM: 0, roughness: 0.55 } },
-  { id: 'temperate-valley', name: 'Temperate valley', description: 'Mild, wet climate: forested valley floors and slopes, bare rock only on the highest ridges.', defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, biome: 'temperate' } },
-  { id: 'alpine-glaciers', name: 'Alpine glaciers', description: 'High mountains in a cool climate: glaciers above the snowline flowing into forested valleys.', defaults: { cellSizeM: 40, reliefM: 2600, seaLevelM: -50, roughness: 0.55, biome: 'alpine' } },
-  { id: 'rain-shadow', name: 'Rain-shadow desert', description: 'A ridge across the westerly wind: wet forest on the windward side, dry scrub in its rain shadow.', defaults: { cellSizeM: 60, reliefM: 1800, seaLevelM: -50, roughness: 0.45, biome: 'rain-shadow' } },
-  { id: 'tundra', name: 'Tundra', description: 'Cold lowland: a short summer allows only sparse plants; snow lies long and ice caps the hills.', defaults: { cellSizeM: 60, reliefM: 700, seaLevelM: 0, roughness: 0.5, biome: 'tundra' } },
-  { id: 'flat', name: 'Flat test world', description: 'Level plain 10 m above sea level for controlled tests.', defaults: { cellSizeM: 10, reliefM: 0, seaLevelM: 0, roughness: 0 } },
+  {
+    id: 'river-basin',
+    name: 'River basin',
+    description: 'Horseshoe of ridges draining to a single southern outlet. Starts with heavy rain.',
+    defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, rainMmH: 60, erosion: true },
+  },
+  {
+    id: 'river-delta',
+    name: 'River to sea',
+    description: 'Uplands draining across a coastal plain onto a shallow shelf. Rain and erosion on: watch a delta build.',
+    defaults: { cellSizeM: 30, reliefM: 600, seaLevelM: 0, roughness: 0.45, rainMmH: 50, erosion: true },
+  },
+  {
+    id: 'mountain-range',
+    name: 'Mountain range',
+    description: 'Ridged crystalline range with foothills and a lowland plain.',
+    defaults: { cellSizeM: 40, reliefM: 1800, seaLevelM: -50, roughness: 0.6 },
+  },
+  {
+    id: 'island',
+    name: 'Island',
+    description: 'Single rugged island rising from shallow sea.',
+    defaults: { cellSizeM: 30, reliefM: 700, seaLevelM: 0, roughness: 0.5 },
+  },
+  {
+    id: 'archipelago',
+    name: 'Archipelago',
+    description: 'Scattered islands across a shelf sea.',
+    defaults: { cellSizeM: 40, reliefM: 500, seaLevelM: 0, roughness: 0.5 },
+  },
+  {
+    id: 'coastal-headland',
+    name: 'Coastal headlands',
+    description: 'Straight coast across alternating hard chalk and soft clay bands; waves from the south carve bays in the clay, leaving chalk headlands.',
+    defaults: { cellSizeM: 10, reliefM: 60, seaLevelM: 0, roughness: 0.4, erosion: true, waves: true, speedup: 1000 },
+  },
+  {
+    id: 'plateau',
+    name: 'Layered plateau',
+    description: 'Resistant cap rock over weaker strata with escarpments.',
+    defaults: { cellSizeM: 25, reliefM: 400, seaLevelM: -100, roughness: 0.35 },
+  },
+  {
+    id: 'continental',
+    name: 'Continental',
+    description: 'Large-scale mixed terrain: uplands, lowlands and coast.',
+    defaults: { cellSizeM: 120, reliefM: 1500, seaLevelM: 0, roughness: 0.55 },
+  },
+  {
+    id: 'temperate-valley',
+    name: 'Temperate valley',
+    description: 'Mild, wet climate: forested valley floors and slopes, bare rock only on the highest ridges.',
+    defaults: { cellSizeM: 30, reliefM: 900, seaLevelM: -20, roughness: 0.5, biome: 'temperate' },
+  },
+  {
+    id: 'alpine-glaciers',
+    name: 'Alpine glaciers',
+    description: 'High mountains in a cool climate: glaciers above the snowline flowing into forested valleys.',
+    defaults: { cellSizeM: 40, reliefM: 2600, seaLevelM: -50, roughness: 0.55, biome: 'alpine' },
+  },
+  {
+    id: 'rain-shadow',
+    name: 'Rain-shadow desert',
+    description: 'A ridge across the westerly wind: wet forest on the windward side, dry scrub in its rain shadow.',
+    defaults: { cellSizeM: 60, reliefM: 1800, seaLevelM: -50, roughness: 0.45, biome: 'rain-shadow' },
+  },
+  {
+    id: 'tundra',
+    name: 'Tundra',
+    description: 'Cold lowland: a short summer allows only sparse plants; snow lies long and ice caps the hills.',
+    defaults: { cellSizeM: 60, reliefM: 700, seaLevelM: 0, roughness: 0.5, biome: 'tundra' },
+  },
+  {
+    id: 'volcanic-island',
+    name: 'Volcanic island',
+    description:
+      'A new island grown by eruptions from a vent on the sea floor (explosive under water, lava once above it), like Surtsey. Fresh rock and ash, no plants yet.',
+    defaults: { cellSizeM: 30, reliefM: 60, seaLevelM: 0, roughness: 0.3 },
+  },
+  {
+    id: 'flat',
+    name: 'Flat test world',
+    description: 'Level plain 10 m above sea level for controlled tests.',
+    defaults: { cellSizeM: 10, reliefM: 0, seaLevelM: 0, roughness: 0 },
+  },
 ];
 
 export function presetById(id: string): PresetDef {
@@ -85,6 +159,7 @@ const SANDSTONE = 1;
 const MUDSTONE = 2;
 const CLAY = 3;
 const CHALK = 4;
+const VOLCANIC = 5;
 
 interface Ctx {
   u: number;
@@ -98,10 +173,7 @@ interface Ctx {
 type ShapeFn = (c: Ctx) => { e: number; mat: number };
 
 function warp(c: Ctx, amount: number, freq = 2.2): [number, number] {
-  return [
-    c.u + amount * c.n2.fbm(c.u * freq + 3.1, c.v * freq + 7.7, 3),
-    c.v + amount * c.n2.fbm(c.u * freq - 5.3, c.v * freq + 1.9, 3),
-  ];
+  return [c.u + amount * c.n2.fbm(c.u * freq + 3.1, c.v * freq + 7.7, 3), c.v + amount * c.n2.fbm(c.u * freq - 5.3, c.v * freq + 1.9, 3)];
 }
 
 const shapes: Partial<Record<PresetId, ShapeFn>> = {
@@ -142,7 +214,8 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
     const valley = 1 - Math.exp(-dx * dx);
     const ridges = c.n.ridged(wu * 4, wv * 4, 5);
     let e: number;
-    if (land < 0) e = land * 0.25 - 0.004; // shallow shelf
+    if (land < 0)
+      e = land * 0.25 - 0.004; // shallow shelf
     else e = 0.01 + land * 0.95 * (0.3 + 0.7 * valley) * (0.7 + 0.45 * ridges) + 0.015 * c.n.fbm(wu * 10, wv * 10, 3);
     const mat = e > 0.35 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
     return { e, mat };
@@ -171,6 +244,10 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
     return { e, mat };
   },
 
+  // Ocean floor (old basalt) at about −relief, gently undulating; the island itself is grown by
+  // real eruptions in generateWorld (growIsland).
+  'volcanic-island': (c) => ({ e: -1 + 0.08 * c.n.fbm(c.u * 3, c.v * 3, 3), mat: VOLCANIC }),
+
   archipelago: (c) => {
     const [wu, wv] = warp(c, 0.1);
     const blobs = c.n.fbm(wu * 3.2, wv * 3.2, 5);
@@ -191,7 +268,8 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
     const coastV = 0.32 + 0.01 * c.n.fbm(wu * 6, 2.1, 3);
     const land = wv - coastV;
     let e: number;
-    if (land < 0) e = -0.06 + land * 1.2; // ~7 m deep at the cliff foot, deepening offshore
+    if (land < 0)
+      e = -0.06 + land * 1.2; // ~7 m deep at the cliff foot, deepening offshore
     else {
       const top = 0.18 + 0.27 * hard; // chalk headlands stand higher than clay
       const rise = smoothstep(0, 0.02 + 0.06 * (1 - hard), land); // chalk: sheer; clay: slumped
@@ -308,6 +386,7 @@ export function generateWorld(o: GenerateOptions): WorldState {
       if (add > 0) world.looseSedimentThicknessM[i] += add;
     }
   }
+  if (o.presetId === 'volcanic-island') growIsland(world, 3);
   if (o.biome) applyBiome(world, o.biome);
   return world;
 }

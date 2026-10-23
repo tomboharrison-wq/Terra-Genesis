@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-23 M08-C04
+- npm test PASS 211 (+ island preset (128², 30 m): summit > 50 m above sea, > 50 land cells, sea at every edge, world valid; caldera on a cone drops exactly cells × cs² × depth, strata boundaries drop with it, wall just outside the ring unchanged, undo exact; 1 h of 150 mm/h rain: > 90 % of the rain on the caldera stays (moat > 0.3 m deep), flanks drain; after 40 plant years ash cells > 0.3 cover, bare new lava 0)
+- Browser: Volcanic island preset generates in ≈ 3.5 s (256², 30 m): round cinder cone ≈ 270 m high with a lava-fringed coast.
+
 ## 2026-10-23 M08-C03
 - npm test PASS 206 (+ volcanoes on a flat 4.8 km plain, 30 m cells: shield of 6 basalt eruptions, mean flank < 8° (measured 1.6°), wide; composite of 6 alternating andesite eruptions, upper flank > 15° and steeper than the lower flank (concave); shield gentler than composite by > 4× and twice as wide; ledgers close; a build is one undo step, ash marks included. Cinder test now checks a summit crater (> 5 m below the rim).)
 - Radial profiles (12 composite eruptions): 203 m high, steepest ≈ 50° just below the rim, then an exponential apron (20 → 1 m over 300–900 m). 8 shield eruptions: 24 m high, 840 m radius, 1.6°.

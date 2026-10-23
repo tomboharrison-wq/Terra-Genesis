@@ -2,7 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M08-C04 | Underwater vent → island preset, caldera collapse, erosion/plants on new rock | READY |
+| M09-C01 | Data inspector, real measurements and elevation transect (spec M09-C01) | READY |
+| M08-C04 | Volcanic island preset (Surtseyan explosive → lava cap), caldera piston collapse (undoable), crater lake, plants on ash not bare lava | DONE |
 | M08-C03 | Volcano builds: repeated eruptions (shield = basalt lava; composite = andesite explosive/lava alternating), crater ring, rest years compressed, undoable | DONE |
 | M08-C02 | Explosive / mixed eruption styles: Mastin plume height, cinder cone at repose, Pyle-style ash thinning stretched downwind, tephra ledger | DONE |
 | M08-C01 | Vent tool + Bingham lava flow (T-dependent viscosity/yield, radiative cooling, quench in water) + solidify to volcanic rock layer | DONE |

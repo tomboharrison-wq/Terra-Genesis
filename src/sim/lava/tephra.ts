@@ -146,7 +146,7 @@ export function depositTephra(w: WorldState, surface: Float32Array, f: Footprint
 }
 
 /**
- * Let loose sediment in a rect slide to its angle of repose (pairwise, exactly conservative,
+ * Let loose sediment in a rect slide to its angle of repose (pairwise with 8 neighbours, conservative,
  * Gauss–Seidel, at most maxPasses). Tephra marks move with the material. Returns the touched rect.
  */
 export function settleLoose(w: WorldState, surface: Float32Array, rect: CellRect, maxPasses = 40): CellRect {
@@ -161,19 +161,21 @@ export function settleLoose(w: WorldState, surface: Float32Array, rect: CellRect
   let y0 = Math.max(0, rect.y0 - 1);
   let x1 = Math.min(W, rect.x1 + 1);
   let y1 = Math.min(H, rect.y1 + 1);
-  const DX = [1, -1, 0, 0];
-  const DY = [0, 0, 1, -1];
+  // 8 neighbours (diagonals at √2 cs): 4-neighbour relaxation alone leaves square, pyramid-like cones.
+  const DX = [1, -1, 0, 0, 1, 1, -1, -1];
+  const DY = [0, 0, 1, -1, 1, -1, 1, -1];
+  const DIST = [1, 1, 1, 1, Math.SQRT2, Math.SQRT2, Math.SQRT2, Math.SQRT2];
   for (let pass = 0; pass < maxPasses; pass++) {
     let moved = 0;
     for (let y = y0; y < y1; y++)
       for (let x = x0; x < x1; x++) {
         const i = y * W + x;
-        for (let k = 0; k < 4; k++) {
+        for (let k = 0; k < 8; k++) {
           const xn = x + DX[k];
           const yn = y + DY[k];
           if (xn < 0 || yn < 0 || xn >= W || yn >= H) continue;
           const j = yn * W + xn;
-          const excess = b[i] + loose[i] - (b[j] + loose[j]) - cs * tanR;
+          const excess = b[i] + loose[i] - (b[j] + loose[j]) - DIST[k] * cs * tanR;
           if (excess <= 1e-3 || loose[i] <= 0) continue;
           const amt = Math.min(0.5 * excess, loose[i]);
           const li = Math.fround(loose[i] - amt);

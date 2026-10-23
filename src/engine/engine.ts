@@ -17,29 +17,12 @@ import { compareClimate, type ClimateChange, type CompareResult } from '../terra
 import { generatePlates, TectonicsSim, type Plate, type TectonicsParams } from '../sim/tectonics/plates';
 import { earthquake, type QuakeOptions, type QuakeResult } from '../sim/tectonics/earthquake';
 import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
+import { episodePlan, runEruption, type VolcanoType } from '../sim/lava/build';
+import { caldera, type CalderaOptions, type CalderaResult } from '../sim/lava/caldera';
 import type { EruptionStyle } from '../sim/lava/tephra';
 import type { ErosionParams, WaterParams, WaterSource } from './world';
 
-export type VolcanoType = 'shield' | 'composite';
-
-/** One eruption of a volcano build (teaching values within real ranges). */
-export interface EpisodePlan {
-  kind: LavaKind;
-  style: EruptionStyle;
-  rateM3PerS: number;
-  seconds: number;
-}
-
-/**
- * Eruption k of a volcano build. Shield: runny basalt lava every time. Composite: sticky andesite,
- * alternating explosive (ash + cinder) and lava eruptions — the layered 'strato' volcano.
- */
-export function episodePlan(type: VolcanoType, k: number): EpisodePlan {
-  if (type === 'shield') return { kind: 'basalt', style: 'lava', rateM3PerS: 200, seconds: 4 * 3600 };
-  return k % 2 === 0
-    ? { kind: 'andesite', style: 'explosive', rateM3PerS: 200, seconds: 3 * 3600 }
-    : { kind: 'andesite', style: 'lava', rateM3PerS: 60, seconds: 6 * 3600 };
-}
+export type { VolcanoType } from '../sim/lava/build';
 
 /** A volcano being built eruption by eruption (call step() once per frame until it returns false). */
 export interface VolcanoBuild {
@@ -429,16 +412,8 @@ export class Engine {
       done: 0,
       step: () => {
         if (build.done >= build.total) return false;
-        const p = episodePlan(type, build.done);
-        lava.addVent(x, y, p.rateM3PerS, p.kind, p.seconds, p.style);
-        lava.windFromDeg = w.climate.windFromDeg;
-        for (let t = 0; t < p.seconds + 2 * 3600; t += 600) {
-          lava.advance(600);
-          if (lava.tephraDue()) lava.layTephra();
-          if (lava.solidifyDue()) lava.solidify();
-        }
-        if (lava.pendingTephra() > 0) lava.layTephra();
-        lava.freezeAll();
+        const vent = y * w.width + x;
+        runEruption(lava, w, x, y, episodePlan(type, build.done, this.surface[vent] < w.seaLevelM));
         build.done++;
         const finished = build.done >= build.total;
         if (finished) {
@@ -681,6 +656,21 @@ export class Engine {
       this.history.push(cmd);
       this.emit({ type: 'history-changed' });
     }
+  }
+
+  /** Caldera collapse: the summit drops into an emptied magma chamber (undoable as one edit). */
+  caldera(o: CalderaOptions): CalderaResult {
+    this.syncWater();
+    const rec = new StrokeRecorder(this.world, 'Caldera collapse');
+    const res = caldera(this.world, this.surface, o, rec.capture);
+    const cmd = rec.finish();
+    if (cmd) {
+      this.history.push(cmd);
+      this.emit({ type: 'history-changed' });
+    }
+    this.water.refreshSea();
+    this.markDirty(res.rect);
+    return res;
   }
 
   /** Last earthquake (its shaking map drives the 'shaking' overlay). */

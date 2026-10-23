@@ -555,6 +555,42 @@ await page.waitForTimeout(500);
 const v2 = await sum();
 check('building a composite volcano raises the ground and undo removes it', vb.label === 'Build composite volcano' && v1 > v0 && Math.abs(v2 - v0) < 1e-6 * Math.abs(v0) + 1e-3, `Δ=${(v1 - v0).toFixed(0)} undoΔ=${(v2 - v0).toFixed(4)} ${JSON.stringify(vb)}`);
 
+// --- Volcanic island preset + caldera collapse (M08-C04) ---
+await page.click('text=New');
+await page.click('.preset:has-text("Volcanic island")');
+{
+  const auto = page.locator('label.check:has-text("Start simulation") input');
+  if (await auto.isChecked()) await auto.uncheck();
+}
+await page.click('text=Generate world');
+await page.waitForFunction(() => window.__terraGenesis.engine.world.meta.presetId === 'volcanic-island', null, { timeout: 120000 });
+await page.waitForTimeout(1500);
+await shot('40-volcanic-island');
+const isl = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  const w = e.world;
+  let land = 0;
+  let best = 0;
+  for (let i = 0; i < e.surface.length; i++) {
+    if (e.surface[i] > w.seaLevelM) land++;
+    if (e.surface[i] > e.surface[best]) best = i;
+  }
+  const s0 = e.surface.reduce((a, v) => a + v, 0);
+  const r = e.caldera({ xM: (best % w.width) * w.cellSizeM, yM: Math.floor(best / w.width) * w.cellSizeM, radiusM: 250, depthM: 100 });
+  const s1 = e.surface.reduce((a, v) => a + v, 0);
+  return { land, top: e.surface[best], cells: r.cells, vol: r.volumeM3, drop: (s0 - s1) * w.cellSizeM * w.cellSizeM, label: e.history.undoLabel, s0 };
+});
+await page.waitForTimeout(1200);
+await shot('41-caldera');
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(500);
+const islUndo = await sum();
+check(
+  'volcanic island preset grows an island; caldera drops exactly its volume and undo restores',
+  isl.land > 50 && isl.top > 50 && isl.cells > 50 && Math.abs(isl.drop - isl.vol) < 1e-3 * isl.vol && isl.label === 'Caldera collapse' && Math.abs(islUndo - isl.s0) < 1e-6 * Math.abs(isl.s0) + 1e-3,
+  JSON.stringify({ ...isl, s0: undefined }),
+);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

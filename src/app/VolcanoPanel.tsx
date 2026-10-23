@@ -19,7 +19,9 @@ const STYLES: { id: VolcanoSettings['style']; label: string; text: string }[] = 
   { id: 'mixed', label: 'Mixed (half lava, half ash)', text: 'Alternating lava and explosions, as at many cone volcanoes.' },
 ];
 
-const BUILD_TEXT: Record<'shield' | 'composite', string> = {
+const BUILD_TEXT: Record<'shield' | 'composite' | 'island', string> = {
+  island:
+    'Click the sea. Magma meeting sea water shatters into ash and cinder, so the first eruptions are explosive and build a cone up to the surface; once the vent is above the waves, lava flows cap the new island — as at Surtsey, Iceland, in 1963.',
   shield:
     'Many eruptions of hot, runny basalt lava. Each flow spreads far before it sets, so layer on layer builds a broad, gently sloping volcano — like Mauna Loa in Hawaii.',
   composite:
@@ -59,9 +61,35 @@ export function VolcanoPanel() {
           <option value="eruption">One eruption (real time)</option>
           <option value="shield">Build a shield volcano</option>
           <option value="composite">Build a composite volcano</option>
+          <option value="island">Build a volcanic island (vent on the sea floor)</option>
+          <option value="caldera">Caldera collapse</option>
         </select>
       </label>
-      {v.mode !== 'eruption' && (
+      {v.mode === 'caldera' && (
+        <>
+          <p className="hint small tight">
+            After a huge eruption empties the magma chamber, the summit above it can fall in along a ring of faults, leaving a wide, steep-walled hollow — a
+            caldera (like Crater Lake, USA, or Santorini). Rain can then fill it as a crater lake.
+          </p>
+          <label className="field">
+            <span className="field-label">
+              Width <b>{((2 * v.calderaRadiusM) / 1000).toFixed(1)} km</b>
+            </span>
+            <input type="range" min={100} max={3000} step={50} value={v.calderaRadiusM} onChange={(e) => upd({ calderaRadiusM: +e.target.value })} />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Drop <b>{v.calderaDepthM} m</b>
+            </span>
+            <input type="range" min={10} max={600} step={10} value={v.calderaDepthM} onChange={(e) => upd({ calderaDepthM: +e.target.value })} />
+          </label>
+          <p className="hint small tight">
+            Click the summit. About {fmtVol(Math.PI * v.calderaRadiusM * v.calderaRadiusM * v.calderaDepthM)} of rock drops into the emptied chamber; the rock
+            layers drop with it. Ctrl+Z undoes it.
+          </p>
+        </>
+      )}
+      {v.mode !== 'eruption' && v.mode !== 'caldera' && (
         <>
           <p className="hint small tight">{BUILD_TEXT[v.mode]}</p>
           <label className="field">
@@ -137,7 +165,7 @@ export function VolcanoPanel() {
           </p>
         </>
       )}
-      {(v.mode === 'eruption' ? share < 1 : v.mode === 'composite') && (
+      {(v.mode === 'eruption' ? share < 1 : v.mode === 'composite' || v.mode === 'island') && (
         <label className="field">
           <span className="field-label">
             Ash wind speed <b>{windMS} m/s</b>
@@ -200,7 +228,7 @@ export function VolcanoPanel() {
       <p className="hint small tight">
         Model: lava only moves once it is thicker than its strength allows on that slope, and stiffens as it cools by radiating heat (faster in water). Ash
         thins with distance (Pyle 1989) and is stretched downwind; cinder slides to 33°. It lands at once (no fall time, grain sizes or pyroclastic flows).
-        Calderas come later.
+        Calderas drop as a solid block on a ring fault.
       </p>
     </section>
   );

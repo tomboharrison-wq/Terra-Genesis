@@ -130,3 +130,9 @@
 - The Volcano tool can now build a whole volcano: choose "Build a shield volcano" or "Build a composite volcano" and the number of eruptions, then click the map. Every eruption runs the real lava and ash physics; the long rests between eruptions are skipped (labelled time compression). A progress bar shows each eruption; Ctrl+Z removes the whole volcano.
 - Shields (runny basalt lava, eruption after eruption) come out broad and gentle — about 2° on a flat plain. Composite volcanoes (sticky andesite, explosive and lava eruptions taking turns) come out steep with a summit crater, steepest near the top and flattening into an ash apron, rather than straight-sided pyramids. On hilly ground the runny lava runs down the valleys instead, as real lava does.
 - Cinder now lands in a ring round the vent, so explosive eruptions leave a crater. Sticky andesite lava now travels further (stiffness 10⁷ Pa·s, within the real range), so its flows build a cone rather than a pillar. Lava calculations are faster (larger minimum time step, still stable).
+
+## M08-C04 — Volcanoes: islands and calderas (volcano milestone complete)
+- New world preset "Volcanic island": a new island is grown by real eruptions from a vent on a 60 m deep sea floor. Under water the magma shatters explosively and builds a cinder cone to the surface; once the vent is above the waves, lava flows cap it — as at Surtsey (1963).
+- The Volcano tool can build a volcanic island anywhere at sea, and has a "Caldera collapse" option: choose its width and drop, click a summit, and the summit falls in as a block along a ring fault, rock layers and all. Rain then gathers in it as a crater lake. Undoable.
+- Cinder cones are now round rather than square-sided (loose material slides to all eight neighbours).
+- Plants return on ash within decades of plant time, but not on bare new lava until weathering has made soil.

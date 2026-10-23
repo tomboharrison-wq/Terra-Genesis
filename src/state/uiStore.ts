@@ -179,7 +179,9 @@ export interface VolcanoSettings {
   kind: 'basalt' | 'andesite';
   style: 'lava' | 'explosive' | 'mixed';
   /** 'eruption' = one vent in real time; otherwise build a whole volcano from many eruptions. */
-  mode: 'eruption' | 'shield' | 'composite';
+  mode: 'eruption' | 'shield' | 'composite' | 'island' | 'caldera';
+  calderaRadiusM: number;
+  calderaDepthM: number;
   episodes: number;
   rateM3PerS: number;
   hours: number;
@@ -227,7 +229,7 @@ let toastId = 0;
 
 export const useUi = create<UiState>((set) => ({
   tool: 'navigate',
-  volcano: { kind: 'basalt', style: 'lava', mode: 'eruption', episodes: 8, rateM3PerS: 50, hours: 6 },
+  volcano: { kind: 'basalt', style: 'lava', mode: 'eruption', episodes: 8, calderaRadiusM: 600, calderaDepthM: 150, rateM3PerS: 50, hours: 6 },
   volcanoBuild: null,
   quake: { type: 'reverse', mw: 7, strikeDeg: 30, landslides: true, shake: true },
   lastQuake: null,

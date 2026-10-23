@@ -83,6 +83,8 @@ export interface LavaVent {
   style?: EruptionStyle;
   /** Tephra erupted but not yet laid down (bulk m³). */
   pendingTephraM3?: number;
+  /** Share of tephra landing near the vent (overrides the plume-height rule, e.g. wet Surtseyan jets). */
+  coarseShare?: number;
 }
 
 export interface LavaParams {
@@ -468,7 +470,7 @@ export class LavaSim {
       v.pendingTephraM3 = 0;
       const H = plumeHeightKm((1 - lavaShare(v.style)) * v.rateM3PerS);
       this.lastPlumeKm = H;
-      const fc = coarseFraction(H);
+      const fc = v.coarseShare ?? coarseFraction(H);
       const L = Math.max(w.cellSizeM, FALL_L_PER_KM * H);
       const e = 1 + w.lava.windSpeedMS / 5;
       const toDeg = (this.windFromDeg + 180) % 360;
