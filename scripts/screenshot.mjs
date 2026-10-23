@@ -649,6 +649,43 @@ check(
   `changed ${changed.join(',')} · offered ${offered.join(',')}`,
 );
 
+// --- Checkpoints (M09-C03): take, change the world, compare (summary + map), restore exactly ---
+await page.click('.topbar button:has-text("Checkpoints")');
+await page.fill('.dialog input[aria-label="Checkpoint name"]', 'before the hill');
+await page.click('.dialog button:has-text("Take checkpoint")');
+await page.waitForTimeout(300);
+const cp0 = await sum();
+await page.click('.dialog [aria-label="Close"]');
+await page.keyboard.press('2'); // raise brush
+await page.mouse.move(700, 470);
+await page.mouse.down();
+for (let k = 0; k < 15; k++) {
+  await page.mouse.move(700 + k * 3, 470 - k, { steps: 1 });
+  await page.waitForTimeout(50);
+}
+await page.mouse.up();
+await page.waitForTimeout(300);
+const cp1 = await sum();
+await page.click('.topbar button:has-text("Checkpoints")');
+await page.click('.dialog button:has-text("Compare")');
+await page.waitForTimeout(300);
+const summary = await page.textContent('.dialog table.summary');
+await page.click('.dialog button:has-text("Map ground change")');
+await page.waitForTimeout(1200);
+await shot('44-checkpoint-change');
+const legendOk = (await page.textContent('.timebar .legend').catch(() => '')).includes('higher');
+await page.click('.topbar button:has-text("Checkpoints")');
+await page.click('.dialog button:has-text("Restore")');
+await page.waitForTimeout(800);
+const cp2 = await sum();
+await page.click('.dialog [aria-label="Close"]');
+await page.selectOption('.timebar select.overlay-select', 'none').catch(() => {});
+check(
+  'checkpoint: compare summarises and maps the change; restore returns the exact world',
+  cp1 > cp0 + 1 && /Ground raised/.test(summary ?? '') && legendOk && cp2 === cp0,
+  `Δ=${(cp1 - cp0).toFixed(1)} restoredΔ=${(cp2 - cp0).toFixed(4)} legend=${legendOk}`,
+);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

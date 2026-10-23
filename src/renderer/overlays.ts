@@ -30,7 +30,11 @@ export type OverlayId =
   | 'waves'
   | 'plates'
   | 'shaking'
-  | 'compare';
+  | 'compare'
+  | 'cp-ground'
+  | 'cp-water'
+  | 'cp-plants'
+  | 'cp-ice';
 
 /** What an overlay needs to read (the Engine satisfies it). */
 export interface OverlaySource {
@@ -41,6 +45,8 @@ export interface OverlaySource {
   coast: { exposure: Float32Array };
   lastQuake: { shaking: Float32Array } | null;
   compareResult: { coverDiff: Float32Array } | null;
+  /** Checkpoint chosen for the 'since checkpoint' difference overlays. */
+  compareCheckpoint: { label: string; surface: Float32Array; world: WorldState } | null;
 }
 
 export type Legend =
@@ -50,7 +56,7 @@ export type Legend =
 export interface OverlayDef {
   id: OverlayId;
   label: string;
-  group: 'Terrain' | 'Water' | 'Climate' | 'Ice & life' | 'Volcanic' | 'Earth' | 'Coast' | 'What if?';
+  group: 'Terrain' | 'Water' | 'Climate' | 'Ice & life' | 'Volcanic' | 'Earth' | 'Coast' | 'What if?' | 'Since checkpoint';
   /** True when the backing field has data. */
   available(s: OverlaySource): boolean;
   /** Inspector text for cell i (real value and unit), or null where the field has no value. */
@@ -409,6 +415,79 @@ export const OVERLAYS: OverlayDef[] = [
     legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)', labels: ['fewer plants', 'same', 'more plants'] }),
   },
 ];
+
+// ---------- differences since a checkpoint (diverging: two hues about a neutral grey) ----------
+
+const NEUTRAL = lin('#9aa0a0');
+/** Diverging colour for a signed change d with |d| below lo neutral, log scale lo … hi. */
+function diverging(neg: string, pos: string, lo: number, hi: number) {
+  const n = lin(neg);
+  const p = lin(pos);
+  return (d: number, out: Float32Array, o: number) => {
+    const t = Math.abs(d) < lo ? 0 : 0.3 + 0.7 * logT(Math.abs(d), lo, hi);
+    const c = d < 0 ? n : p;
+    for (let k = 0; k < 3; k++) out[o + k] = NEUTRAL[k] + (c[k] - NEUTRAL[k]) * Math.min(1, t);
+  };
+}
+const groundDiff = diverging('#ed3f23', '#006ddf', 0.05, 10);
+const waterDiff = diverging('#a0522d', '#006ddf', 0.01, 10);
+const plantDiff = diverging('#a0522d', '#25b755', 0.02, 1);
+const iceDiff = diverging('#ff912a', '#2a5fa8', 0.5, 100);
+const signed = (v: number, f: (x: number) => string) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${f(Math.abs(v))}`;
+const since = (s: OverlaySource) => (s.compareCheckpoint ? ` since “${s.compareCheckpoint.label}”` : '');
+
+OVERLAYS.push(
+  {
+    id: 'cp-ground',
+    label: 'Ground change since checkpoint',
+    group: 'Since checkpoint',
+    available: (s) => s.compareCheckpoint !== null,
+    describe: (s, i) => {
+      if (!s.compareCheckpoint) return null;
+      const dz = s.surface[i] - s.compareCheckpoint.surface[i];
+      return Math.abs(dz) < 0.05 ? `no change (within 5 cm)${since(s)}` : `${signed(dz, fmtM)}${since(s)}`;
+    },
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #ed3f23, #f4a08f, #9aa0a0, #8fb8ef, #006ddf)',
+      labels: ['−10 m lower', '±5 cm', '+10 m higher'],
+    }),
+    colour: (s, i, _d, out, o) => groundDiff(s.compareCheckpoint ? s.surface[i] - s.compareCheckpoint.surface[i] : 0, out, o),
+  },
+  {
+    id: 'cp-water',
+    label: 'Water change since checkpoint',
+    group: 'Since checkpoint',
+    available: (s) => s.compareCheckpoint !== null,
+    describe: (s, i) =>
+      s.compareCheckpoint
+        ? `${signed(s.world.waterDepthM[i] - s.compareCheckpoint.world.waterDepthM[i], (x) => (x < 1 ? `${Math.round(x * 100)} cm` : fmtM(x)))} water${since(s)}`
+        : null,
+    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #006ddf)', labels: ['−10 m drier', '±1 cm', '+10 m wetter'] }),
+    colour: (s, i, _d, out, o) => waterDiff(s.compareCheckpoint ? s.world.waterDepthM[i] - s.compareCheckpoint.world.waterDepthM[i] : 0, out, o),
+  },
+  {
+    id: 'cp-plants',
+    label: 'Plant change since checkpoint',
+    group: 'Since checkpoint',
+    available: (s) => s.compareCheckpoint !== null && (any(s.world.vegCover, 0.01) || any(s.compareCheckpoint.world.vegCover, 0.01)),
+    describe: (s, i) =>
+      s.compareCheckpoint
+        ? `${signed(100 * (s.world.vegCover[i] - s.compareCheckpoint.world.vegCover[i]), (x) => `${Math.round(x)}%`)} plant cover${since(s)}`
+        : null,
+    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)', labels: ['fewer plants', 'same', 'more plants'] }),
+    colour: (s, i, _d, out, o) => plantDiff(s.compareCheckpoint ? s.world.vegCover[i] - s.compareCheckpoint.world.vegCover[i] : 0, out, o),
+  },
+  {
+    id: 'cp-ice',
+    label: 'Ice change since checkpoint',
+    group: 'Since checkpoint',
+    available: (s) => s.compareCheckpoint !== null && (any(s.world.iceThicknessM, 0.5) || any(s.compareCheckpoint.world.iceThicknessM, 0.5)),
+    describe: (s, i) => (s.compareCheckpoint ? `${signed(s.world.iceThicknessM[i] - s.compareCheckpoint.world.iceThicknessM[i], fmtM)} ice${since(s)}` : null),
+    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #ff912a, #9aa0a0, #2a5fa8)', labels: ['−100 m melted', '±0.5 m', '+100 m grown'] }),
+    colour: (s, i, _d, out, o) => iceDiff(s.compareCheckpoint ? s.world.iceThicknessM[i] - s.compareCheckpoint.world.iceThicknessM[i] : 0, out, o),
+  },
+);
 
 export function overlayById(id: OverlayId): OverlayDef | undefined {
   return OVERLAYS.find((o) => o.id === id);

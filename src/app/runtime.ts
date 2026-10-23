@@ -230,7 +230,7 @@ function scheduleAutosave() {
 
 engine.on((e) => {
   if (e.type === 'world-replaced') {
-    useUi.getState().set({ pins: [], profile: null, profileStart: null }); // positions belong to the old world
+    if (!e.keepCamera) useUi.getState().set({ pins: [], profile: null, profileStart: null }); // positions belong to the old world
     const ov = overlayById(useUi.getState().terrainOverlay);
     if (ov && !ov.available(engine)) useUi.getState().set({ terrainOverlay: 'none' }); // no data for it in this world
     syncWorldInfo();

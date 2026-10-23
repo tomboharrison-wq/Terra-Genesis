@@ -1,4 +1,5 @@
-import { computeSurface, type WorldState } from './world';
+import { cloneWorld, computeSurface, type WorldState } from './world';
+import { makeCheckpoint, MAX_CHECKPOINTS, type Checkpoint } from './checkpoints';
 import type { HeightfieldView } from '../terrain/heightfield';
 import { sampleBilinear } from '../terrain/heightfield';
 import { applyBrush, type BrushParams } from '../tools/brush';
@@ -32,7 +33,7 @@ export interface VolcanoBuild {
 }
 
 export type EngineEvent =
-  | { type: 'world-replaced' }
+  | { type: 'world-replaced'; keepCamera?: boolean }
   | { type: 'terrain-changed'; rect: CellRect }
   | { type: 'history-changed' }
   | { type: 'water-params-changed' }
@@ -111,6 +112,7 @@ export class Engine {
     this.referenceSurface = this.surface.slice();
     this.compareResult = null;
     this.lastQuake = null;
+    if (this.compareCheckpoint && !this.sameWorld(this.compareCheckpoint)) this.compareCheckpoint = null;
     const water = this.water;
     const sediment = this.sediment;
     this.cpuStepper = {
@@ -613,16 +615,71 @@ export class Engine {
     return { width: w.width, height: w.height, cellSizeM: w.cellSizeM, z: this.surface };
   }
 
-  replaceWorld(world: WorldState): void {
+  replaceWorld(world: WorldState, keepCamera = false): void {
     this.stroke = null;
     const gl = this.gpuContext;
     this.detachGpu();
     this.gpuContext = gl;
     this.setWorld(world);
     this.history.clear();
-    this.emit({ type: 'world-replaced' });
+    this.emit({ type: 'world-replaced', keepCamera });
     this.emit({ type: 'history-changed' });
     this.emit({ type: 'sim-state-changed' });
+  }
+
+  // ---------- checkpoints (spec F3) ----------
+
+  /** In-memory snapshots of the whole world (this session only). */
+  checkpoints: Checkpoint[] = [];
+  /** Checkpoint the difference overlays compare against, or null. */
+  compareCheckpoint: Checkpoint | null = null;
+  private nextCheckpointId = 1;
+
+  /** Snapshot the world now. The oldest is dropped beyond MAX_CHECKPOINTS. */
+  takeCheckpoint(label: string): Checkpoint {
+    this.syncWater();
+    const cp = makeCheckpoint(this.world, this.nextCheckpointId++, label);
+    this.checkpoints.push(cp);
+    while (this.checkpoints.length > MAX_CHECKPOINTS) {
+      const old = this.checkpoints.shift()!;
+      if (this.compareCheckpoint === old) this.compareCheckpoint = null;
+    }
+    this.emit({ type: 'climate-changed' }); // overlay menu / panels refresh
+    return cp;
+  }
+
+  /** Put the world back exactly as it was at the checkpoint (time included). Keeps the camera. */
+  restoreCheckpoint(id: number): boolean {
+    const cp = this.checkpoints.find((c) => c.id === id);
+    if (!cp) return false;
+    const playing = this.clock.playing;
+    const speed = this.clock.speed;
+    this.replaceWorld(cloneWorld(cp.world), true);
+    this.clock.speed = speed;
+    if (playing) this.setPlaying(true);
+    return true;
+  }
+
+  /** A checkpoint of this world (same map, same creation) — the only kind a difference makes sense for. */
+  sameWorld(cp: Checkpoint): boolean {
+    const w = this.world;
+    return (
+      cp.world.width === w.width && cp.world.height === w.height && cp.world.cellSizeM === w.cellSizeM && cp.world.meta.createdAtIso === w.meta.createdAtIso
+    );
+  }
+
+  deleteCheckpoint(id: number): void {
+    this.checkpoints = this.checkpoints.filter((c) => c.id !== id);
+    if (this.compareCheckpoint?.id === id) this.compareCheckpoint = null;
+    this.emit({ type: 'climate-changed' });
+  }
+
+  /** Choose the checkpoint for the difference overlays (null = none). */
+  compareWith(id: number | null): void {
+    this.syncWater();
+    const cp = id === null ? null : (this.checkpoints.find((c) => c.id === id) ?? null);
+    this.compareCheckpoint = cp && this.sameWorld(cp) ? cp : null;
+    this.emit({ type: 'climate-changed' });
   }
 
   sampleSurface(xM: number, yM: number): number {

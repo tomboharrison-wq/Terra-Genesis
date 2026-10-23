@@ -52,6 +52,9 @@ export function TopBar() {
         <button onClick={() => set({ dialog: 'load' })} title="Load a saved world">
           <Icon name="load" /> Load
         </button>
+        <button onClick={() => set({ dialog: 'checkpoints' })} title="Snapshots of this session: restore exactly, or map what changed since">
+          <Icon name="checkpoint" /> Checkpoints
+        </button>
         <span className="sep" />
         <button onClick={() => void exportWorldFile()} title="Download world as a .tgw file">
           <Icon name="export" /> Export
@@ -71,10 +74,22 @@ export function TopBar() {
           }}
         />
         <span className="sep" />
-        <button className="icon" disabled={!canUndo} onClick={() => engine.undo()} title={canUndo ? `Undo ${undoLabel} (⌘Z)` : 'Nothing to undo'} aria-label="Undo">
+        <button
+          className="icon"
+          disabled={!canUndo}
+          onClick={() => engine.undo()}
+          title={canUndo ? `Undo ${undoLabel} (⌘Z)` : 'Nothing to undo'}
+          aria-label="Undo"
+        >
           <Icon name="undo" />
         </button>
-        <button className="icon" disabled={!canRedo} onClick={() => engine.redo()} title={canRedo ? `Redo ${redoLabel} (⇧⌘Z)` : 'Nothing to redo'} aria-label="Redo">
+        <button
+          className="icon"
+          disabled={!canRedo}
+          onClick={() => engine.redo()}
+          title={canRedo ? `Redo ${redoLabel} (⇧⌘Z)` : 'Nothing to redo'}
+          aria-label="Redo"
+        >
           <Icon name="redo" />
         </button>
         <span className="sep" />

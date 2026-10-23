@@ -262,7 +262,7 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds';
+  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;

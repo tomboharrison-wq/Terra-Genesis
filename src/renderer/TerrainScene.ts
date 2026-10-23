@@ -120,6 +120,7 @@ export class TerrainScene {
   /** Derived data for the current overlay (flow accumulation, elevation range), refreshed ≤ 1 Hz. */
   private overlayData: OverlayData | null = null;
   private overlayTimer = 0;
+  private overlayWaterRev = -1;
   /** Derived data of the current generic overlay (for the inspector), or null. */
   get currentOverlayData(): OverlayData | null {
     return this.overlayData;
@@ -222,7 +223,7 @@ export class TerrainScene {
     this.unsub = engine.on((e) => {
       if (e.type === 'world-replaced') {
         if (this.overlayData) this.overlayData = prepareOverlay(this.terrainOverlay, this.engine);
-        this.buildWorld(true);
+        this.buildWorld(!e.keepCamera);
       }
       if (e.type === 'sea-level-changed') this.applySeaLevel();
       if (e.type === 'water-params-changed' || e.type === 'climate-changed') this.updatePlateArrows();
@@ -232,7 +233,8 @@ export class TerrainScene {
           this.terrainOverlay === 'rainfall' ||
           this.terrainOverlay === 'compare' ||
           this.terrainOverlay === 'plates' ||
-          this.terrainOverlay === 'shaking')
+          this.terrainOverlay === 'shaking' ||
+          this.terrainOverlay.startsWith('cp-'))
       ) {
         const w = engine.world;
         this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
@@ -722,7 +724,9 @@ export class TerrainScene {
     if (simDone > 0) this.onSim?.();
     let dirty = this.engine.takeDirty();
     this.overlayTimer += dt;
-    if (dirty && this.overlayData && this.overlayTimer > 1) {
+    const waterMoved = this.terrainOverlay === 'cp-water' && this.engine.waterRevision !== this.overlayWaterRev;
+    if ((dirty || waterMoved) && this.overlayData && this.overlayTimer > 1) {
+      this.overlayWaterRev = this.engine.waterRevision;
       // Derived overlay fields (upstream area, elevation range) change with the terrain: refresh, redraw all.
       this.overlayTimer = 0;
       this.overlayData = prepareOverlay(this.terrainOverlay, this.engine);

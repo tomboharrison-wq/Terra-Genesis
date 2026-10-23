@@ -297,3 +297,11 @@ fieldset.plain:disabled { opacity: 0.45; }
 /* Map overlay picker (M09-C02) */
 .timebar select.overlay-select { max-width: 190px; }
 .overlay-reading b { color: var(--scouts-yellow); }
+
+/* Checkpoints (M09-C03) */
+.row.wrap { flex-wrap: wrap; }
+.row .grow { flex: 1; min-width: 0; }
+table.checkpoints td.actions { white-space: nowrap; }
+table.checkpoints td.actions button { margin-left: 4px; }
+table.checkpoints tr.selected td { background: rgba(255, 230, 39, 0.08); }
+table.summary td:last-child { font-weight: 600; }

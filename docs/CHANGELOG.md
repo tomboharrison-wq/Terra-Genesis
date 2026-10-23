@@ -145,3 +145,8 @@
 - One "Map overlay" menu in the time bar replaces the separate Change-map button. It lists only overlays that have real data in this world, grouped: Terrain (elevation, slope, aspect, geology), Water (flow accumulation, erosion/deposition), Climate (temperature, rainfall), Ice & life (ice thickness, plant cover), Volcanic (ash depth), Earth (plates, earthquake shaking), Coast (wave attack), What if? (plant difference).
 - Every overlay has a legend in real units, and the inspector line shows its value under the cursor (e.g. "3,600 m² drains through here", "faces SE (118°)", "20 cm of ash").
 - New: elevation colours land by height and the sea by depth; flow accumulation shows how much land drains through each point (rivers stand out); aspect colours slopes by the way they face (ground under 0.5° counts as flat). Aspect colours pass the colour-blind safety checks.
+
+## M09-C03 — Checkpoints and before/after
+- New Checkpoints button (top bar): take named snapshots of the whole world, restore any of them exactly (the world goes back, it is never run backwards; the camera stays put), and compare now with a snapshot.
+- Comparing shows a summary in real units — time passed, ground lowered and raised (m³), area changed, biggest drop and rise, change in standing water, ice and plant-covered area — and maps the change: four new "Since checkpoint" overlays (ground, water, plants, ice) with legends and inspector readings.
+- Checkpoints last for the session (up to six; memory use is shown). Use Save to keep a world.

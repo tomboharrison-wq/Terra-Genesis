@@ -26,6 +26,7 @@ const P: Record<string, string> = {
   undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3',
   save: 'M5 3h11l4 4v14H4V3zM8 3v5h8V3M8 21v-7h8v7',
+  checkpoint: 'M5 3h14v18l-7-4-7 4zM9 9l2 2 4-4',
   load: 'M3 7h6l2 2h10v11H3zM12 12v6M9 15l3 3 3-3',
   export: 'M12 3v12M8 7l4-4 4 4M4 15v6h16v-6',
   import: 'M12 15V3M8 11l4 4 4-4M4 15v6h16v-6',

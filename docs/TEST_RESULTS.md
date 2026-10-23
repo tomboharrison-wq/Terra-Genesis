@@ -1,5 +1,8 @@
 # Test results (latest first)
 
+## 2026-10-23 M09-C03
+- npm test PASS 220 (+ checkpoints: restore after 30 min more rain + erosion + a landslide + plant change gives back bedrock, soil, water, fluxes, suspended load, strata, plants, ash, lava and sim time exactly; the checkpoint is a deep copy; diff summary equals cell sums (−2 m × 100 cells, +0.5 m × 60, water, plants) and the ground overlay reads −2.0 m; different-world checkpoints cannot be compared but can be restored; cap of 6 drops the oldest and its comparison; delete ends a comparison)
+
 ## 2026-10-23 M09-C02
 - npm test PASS 217 (+ overlays: D8 on an east-tilted plane gives (x+1)·A per row; a V-valley gathers W·H·A at its mouth; sea cells pass nothing on; aspect sectors and facing (rises east → faces W 270°); flat → null; only data-backed overlays offered (no ice / plants / ash / climate / quake / compare / plates / waves on a bare world; offered once data exist); every generic colour in 0…1; inspector texts with units)
 - dataviz validator: first aspect palette FAILED (CVD ΔE 1.4 deutan, normal-vision 13.3) → replaced by the validated 8-slot order (all checks pass; contrast WARN relieved by labelled legend + inspector).

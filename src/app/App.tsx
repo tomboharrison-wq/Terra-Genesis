@@ -7,6 +7,7 @@ import { StatusBar } from './StatusBar';
 import { NewWorldDialog } from './NewWorldDialog';
 import { LoadDialog } from './LoadDialog';
 import { HelpDialog } from './HelpDialog';
+import { CheckpointsDialog } from './CheckpointsDialog';
 import { Toasts } from './Toasts';
 import { TimeBar } from './TimeBar';
 import { SlumpLab } from './SlumpLab';
@@ -46,6 +47,7 @@ export function App() {
       {dialog === 'shore' && <ShorelineLab />}
       {dialog === 'subduction' && <SubductionLab />}
       {dialog === 'folds' && <FoldLab />}
+      {dialog === 'checkpoints' && <CheckpointsDialog />}
     </div>
   );
 }
