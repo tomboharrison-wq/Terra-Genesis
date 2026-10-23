@@ -1,15 +1,13 @@
 # One next executable task
-ID: M09-C02
-Goal: Scientific overlay maps with proper legends and units (spec F4: "Maps and legends with units: elevation,
-slope, aspect, watershed/flow accumulation, water depth and velocity, sediment concentration, erosion vs
-deposition, geology, rainfall, temperature, soil moisture, ice, vegetation and deformation. Only enable when
-backing data exists."). Audit existing overlays (TerrainScene terrainOverlay: change, waves, temperature, rainfall,
-compare, plates, shaking; water views depth/speed) and add the missing ones that have backing data: elevation
-(hypsometric, sea-aware), slope (°), aspect (8 compass sectors, cyclic palette), flow accumulation (D8 upstream
-area, log scale), geology (exposed rock), ice thickness, plant cover, ash depth. One overlay menu with grouped
-entries; each with a legend (units, scale, colour ramp from validated palettes) and an inspector line for the
-overlay value at the cursor. Overlays absent where there is no data (e.g. ice when none).
-Read only: TerrainScene overlay code + TimeBar legends, renderer/palette.ts, dataviz palette rules.
-Acceptance: unit tests for flow accumulation (D8 on a known surface), aspect sectors, legend ranges;
-e2e switches each overlay and checks pixels change; no overlay shown without data.
+ID: M09-C03
+Goal: Checkpoints, before/after comparison and differential maps (spec F3: "Save snapshots … physical history
+is restored via snapshots, not by integrating time backwards … side-by-side comparison / height-difference
+overlays"). Named in-memory checkpoints (world clone + time + label, a few, with memory estimate shown);
+restore a checkpoint (replaceWorld, keeps camera); "compare with checkpoint": difference overlay of ground
+(erosion/deposition), water depth, plants, ice between now and a chosen checkpoint, with legend and inspector,
+plus a summary table (volumes moved, area changed, max change). Optional side-by-side split view is planned only
+if cheap. Persist checkpoints in IndexedDB slots? (decide; label clearly if session-only).
+Read only: engine replaceWorld/setReference/referenceSurface, persistence/idb, renderer/overlays.ts, cloneWorld.
+Acceptance: restore gives identical arrays to the checkpoint; difference volumes equal sums of cell
+differences; e2e: checkpoint, sculpt/erode, compare shows change, restore returns exact checksum.
 Done when: tests/typecheck/build/e2e pass, committed + pushed.

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
+import { overlayById } from '../renderer/overlays';
 import { attachScene, engine, getScene, runVolcanoBuild, syncSim } from './runtime';
 import { MAX_PINS, useUi, isBrushTool, type HoverInfo } from '../state/uiStore';
 import type { BrushParams } from '../tools/brush';
@@ -20,6 +21,14 @@ function ringRadius(): number | null {
   if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'measure' || s.tool === 'earthquake' || s.tool === 'volcano')
     return (s.world?.cellSizeM ?? 10) * 2;
   return null;
+}
+
+/** The active map overlay's own reading at cell i (real value + unit), if any. */
+function overlayAt(i: number): { overlay?: { label: string; text: string } } {
+  const def = overlayById(useUi.getState().terrainOverlay);
+  if (!def) return {};
+  const text = def.describe(engine, i, getScene()?.currentOverlayData ?? { zMin: 0, zMax: 0 });
+  return text === null ? {} : { overlay: { label: def.label, text } };
 }
 
 function hoverFrom(xM: number, yM: number): HoverInfo {
@@ -46,6 +55,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     ...(w.vegCover[i] > 0.005 ? { vegPct: 100 * w.vegCover[i] } : {}),
     ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
+    ...overlayAt(i),
   };
 }
 

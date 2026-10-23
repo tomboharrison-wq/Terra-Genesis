@@ -2,6 +2,7 @@ import { useUi } from '../state/uiStore';
 import { engine, syncSim } from './runtime';
 import { Icon } from './icons';
 import type { WaterView } from '../renderer/waterLayer';
+import { OVERLAYS, overlayById, type Legend, type OverlayDef } from '../renderer/overlays';
 
 export const SPEEDS = [
   { v: 60, label: '1 min / s' },
@@ -38,13 +39,17 @@ const VIEWS: { v: WaterView; label: string }[] = [
 export function TimeBar() {
   const sim = useUi((s) => s.sim);
   const view = useUi((s) => s.waterView);
-  const terrainOverlay = useUi((s) => s.terrainOverlay);
   const set = useUi((s) => s.set);
   if (!sim) return null;
   const slow = sim.playing && sim.achievedSpeed < sim.speed * 0.8;
   return (
     <div className="timebar" role="toolbar" aria-label="Simulation time">
-      <button className={`play ${sim.playing ? 'on' : ''}`} onClick={() => engine.setPlaying(!sim.playing)} title={sim.playing ? 'Pause (P)' : 'Run simulation (P)'} aria-label={sim.playing ? 'Pause' : 'Play'}>
+      <button
+        className={`play ${sim.playing ? 'on' : ''}`}
+        onClick={() => engine.setPlaying(!sim.playing)}
+        title={sim.playing ? 'Pause (P)' : 'Run simulation (P)'}
+        aria-label={sim.playing ? 'Pause' : 'Play'}
+      >
         <Icon name={sim.playing ? 'pause' : 'play'} />
       </button>
       <button
@@ -74,7 +79,14 @@ export function TimeBar() {
           {fmtRate(sim.achievedSpeed)}
         </span>
       )}
-      <span className={`badge ${sim.backend}`} title={sim.backend === 'gpu' ? 'Water solver running on the graphics card (WebGL2)' : 'Water solver running on the CPU (no WebGL2 float render targets) — slower'}>
+      <span
+        className={`badge ${sim.backend}`}
+        title={
+          sim.backend === 'gpu'
+            ? 'Water solver running on the graphics card (WebGL2)'
+            : 'Water solver running on the CPU (no WebGL2 float render targets) — slower'
+        }
+      >
         {sim.backend.toUpperCase()}
       </span>
       <span className="sep" />
@@ -85,64 +97,7 @@ export function TimeBar() {
           </button>
         ))}
       </div>
-      <button className={`small ${terrainOverlay === 'change' ? 'active-toggle' : ''}`} onClick={() => set({ terrainOverlay: terrainOverlay === 'change' ? 'none' : 'change' })} title="Colour terrain by erosion (red) / deposition (blue) since the reference">
-        Change map
-      </button>
-      {terrainOverlay === 'change' && (
-        <div className="legend" aria-label="Elevation change legend">
-          <i className="ramp change" />
-          <span>−10 m</span>
-          <span>±5 cm</span>
-          <span>+10 m</span>
-        </div>
-      )}
-      {terrainOverlay === 'shaking' && (
-        <div className="legend" aria-label="Shaking intensity legend">
-          <i className="ramp waves" />
-          <span>III felt</span>
-          <span>VI</span>
-          <span>X violent</span>
-        </div>
-      )}
-      {terrainOverlay === 'plates' && (
-        <div className="legend swatches" aria-label="Plate boundary legend">
-          <span><i style={{ background: '#ed3f23' }} />colliding</span>
-          <span><i style={{ background: '#006ddf' }} />pulling apart</span>
-          <span><i style={{ background: '#ffe627' }} />sliding past</span>
-        </div>
-      )}
-      {terrainOverlay === 'compare' && (
-        <div className="legend" aria-label="What-if plant cover difference legend">
-          <i className="ramp compare" />
-          <span>fewer plants</span>
-          <span>same</span>
-          <span>more plants</span>
-        </div>
-      )}
-      {terrainOverlay === 'temperature' && (
-        <div className="legend" aria-label="Temperature legend">
-          <i className="ramp temperature" />
-          <span>−20 °C</span>
-          <span>0</span>
-          <span>+30 °C</span>
-        </div>
-      )}
-      {terrainOverlay === 'rainfall' && (
-        <div className="legend" aria-label="Rainfall legend">
-          <i className="ramp rainfall" />
-          <span>none</span>
-          <span>1.5× mean</span>
-          <span>3× mean</span>
-        </div>
-      )}
-      {terrainOverlay === 'waves' && (
-        <div className="legend" aria-label="Wave attack legend">
-          <i className="ramp waves" />
-          <span>low</span>
-          <span>15</span>
-          <span>≥30 kW/m</span>
-        </div>
-      )}
+      <OverlayMenu />
       {view === 'depth' && (
         <div className="legend" aria-label="Water depth legend">
           <i className="ramp depth" />
@@ -160,5 +115,63 @@ export function TimeBar() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Legend for an overlay: colour ramp with three labels, or swatches (categories). */
+export function OverlayLegend({ legend, title }: { legend: Legend; title: string }) {
+  if (legend.kind === 'swatches')
+    return (
+      <div className="legend swatches" aria-label={`${title} legend`}>
+        {legend.items.map((it) => (
+          <span key={it.label}>
+            <i style={{ background: it.colour }} />
+            {it.label}
+          </span>
+        ))}
+      </div>
+    );
+  return (
+    <div className="legend" aria-label={`${title} legend`}>
+      <i className="ramp" style={{ background: legend.css }} />
+      {legend.labels.map((l, k) => (
+        <span key={k}>{l}</span>
+      ))}
+    </div>
+  );
+}
+
+/** Map overlay picker (spec F4): only overlays whose data exists are offered, grouped, each with its legend. */
+function OverlayMenu() {
+  const id = useUi((s) => s.terrainOverlay);
+  const sim = useUi((s) => s.sim);
+  const set = useUi((s) => s.set);
+  const available = OVERLAYS.filter((o) => o.available(engine));
+  const groups = [...new Set(available.map((o) => o.group))];
+  const def: OverlayDef | undefined = overlayById(id);
+  return (
+    <>
+      <select
+        className="overlay-select"
+        value={id}
+        onChange={(e) => set({ terrainOverlay: e.target.value as typeof id })}
+        aria-label="Map overlay"
+        title="Colour the map by a measured quantity"
+      >
+        <option value="none">Map overlay: none</option>
+        {groups.map((g) => (
+          <optgroup key={g} label={g}>
+            {available
+              .filter((o) => o.group === g)
+              .map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+          </optgroup>
+        ))}
+      </select>
+      {def && sim && <OverlayLegend legend={def.legend(engine, { zMin: sim.zMin, zMax: sim.zMax })} title={def.label} />}
+    </>
   );
 }

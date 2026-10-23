@@ -203,10 +203,10 @@ const er = await eng(() => {
 });
 check('erosion runs on GPU and moves sediment to the sea', er.eroded > 1000 && er.sea > 0, `eroded=${er.eroded.toFixed(0)} m³ seaDeposited=${er.sea.toFixed(0)} m³`);
 check('sediment budget closes in browser', er.closure < 1e-3, `closure=${er.closure.toExponential(2)}`);
-await page.click('.timebar button:has-text("Change map")');
+await page.selectOption('.timebar select.overlay-select', 'change');
 await page.waitForTimeout(800);
 await shot('13-erosion-change-map');
-await page.click('.timebar button:has-text("Change map")');
+await page.selectOption('.timebar select.overlay-select', 'none');
 await page.keyboard.press('Control+s');
 await page.waitForTimeout(3500);
 const bedSum = () => eng(() => { const w = window.__terraGenesis.engine.world; let a = 0; for (let i = 0; i < w.bedrockElevationM.length; i++) a += w.bedrockElevationM[i] + w.looseSedimentThicknessM[i] + w.sedimentSuspendedM[i]; return a; });
@@ -620,6 +620,33 @@ check(
   'measure pins show real cell values and the pair distance; transect CSV downloads',
   ms.n === 2 && mp.includes(fmtD(ms.d)) && mp.includes(`${ms.zA.toFixed(1)} m`) && csvRows.length === 161 && csvRows[0].startsWith('distance_m,'),
   `pins ${ms.n} d=${fmtD(ms.d)} zA=${ms.zA?.toFixed(1)} csv ${csvRows.length} rows`,
+);
+
+// --- Map overlays (M09-C02): every offered overlay recolours the map and shows a legend; none without data ---
+await page.keyboard.press('1');
+await page.selectOption('.timebar select.overlay-select', 'none');
+await page.waitForTimeout(800);
+const ovClip = { x: 300, y: 200, width: 600, height: 400 };
+const ovBase = await page.screenshot({ clip: ovClip });
+const offered = await page.$$eval('.timebar select.overlay-select option', (o) => o.map((x) => x.value).filter((v) => v !== 'none'));
+const changed = [];
+for (const id of ['elevation', 'slope', 'aspect', 'flow', 'geology'].filter((v) => offered.includes(v))) {
+  await page.selectOption('.timebar select.overlay-select', id);
+  await page.waitForTimeout(900);
+  const img = await page.screenshot({ clip: ovClip });
+  const legend = await page.$('.timebar .legend');
+  if (!img.equals(ovBase) && legend) changed.push(id);
+  if (id === 'flow') await shot('43-overlay-flow');
+}
+await page.mouse.move(700, 480);
+await page.waitForTimeout(600);
+const ovText = await page.textContent('.inspect').catch(() => '');
+await page.selectOption('.timebar select.overlay-select', 'none');
+const noIce = await page.evaluate(() => Math.max(...window.__terraGenesis.engine.world.iceThicknessM) === 0);
+check(
+  'map overlays recolour the terrain with legends; overlays without data are not offered',
+  changed.length === 5 && noIce && !offered.includes('ice') && /Geology/.test(ovText ?? ''),
+  `changed ${changed.join(',')} · offered ${offered.join(',')}`,
 );
 
 const fps = await page.textContent('.perf');

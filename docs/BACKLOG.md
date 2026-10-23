@@ -2,7 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
-| M09-C02 | Scientific overlay maps with proper legends/units (elevation, slope, aspect, flow accumulation, water depth/speed, erosion/deposition, geology…) | READY |
+| M09-C03 | Checkpoints, before/after comparison and differential maps | READY |
+| M09-C02 | Overlay menu (data-gated) + legends + inspector reading: elevation, slope, aspect, D8 flow accumulation, geology, ice, plants, ash (+ existing change/climate/waves/plates/shaking/compare) | DONE |
 | M09-C01 | Measure tool (pins A–F: real cell values, distance/bearing/rise/gradient), transect layers (rock/soil/ice/lava/water), VE label, CSV export | DONE |
 | M08-C04 | Volcanic island preset (Surtseyan explosive → lava cap), caldera piston collapse (undoable), crater lake, plants on ash not bare lava | DONE |
 | M08-C03 | Volcano builds: repeated eruptions (shield = basalt lava; composite = andesite explosive/lava alternating), crater ring, rest years compressed, undoable | DONE |

@@ -12,7 +12,10 @@ export function StatusBar() {
         {hover ? (
           <>
             <span title="Position east, north (m) and cell index">
-              x {Math.round(hover.xM)} m · y {Math.round(hover.yM)} m <em>[{hover.cellX}, {hover.cellY}]</em>
+              x {Math.round(hover.xM)} m · y {Math.round(hover.yM)} m{' '}
+              <em>
+                [{hover.cellX}, {hover.cellY}]
+              </em>
             </span>
             <span title="Surface = bedrock + loose sediment">
               <b>Surface</b> {f1(hover.surfaceM)} m
@@ -65,7 +68,15 @@ export function StatusBar() {
               </span>
             ) : (
               <span title="Simulated surface water depth and depth-averaged speed">
-                <b>Water</b> {hover.waterDepthM < 0.001 ? 'dry' : `${hover.waterDepthM < 1 ? (hover.waterDepthM * 100).toFixed(1) + ' cm' : hover.waterDepthM.toFixed(2) + ' m'} · ${hover.waterSpeedMS.toFixed(2)} m/s`}
+                <b>Water</b>{' '}
+                {hover.waterDepthM < 0.001
+                  ? 'dry'
+                  : `${hover.waterDepthM < 1 ? (hover.waterDepthM * 100).toFixed(1) + ' cm' : hover.waterDepthM.toFixed(2) + ' m'} · ${hover.waterSpeedMS.toFixed(2)} m/s`}
+              </span>
+            )}
+            {hover.overlay && (
+              <span className="overlay-reading" title="Value of the map overlay at this point">
+                <b>{hover.overlay.label}</b> {hover.overlay.text}
               </span>
             )}
           </>

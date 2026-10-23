@@ -182,6 +182,8 @@ export interface HoverInfo {
   vegPct?: number;
   rainHereMmH?: number;
   isSea: boolean;
+  /** Value of the active map overlay at the cursor. */
+  overlay?: { label: string; text: string };
 }
 
 export interface WorldInfo {

@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-23 M09-C02
+- npm test PASS 217 (+ overlays: D8 on an east-tilted plane gives (x+1)·A per row; a V-valley gathers W·H·A at its mouth; sea cells pass nothing on; aspect sectors and facing (rises east → faces W 270°); flat → null; only data-backed overlays offered (no ice / plants / ash / climate / quake / compare / plates / waves on a bare world; offered once data exist); every generic colour in 0…1; inspector texts with units)
+- dataviz validator: first aspect palette FAILED (CVD ΔE 1.4 deutan, normal-vision 13.3) → replaced by the validated 8-slot order (all checks pass; contrast WARN relieved by labelled legend + inspector).
+- Browser: aspect noise on alluvial flats (0.1° gradients) removed by a 0.5° flat threshold.
+
 ## 2026-10-23 M09-C01
 - npm test PASS 214 (+ measure: pinned reading equals world arrays at the nearest cell (elevation, bedrock, soil, slope = atan 0.1, aspect 270° W, rock, water, plants, ash, rain, ice, lava; temperature null with climate off); pin pair 300 m E / 400 m N → 500 m, bearing 36.87°, rise 30 m, 6 %; transect samples equal bilinear surface, soil = 0.5 m, CSV header + 41 rows round-trip)
 - Browser: two pins on River basin read 196.5 / 298.0 m; rise 101.5 m after snapping pins to cell centres (was 102.6 m when the pair used exact click points but the cards used the cells).

@@ -293,3 +293,7 @@ fieldset.plain:disabled { opacity: 0.45; }
 .pin-values div { display: flex; justify-content: space-between; gap: 6px; border-top: 1px solid var(--panel-border); padding-top: 1px; }
 .pin-values dt { color: var(--muted); }
 .pin-values dd { margin: 0; text-align: right; }
+
+/* Map overlay picker (M09-C02) */
+.timebar select.overlay-select { max-width: 190px; }
+.overlay-reading b { color: var(--scouts-yellow); }

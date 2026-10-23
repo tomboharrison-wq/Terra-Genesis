@@ -140,3 +140,8 @@
 ## M09-C01 — Measuring: pins, distances and better cross-sections
 - New Measure tool (M): click to drop pins A–F. Each pin lists the real values at that spot — elevation, slope, which way the ground faces, rock, soil depth, water depth, speed and flow, temperature and rain (with climate on), plant cover, snow, ice, ash and lava — updating as the world changes. Between pins: distance, compass bearing, height difference and gradient. One click draws the cross-section from the first pin to the last.
 - The cross-section now shows the layers (bedrock, soil, ice, lava and water), labels its axes with units, states how much the heights are stretched (vertical exaggeration), and can be downloaded as a CSV file for a spreadsheet.
+
+## M09-C02 — Map overlays with legends
+- One "Map overlay" menu in the time bar replaces the separate Change-map button. It lists only overlays that have real data in this world, grouped: Terrain (elevation, slope, aspect, geology), Water (flow accumulation, erosion/deposition), Climate (temperature, rainfall), Ice & life (ice thickness, plant cover), Volcanic (ash depth), Earth (plates, earthquake shaking), Coast (wave attack), What if? (plant difference).
+- Every overlay has a legend in real units, and the inspector line shows its value under the cursor (e.g. "3,600 m² drains through here", "faces SE (118°)", "20 cm of ash").
+- New: elevation colours land by height and the sea by depth; flow accumulation shows how much land drains through each point (rivers stand out); aspect colours slopes by the way they face (ground under 0.5° counts as flat). Aspect colours pass the colour-blind safety checks.

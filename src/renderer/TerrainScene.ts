@@ -41,12 +41,13 @@ import { addTerrainDetail, createSeaMaterial, createSkyMaterial, createStrataUni
 import { MATERIALS } from '../terrain/materials';
 import { STRATA_BOUNDS, STRATA_LAYERS } from '../engine/world';
 import { WaterLayer, type WaterView } from './waterLayer';
+import { overlayById, prepareOverlay, type OverlayData, type OverlayId } from './overlays';
 import { TreeLayer } from './treeLayer';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
-export type TerrainOverlay = 'none' | 'change' | 'waves' | 'temperature' | 'rainfall' | 'compare' | 'plates' | 'shaking';
+export type TerrainOverlay = OverlayId;
 
 const ERODE_RGB = new Color(0xed3f23);
 const DEPOSIT_RGB = new Color(0x006ddf);
@@ -116,6 +117,13 @@ export class TerrainScene {
   private waterLayer: WaterLayer | null = null;
   private waterView: WaterView = 'water';
   private terrainOverlay: TerrainOverlay = 'none';
+  /** Derived data for the current overlay (flow accumulation, elevation range), refreshed ≤ 1 Hz. */
+  private overlayData: OverlayData | null = null;
+  private overlayTimer = 0;
+  /** Derived data of the current generic overlay (for the inspector), or null. */
+  get currentOverlayData(): OverlayData | null {
+    return this.overlayData;
+  }
   private snowTimer = 0;
   private trees: TreeLayer | null = null;
   private plateArrows = new Group();
@@ -212,7 +220,10 @@ export class TerrainScene {
     this.resize();
 
     this.unsub = engine.on((e) => {
-      if (e.type === 'world-replaced') this.buildWorld(true);
+      if (e.type === 'world-replaced') {
+        if (this.overlayData) this.overlayData = prepareOverlay(this.terrainOverlay, this.engine);
+        this.buildWorld(true);
+      }
       if (e.type === 'sea-level-changed') this.applySeaLevel();
       if (e.type === 'water-params-changed' || e.type === 'climate-changed') this.updatePlateArrows();
       if (
@@ -596,7 +607,15 @@ export class TerrainScene {
           this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
           this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
         }
-        if (this.terrainOverlay === 'shaking') {
+        const gen = this.overlayData ? overlayById(this.terrainOverlay)?.colour : undefined;
+        if (gen) {
+          // Generic scientific overlay (overlays.ts), relief-shaded so landforms stay readable.
+          gen(this.engine, i, this.overlayData!, this.col, o);
+          const shade = 0.62 + 0.38 * inv;
+          this.col[o] *= shade;
+          this.col[o + 1] *= shade;
+          this.col[o + 2] *= shade;
+        } else if (this.terrainOverlay === 'shaking') {
           // Shaking intensity of the last earthquake: sequential yellow → orange → red (I 3 … 10).
           const I = this.engine.lastQuake?.shaking[i] ?? 0;
           const t = Math.min(1, Math.max(0, (I - 3) / 7));
@@ -701,7 +720,14 @@ export class TerrainScene {
     const simDone = this.engine.tick(rawDt);
     if (this.engine.gpu) this.renderer.resetState(); // raw GL compute passes ran on this context
     if (simDone > 0) this.onSim?.();
-    const dirty = this.engine.takeDirty();
+    let dirty = this.engine.takeDirty();
+    this.overlayTimer += dt;
+    if (dirty && this.overlayData && this.overlayTimer > 1) {
+      // Derived overlay fields (upstream area, elevation range) change with the terrain: refresh, redraw all.
+      this.overlayTimer = 0;
+      this.overlayData = prepareOverlay(this.terrainOverlay, this.engine);
+      dirty = { x0: 0, y0: 0, x1: this.engine.world.width, y1: this.engine.world.height };
+    }
     if (dirty) {
       this.treesStale = true;
       this.updateVertices(dirty, true);
@@ -935,6 +961,8 @@ export class TerrainScene {
   setTerrainOverlay(o: TerrainOverlay) {
     if (o === this.terrainOverlay) return;
     this.terrainOverlay = o;
+    this.overlayData = overlayById(o)?.colour ? prepareOverlay(o, this.engine) : null;
+    this.overlayTimer = 0;
     this.strataUniforms.uStrataOn.value = o === 'none' ? 1 : 0;
     const w = this.engine.world;
     this.updateVertices({ x0: 0, y0: 0, x1: w.width, y1: w.height }, true);
