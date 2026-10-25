@@ -1,6 +1,7 @@
 # Test results (latest first)
 
 ## 2026-10-25 M11-C04 (QA, part 1)
+- e2e 52/52 PASS on the fix build (rail, meteor panel, stepped pointer): overlay inspector reads the geology over the sea floor.
 - Accessibility: WCAG contrast from styles.css — caught the Play button (light text on Scouts green, 2.41:1) → dark text (≈ 6.8:1); all other pairs ≥ 4.5:1. Tool shortcuts unique. e2e adds: every button named, Tab focus ring, Escape closes dialogs.
 - Saving: files written as v1 … v11 all decode, validate and run; newer-version files refused with a message.
 - Performance (CPU reference, this container, measured while an e2e also ran): 128² 9.4 ms/step, 256² 37 ms/step, 512² 147 ms/step (water + sediment). GPU (gpu-check, SwiftShader): 0.3–1.1 ms/step submit on 32–96² fixtures. Real-hardware GPU timing still unmeasured.

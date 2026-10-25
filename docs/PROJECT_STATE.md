@@ -38,6 +38,6 @@ Known failures / gaps:
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
 Relevant paths: scripts/screenshot.mjs (e2e), src/app/styles.css, src/persistence/
-Last checks: typecheck · npm test 255 · build · gpu-check 12/12 PASS · e2e 48/49 (M11-C01 build; overlay check, rerun pending)
+Last checks: typecheck · npm test 255 · build · gpu-check 12/12 · e2e 52/52 — all PASS
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md
