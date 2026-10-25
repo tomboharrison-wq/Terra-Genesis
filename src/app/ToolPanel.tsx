@@ -58,7 +58,7 @@ export function ToolPanel() {
   const coastTool = t.id === 'coast';
   const climateTool = t.id === 'climate';
   const platesTool = t.id === 'plates';
-  const quakeTool = t.id === 'earthquake' || t.id === 'volcano';
+  const quakeTool = t.id === 'earthquake' || t.id === 'volcano' || t.id === 'meteor'; // tools with their own event panel
 
   return (
     <aside className="panel" aria-label="Tool settings">

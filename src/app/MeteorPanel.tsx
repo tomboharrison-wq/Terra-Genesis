@@ -55,8 +55,10 @@ export function MeteorPanel() {
         <dd>{fmtEnergy(c.megatons)}</dd>
         <dt>Crater</dt>
         <dd>
-          {fmtLen(c.diameterM)} across, {fmtLen(c.depthM)} deep ({c.complex ? 'complex' : 'simple bowl'})
+          {fmtLen(c.diameterM)} wide, {fmtLen(c.depthM)} deep
         </dd>
+        <dt>Type</dt>
+        <dd>{c.complex ? 'complex (flat floor)' : 'simple bowl'}</dd>
       </dl>
       {c.diameterM > 0.8 * mapM && (
         <p className="hint small tight warn">This crater is about as wide as the whole map: most ejecta will land beyond its edge.</p>

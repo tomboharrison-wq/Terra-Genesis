@@ -7,6 +7,7 @@
 - Browsers: only Chromium is installed here; Firefox / WebKit not tested.
 - Deployment: not verifiable from this session (container cannot reach netlify.app; the site is not in the connected Netlify account).
 - gpu-check 12/12 (new: sea-surge surgeIn equal, peak Δ 0.001 mm; drought-pond low record). npm test 255 PASS.
+- e2e of the C02–C04a build (8ecebe6): 51/52 — new drought/meteor (crater 858 m, undo exact), exports (all 5 files valid) and accessibility checks PASS; overlay check failed again with nothing else running: inspector showed 'Point at the terrain' because the e2e jumped the pointer in one event from a panel button onto the map. A standalone probe showed the inspector works at every step with real pointer movement; e2e now moves the pointer in steps and waits for the reading. Layout found from its screenshots: 22-tool rail overflowed 900 px (now two columns under 1350 px tall), Meteor panel overlap fixed.
 - e2e of the M11-C01 build: 48/49 — flood check PASS (0.937 km², deepest 2.29 m, peak ≥ depth everywhere); the overlay check failed on its inspector/ice condition while CPU benchmarks ran alongside (detail now prints which) — rerun pending.
 
 ## 2026-10-25 M11-C02, C03

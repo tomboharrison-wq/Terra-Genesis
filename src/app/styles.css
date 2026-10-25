@@ -1579,3 +1579,32 @@ table.summary td:last-child {
   padding: 8px 0;
   border-bottom: 1px solid var(--panel-border);
 }
+
+/* Tool rail: two columns when one column of 22 tools would not fit the window height (M11-C04). */
+@media (max-height: 1350px) {
+  .toolrail {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 140px;
+    gap: 2px;
+    align-content: start;
+  }
+  .toolrail .rail-group-label,
+  .toolrail .rail-sep {
+    grid-column: 1 / -1;
+  }
+  .toolrail .rail-group-label {
+    margin: 2px 0 1px;
+  }
+  .toolrail .rail-btn {
+    padding: 5px 1px;
+    font-size: 10.5px;
+  }
+  .toolrail {
+    padding: 6px 5px;
+  }
+}
+.meteor-panel .budget,
+.hazards-panel .budget {
+  margin-bottom: 10px;
+}

@@ -184,3 +184,9 @@
 
 ## M11-C03 — Exports
 - The Export button opens a list of five downloads: the project file (.tgw, opens again with Import); an image of the 3D view; a top-down map image in the chosen map colouring, with title, legend, scale bar and north arrow; a 16-bit heightmap PNG for GIS and 3D programs (lowest and highest heights stored inside the file); and exact elevation data as 32-bit floats with a .json description.
+
+## M11-C04 — Final checks (part 1)
+- The Play button is easier to read: dark text on the green button (the light text did not meet contrast guidelines).
+- The tool bar now fits on a 900-pixel-high screen: on shorter screens it shows the tools in two columns instead of scrolling.
+- The Meteor tool no longer shows the unrelated water and erosion panels underneath it, and its crater figures no longer overlap the text below.
+- Worlds saved by every earlier version of Terra Genesis still open.

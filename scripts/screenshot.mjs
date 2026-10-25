@@ -791,8 +791,10 @@ for (const id of ['elevation', 'slope', 'aspect', 'flow', 'geology'].filter((v) 
   if (!img.equals(ovBase) && legend) changed.push(id);
   if (id === 'flow') await shot('43-overlay-flow');
 }
-await page.mouse.move(700, 480);
-await page.waitForTimeout(600);
+// Move like a real pointer (a single jump from a panel button onto the map can leave no hover sample).
+await page.mouse.move(400, 300);
+await page.mouse.move(700, 480, { steps: 6 });
+await page.waitForFunction(() => /Geology/.test(document.querySelector('.inspect')?.textContent ?? ''), null, { timeout: 5000 }).catch(() => {});
 const ovText = await page.textContent('.inspect').catch(() => '');
 await page.selectOption('.timebar select.overlay-select', 'none');
 const noIce = await page.evaluate(() => Math.max(...window.__terraGenesis.engine.world.iceThicknessM) === 0);
