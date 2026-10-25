@@ -8,6 +8,8 @@ import { NewWorldDialog } from './NewWorldDialog';
 import { LoadDialog } from './LoadDialog';
 import { HelpDialog } from './HelpDialog';
 import { CheckpointsDialog } from './CheckpointsDialog';
+import { ChallengeHud, ChallengesDialog } from './ChallengesDialog';
+import { GuidedStage, LessonLabels, LessonPanel, LessonsDialog } from './EducationMode';
 import { Toasts } from './Toasts';
 import { TimeBar } from './TimeBar';
 import { SlumpLab } from './SlumpLab';
@@ -18,21 +20,34 @@ import { FoldLab } from './FoldLab';
 import { useShortcuts } from './useShortcuts';
 import { useUi } from '../state/uiStore';
 import { flushAutosave, restoreAutosave } from './runtime';
+import { startLessonAt } from './educationRunner';
 
 export function App() {
   const dialog = useUi((s) => s.dialog);
+  const classroom = useUi((s) => s.education !== null);
+  const big = useUi((s) => !!s.education?.big);
+  const contrast = useUi((s) => !!s.education?.contrast);
+  const hidePanel = useUi((s) => !!s.education?.hidePanel);
   useShortcuts();
   useEffect(() => {
-    const skip = new URLSearchParams(location.search).has('fresh');
-    if (!skip) void restoreAutosave();
+    const q = new URLSearchParams(location.search);
+    const lesson = q.get('lesson');
+    if (lesson) {
+      // Teacher link: open the lesson at the given stage (1-based) and level.
+      const lv = q.get('level');
+      startLessonAt(lesson, Number(q.get('stage') ?? '1') - 1, lv === 'ks3' || lv === 'gcse' ? lv : undefined);
+    } else if (!q.has('fresh')) void restoreAutosave();
     const onHide = () => document.visibilityState === 'hidden' && flushAutosave();
     document.addEventListener('visibilitychange', onHide);
     return () => document.removeEventListener('visibilitychange', onHide);
   }, []);
 
   return (
-    <div className="app">
+    <div className={`app ${classroom ? 'classroom' : ''} ${big ? 'lesson-big' : ''} ${contrast ? 'lesson-contrast' : ''} ${hidePanel ? 'lesson-nopanel' : ''}`}>
       <Viewport />
+      <LessonLabels />
+      <GuidedStage />
+      <LessonPanel />
       <TopBar />
       <ToolRail />
       <ToolPanel />
@@ -48,6 +63,9 @@ export function App() {
       {dialog === 'subduction' && <SubductionLab />}
       {dialog === 'folds' && <FoldLab />}
       {dialog === 'checkpoints' && <CheckpointsDialog />}
+      {dialog === 'challenges' && <ChallengesDialog />}
+      {dialog === 'lessons' && <LessonsDialog />}
+      <ChallengeHud />
     </div>
   );
 }

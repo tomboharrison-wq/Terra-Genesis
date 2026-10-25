@@ -1,10 +1,21 @@
-import { createWorld, computeSurface, cloneWorld, refreshAllExposed, setUniformStrata, MM_PER_H, STRATA_BOUNDS, STRATA_LAYERS, type WorldState } from '../../engine/world';
+import {
+  createWorld,
+  computeSurface,
+  cloneWorld,
+  refreshAllExposed,
+  setUniformStrata,
+  MM_PER_H,
+  STRATA_BOUNDS,
+  STRATA_LAYERS,
+  type WorldState,
+} from '../../engine/world';
 import { WaterSim } from './waterSim';
 import { SedimentSim, sedimentClosure } from '../sediment/sedimentSim';
 import { GpuWater } from './gpuWater';
 import { closureError } from './ledger';
 import { generateWorld, defaultOptions } from '../../terrain/generate';
 import { ClimateField } from '../climate/climate';
+import { surgeHeight } from '../events/hazards';
 
 export interface SelfTestCase {
   name: string;
@@ -37,7 +48,14 @@ export interface SelfTestCase {
   gpuWeatheredM3?: number;
   /** Cells whose exposed lithology differs CPU vs GPU. */
   exposedMismatch?: number;
+  /** Sea-surge case: water pushed onto the land, and max |Δ peak depth| CPU vs GPU (m). */
+  cpuSurgeInM3?: number;
+  gpuSurgeInM3?: number;
+  maxPeakDiffM?: number;
 }
+
+/** Sea-surge fixture timing: 3 m for 20 min (5 min rise and fall), over a 1800 s run. */
+const SURGE = { kind: 'surge' as const, surgeM: 3, activeS: 1200, rampS: 300 };
 
 function fixture(name: string): WorldState {
   const mk = (N: number, cs: number, zf: (x: number, y: number) => number, sea = -1e6) => {
@@ -124,6 +142,12 @@ function fixture(name: string): WorldState {
       w.climate = { ...w.climate, enabled: true, seaLevelTempC: 2, seasonalAmpC: 0, meltMmPerDegDay: 200 };
       return w;
     }
+    case 'sea-surge': {
+      // Sea in the east, a low plain sloping to it, then a hill: the raised sea floods the plain and drains.
+      const w = mk(48, 10, (x) => (x >= 34 ? -6 : x >= 16 ? 0.5 + (34 - x) * 0.1 : 4 + (16 - x) * 0.5), 0);
+      w.water.boundary = 'closed';
+      return w;
+    }
     case 'bowl-overflow': {
       const w = mk(33, 10, (x, y) => {
         const rim = y === 0 || y === 32 || x === 0 || x === 32 ? 8 : 0;
@@ -148,7 +172,19 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
   const ctx = gl ?? document.createElement('canvas').getContext('webgl2');
   if (!ctx) throw new Error('WebGL2 unavailable');
   const out: SelfTestCase[] = [];
-  for (const name of ['slope-water', 'bowl-overflow', 'river-catchment', 'erosion-slope', 'erosion-delta', 'caprock', 'cliff-failure', 'climate-ridge', 'snow-ridge', 'veg-erosion']) {
+  for (const name of [
+    'slope-water',
+    'bowl-overflow',
+    'river-catchment',
+    'erosion-slope',
+    'erosion-delta',
+    'caprock',
+    'cliff-failure',
+    'climate-ridge',
+    'snow-ridge',
+    'veg-erosion',
+    'sea-surge',
+  ]) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
     const sc = new Float32Array(wc.width * wc.height);
@@ -167,11 +203,17 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
       gsim.climate = fg;
     }
     const gSed = new SedimentSim(wg, sg, gsim);
+    const surge = name === 'sea-surge';
+    if (surge) {
+      cpu.peakDepth = new Float32Array(wc.width * wc.height);
+      gsim.peakDepth = new Float32Array(wg.width * wg.height);
+    }
     const gpu = new GpuWater(ctx, wg, sg, gsim, gSed);
     let t = 0;
     let steps = 0;
     let gpuMs = 0;
     while (t < simSeconds) {
+      if (surge) cpu.surgeM = gsim.surgeM = surgeHeight(SURGE, t);
       const dt = cpu.stableDt();
       cpu.step(dt);
       cpuSed.step(dt);
@@ -207,8 +249,12 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
           gpuErodedM3: gSed.ledger.erodedLoose + gSed.ledger.erodedBedrock,
         }
       : {};
+    let peakDiff = 0;
+    if (surge) for (let i = 0; i < sc.length; i++) peakDiff = Math.max(peakDiff, Math.abs(cpu.peakDepth![i] - gsim.peakDepth![i]));
+    const surgeRes = surge ? { cpuSurgeInM3: cpu.ledger.surgeIn, gpuSurgeInM3: gsim.ledger.surgeIn, maxPeakDiffM: peakDiff } : {};
     out.push({
       ...erosion,
+      ...surgeRes,
       name,
       maxAbsDiffM: diff,
       meanAbsDiffM: sum / wc.waterDepthM.length,

@@ -18,6 +18,7 @@ const P: Record<string, string> = {
   plates: 'M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3zM9 4v13M15 7v13',
   earthquake: 'M2 12h4l2-6 3 12 3-9 2 5 2-2h4M3 20h18',
   volcano: 'M2 21h20M5 21l5-11h4l5 11M10 10l-1-3M14 10l1-3M12 9V4M9 4c1-1 2-1 3 0s2 1 3 0',
+  hazards: 'M6 14a4 4 0 010-8 5 5 0 019.6 1.2A3.5 3.5 0 0116 14zM8 17l-1 3M12 17l-1 3M16 17l-1 3',
   landslide: 'M3 20h18M4 20c2-8 5-13 9-14M13 6l2 5 4 2M10 14l2 1M15 17l2 1',
   coast: 'M3 15c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M3 19c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M14 11V5l5 2v4',
   play: 'M7 4l13 8-13 8z',
@@ -26,6 +27,8 @@ const P: Record<string, string> = {
   undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3',
   save: 'M5 3h11l4 4v14H4V3zM8 3v5h8V3M8 21v-7h8v7',
+  lesson: 'M2 7l10-4 10 4-10 4zM6 9v5c0 2 3 4 6 4s6-2 6-4V9M22 7v6',
+  flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
   checkpoint: 'M5 3h14v18l-7-4-7 4zM9 9l2 2 4-4',
   load: 'M3 7h6l2 2h10v11H3zM12 12v6M9 15l3 3 3-3',
   export: 'M12 3v12M8 7l4-4 4 4M4 15v6h16v-6',
@@ -43,7 +46,17 @@ const P: Record<string, string> = {
 
 export function Icon({ name, size = 20 }: { name: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d={P[name] ?? ''} />
     </svg>
   );

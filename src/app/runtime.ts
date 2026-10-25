@@ -42,11 +42,28 @@ function syncWorldInfo() {
 
 function syncHistory() {
   const h = engine.history;
-  useUi.getState().set({ canUndo: h.canUndo, canRedo: h.canRedo, undoLabel: h.undoLabel, redoLabel: h.redoLabel });
+  useUi.getState().set({
+    canUndo: h.canUndo,
+    canRedo: h.canRedo,
+    undoLabel: h.undoLabel,
+    redoLabel: h.redoLabel,
+  });
 }
+
+const syncHooks: (() => void)[] = [];
+const worldHooks: ((keepCamera: boolean) => void)[] = [];
+/** Run after every syncSim (e.g. challenge scoring). */
+export const onSync = (fn: () => void) => syncHooks.push(fn);
+/** Run when the world is replaced. */
+export const onWorldReplaced = (fn: (keepCamera: boolean) => void) => worldHooks.push(fn);
 
 /** Push simulation/water state into the UI store (throttled by callers). */
 export function syncSim() {
+  syncSimInner();
+  for (const h of syncHooks) h();
+}
+
+function syncSimInner() {
   const w = engine.world;
   const L = engine.water.ledger;
   const stored = engine.water.storedVolume();
@@ -231,6 +248,7 @@ function scheduleAutosave() {
 engine.on((e) => {
   if (e.type === 'world-replaced') {
     if (!e.keepCamera) useUi.getState().set({ pins: [], profile: null, profileStart: null }); // positions belong to the old world
+    for (const h of worldHooks) h(!!e.keepCamera);
     const ov = overlayById(useUi.getState().terrainOverlay);
     if (ov && !ov.available(engine)) useUi.getState().set({ terrainOverlay: 'none' }); // no data for it in this world
     syncWorldInfo();
@@ -346,7 +364,14 @@ export { syncHistory };
   gpuSelfTest: (seconds?: number) => runGpuSelfTest(undefined, seconds),
   info: () => {
     const r = scene?.renderer;
-    return r ? { children: scene!.scene.children.length, ...r.info.memory, programs: r.info.programs?.length, calls: r.info.render.calls } : null;
+    return r
+      ? {
+          children: scene!.scene.children.length,
+          ...r.info.memory,
+          programs: r.info.programs?.length,
+          calls: r.info.render.calls,
+        }
+      : null;
   },
   /** Mean ms per synchronous render of n frames (forces GPU completion via readPixels). */
   benchRender: (n = 20) => {
@@ -372,7 +397,9 @@ export function runVolcanoBuild(xM: number, yM: number, type: VolcanoType, episo
   syncSim();
   const tick = () => {
     const more = b.step();
-    useUi.getState().set({ volcanoBuild: more ? { type, done: b.done, total: b.total } : null });
+    useUi.getState().set({
+      volcanoBuild: more ? { type, done: b.done, total: b.total } : null,
+    });
     if (more) requestAnimationFrame(() => setTimeout(tick, 0));
     else {
       syncSim();

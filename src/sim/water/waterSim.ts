@@ -2,6 +2,7 @@ import type { WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import { emptyLedger, type WaterLedger } from './ledger';
 import type { ClimateField } from '../climate/climate';
+import { updatePeak } from '../events/hazards';
 
 const G = 9.81;
 
@@ -42,8 +43,18 @@ export class WaterSim implements Stepper {
   maxDt = 10;
   /** CFL safety factor. */
   cfl = 0.5;
+  /**
+   * Sea surge (m above sea level; hazards.ts): while > 0 the sea's fixed head is raised by this much
+   * and sea cells send water onto the land next to them (ledgered as surgeIn).
+   */
+  surgeM = 0;
+  /** Deepest water reached on each cell since recording began (flood events), or null when not recording. */
+  peakDepth: Float32Array | null = null;
 
-  constructor(private world: WorldState, private surface: Float32Array) {
+  constructor(
+    private world: WorldState,
+    private surface: Float32Array,
+  ) {
     const n = world.width * world.height;
     this.vx = new Float32Array(n);
     this.vy = new Float32Array(n);
@@ -138,7 +149,7 @@ export class WaterSim implements Stepper {
   /** CFL-limited step, quantised to maxDt / 2^k so it is a deterministic function of state. */
   stableDt(): number {
     const cs = this.world.cellSizeM;
-    const c = Math.sqrt(G * Math.max(this.maxDepth, 0.05)) + 0.5 * this.maxSpeed;
+    const c = Math.sqrt(G * Math.max(this.maxDepth, 0.05, this.surgeM)) + 0.5 * this.maxSpeed;
     const limit = (this.cfl * cs) / c;
     let dt = this.maxDt;
     for (let k = 0; k < 16 && dt > limit; k++) dt *= 0.5;
@@ -148,6 +159,7 @@ export class WaterSim implements Stepper {
   step(dt: number): void {
     this.applyForcing(dt);
     this.route(dt);
+    if (this.peakDepth) updatePeak(this.peakDepth, this.world.waterDepthM);
     this.refreshStats();
   }
 
@@ -241,6 +253,8 @@ export class WaterSim implements Stepper {
     const cs = w.cellSizeM;
     const A = cs * cs;
     const sl = w.seaLevelM;
+    const surge = this.surgeM;
+    const slH = sl + surge; // head of the sea (raised during a surge)
     const open = w.water.boundary === 'open';
     const gdt = G * dt;
     const fr = (gdt * w.water.manningN * w.water.manningN) / cs;
@@ -259,6 +273,15 @@ export class WaterSim implements Stepper {
         const i = y * W + x;
         const o = i * 4;
         const di = d[i];
+        if (sea[i] && surge > 0) {
+          // Raised sea: an unlimited fixed-head source facing each land neighbour.
+          const zs = Math.min(z[i], sl);
+          F[o] = x > 0 && !sea[i - 1] ? face(F[o], slH, zs, z[i - 1] + d[i - 1], z[i - 1]) : 0;
+          F[o + 1] = x < W - 1 && !sea[i + 1] ? face(F[o + 1], slH, zs, z[i + 1] + d[i + 1], z[i + 1]) : 0;
+          F[o + 2] = y > 0 && !sea[i - W] ? face(F[o + 2], slH, zs, z[i - W] + d[i - W], z[i - W]) : 0;
+          F[o + 3] = y < H - 1 && !sea[i + W] ? face(F[o + 3], slH, zs, z[i + W] + d[i + W], z[i + W]) : 0;
+          continue;
+        }
         if (sea[i] || di <= 0) {
           F[o] = F[o + 1] = F[o + 2] = F[o + 3] = 0;
           continue;
@@ -269,22 +292,22 @@ export class WaterSim implements Stepper {
         let f1 = 0;
         let f2 = 0;
         let f3 = 0;
-        // Neighbour head/bed: sea cells are a fixed head at sea level; open edges a free outfall.
+        // Neighbour head/bed: sea cells are a fixed head at sea level (+ surge); open edges a free outfall.
         if (x > 0) {
           const j = i - 1;
-          f0 = face(F[o], Hi, zi, sea[j] ? sl : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
+          f0 = face(F[o], Hi, zi, sea[j] ? slH : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
         } else if (open) f0 = face(F[o], Hi, zi, zi, zi);
         if (x < W - 1) {
           const j = i + 1;
-          f1 = face(F[o + 1], Hi, zi, sea[j] ? sl : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
+          f1 = face(F[o + 1], Hi, zi, sea[j] ? slH : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
         } else if (open) f1 = face(F[o + 1], Hi, zi, zi, zi);
         if (y > 0) {
           const j = i - W;
-          f2 = face(F[o + 2], Hi, zi, sea[j] ? sl : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
+          f2 = face(F[o + 2], Hi, zi, sea[j] ? slH : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
         } else if (open) f2 = face(F[o + 2], Hi, zi, zi, zi);
         if (y < H - 1) {
           const j = i + W;
-          f3 = face(F[o + 3], Hi, zi, sea[j] ? sl : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
+          f3 = face(F[o + 3], Hi, zi, sea[j] ? slH : z[j] + d[j], sea[j] ? Math.min(z[j], sl) : z[j]);
         } else if (open) f3 = face(F[o + 3], Hi, zi, zi, zi);
         const outVol = (f0 + f1 + f2 + f3) * dt;
         const avail = di * A;
@@ -304,6 +327,7 @@ export class WaterSim implements Stepper {
 
     // Pass 2: apply net volume change, account sea/edge exits, derive velocities.
     let seaIn = 0;
+    let surgeOut = 0;
     let edgeOut = 0;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
@@ -316,6 +340,7 @@ export class WaterSim implements Stepper {
         const inflow = inW + inE + inS + inN;
         if (sea[i]) {
           seaIn += inflow * dt;
+          surgeOut += (F[o] + F[o + 1] + F[o + 2] + F[o + 3]) * dt;
           vx[i] = vy[i] = 0;
           continue;
         }
@@ -350,6 +375,7 @@ export class WaterSim implements Stepper {
       }
     }
     this.ledger.seaOut += seaIn;
+    this.ledger.surgeIn += surgeOut;
     this.ledger.edgeOut += edgeOut;
   }
 

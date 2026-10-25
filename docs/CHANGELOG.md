@@ -150,3 +150,29 @@
 - New Checkpoints button (top bar): take named snapshots of the whole world, restore any of them exactly (the world goes back, it is never run backwards; the camera stays put), and compare now with a snapshot.
 - Comparing shows a summary in real units — time passed, ground lowered and raised (m³), area changed, biggest drop and rise, change in standing water, ice and plant-covered area — and maps the change: four new "Since checkpoint" overlays (ground, water, plants, ice) with legends and inspector readings.
 - Checkpoints last for the session (up to six; memory use is shown). Use Save to keep a world.
+
+## M09-C04 — Challenges
+- New Challenges button: four goals, each starting from the same seeded world and scored only from what the simulation measures — River to the sea (at least 10 m³/s reaching the sea, 2-hour average, rain ≤ 20 mm/h), Build a delta (500,000 m³ of new ground on the old sea floor in 5 days), Make a volcanic island (0.1 km² of new land standing 30 m above the sea), Wear down the plateau (100 million m³ removed from the plateau top in 10 days, starting dry). A live score card shows progress and time left; Retry restores the exact start.
+
+## M10-C01 — Education Mode
+- New Lessons button opens Education Mode: a full-screen classroom layout (tools hidden, large projector-readable text) with a lesson panel — objective, stages, KS3 or GCSE explanations, Previous / Next / Reset, labels on or off, "predict" questions with Show answer, an exam question with a model answer and a common mistake.
+- First lesson, "The drainage basin", is a real simulation: its labels (watershed, source, tributary, confluence, main river, mouth) are found from the model's own flow directions on the landscape, Next really runs two hours of rain, and Previous shows the exact earlier state.
+
+## M10-C02 — River lessons: waterfalls and meanders
+- "How a waterfall and gorge form": a guided cross-section — hard rock over soft rock, undercutting, a growing overhang and plunge pool, collapse, and repeated retreat leaving a gorge (illustrative rates).
+- "Meanders and oxbow lakes": a guided plan view using the curve real meanders follow — erosion on the outside of bends (river cliff), deposition on the inside (slip-off slope, with a cross-section), the neck narrowing, cut-off in a flood, an oxbow lake that silts up into a meander scar.
+- Guided lessons are clearly marked "Guided model" so they are never mistaken for the simulation.
+
+## M10-C03 to C05 — More lessons, and classroom presentation (Education Mode complete)
+- Coasts: "Caves, arches, stacks and stumps" runs the real chalk-headland model to each stage (drag to turn it); "Longshore drift and spits" and "Bars and lagoons" run the shoreline model over the years.
+- Volcanoes: "Shield and composite volcanoes" builds both side by side with the real eruption physics and labels their measured heights; the slope map shows the difference.
+- Glaciation: "U-shaped valleys and hanging valleys" (V-valley → glacier → U-shaped trough, misfit river, hanging valley, moraine) and "Corries and arêtes" (corries cut back into a ridge; arête; tarns).
+- Tectonics: "Fold mountains at collision margins" (folding, thrusting, erosion exposing anticline cores) using the fold lab's model.
+- Presentation: Bigger text, High contrast (solid black and white), Hide panel (map or model only), and "Copy link to this stage" — a link that opens the lesson straight at that stage and level (simulation lessons run the earlier stages to get there).
+- Checked by tests: every module uses its GCSE terminology, KS3 sentences stay short, and lesson text sizes and colour contrast suit a projector.
+
+## M11-C01 — Floods: storms and sea surges
+- New Floods tool (H): start a storm (rain mm/h for some hours, then the rain goes back to what it was) or a sea surge (the sea stands up to 20 m higher for a set time, rising and falling smoothly).
+- Both run through the real water model. The sea surge floods whatever land the higher sea can reach and drains back; it is clearly labelled a simplified tsunami (no travelling wave, breaking or backwash).
+- The deepest water reached on every cell is recorded at every solver step. The "Flood extent" map shows where water rose by 0.3 m or more (full rivers and lakes do not count as flooded), with the area flooded and the deepest water.
+- A checkpoint is taken before each event so you can restore it, change something (such as building a levee) and run the same event again. An event log records each event with its simulated time and result.

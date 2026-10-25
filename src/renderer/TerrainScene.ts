@@ -144,7 +144,13 @@ export class TerrainScene {
   private profileEnds: [number, number, number, number] | null = null;
   /** Measurement pins: a stick and a lettered marker each (world metres). */
   private pinGroup = new Group();
-  private pins: { label: string; xM: number; yM: number; stick: Line; sprite: Sprite }[] = [];
+  private pins: {
+    label: string;
+    xM: number;
+    yM: number;
+    stick: Line;
+    sprite: Sprite;
+  }[] = [];
   private brushCentre = new Vector2();
   private brushRadius = 100;
   private raf = 0;
@@ -157,6 +163,24 @@ export class TerrainScene {
   private reliefM = 1;
   /** Called every frame with clamped dt (s), before rendering. */
   onFrame: ((dt: number) => void) | null = null;
+  private frameListeners = new Set<() => void>();
+  /** Called after every rendered frame (e.g. to move HTML labels); returns a remover. */
+  addFrameListener(fn: () => void): () => void {
+    this.frameListeners.add(fn);
+    return () => this.frameListeners.delete(fn);
+  }
+
+  /** Screen position (CSS px, relative to the canvas) of a point on the ground; null if behind the camera or off screen. */
+  project(xM: number, yM: number, liftM = 0): { x: number; y: number } | null {
+    const z = sampleBilinear(this.engine.heightfield, xM, yM) + liftM;
+    const v = new Vector3(xM, z, -yM).project(this.camera);
+    if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return null;
+    const el = this.renderer.domElement;
+    return {
+      x: ((v.x + 1) / 2) * el.clientWidth,
+      y: ((1 - v.y) / 2) * el.clientHeight,
+    };
+  }
   onStats: ((s: FrameStats) => void) | null = null;
   /** Called after frames in which simulated time advanced. */
   onSim: (() => void) | null = null;
@@ -167,7 +191,10 @@ export class TerrainScene {
     private engine: Engine,
     quality: Quality = 'balanced',
   ) {
-    this.renderer = new WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'balanced' ? 1.5 : 1));
     this.renderer.toneMapping = ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
@@ -198,18 +225,37 @@ export class TerrainScene {
     this.sky.renderOrder = -10;
     this.scene.add(this.sky);
 
-    this.terrainMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.93, metalness: 0 });
+    this.terrainMat = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.93,
+      metalness: 0,
+    });
 
     const ringGeo = new BufferGeometry();
     ringGeo.setAttribute('position', new BufferAttribute(new Float32Array(129 * 3), 3));
-    this.brushRing = new Line(ringGeo, new LineBasicMaterial({ color: 0xffe627, depthTest: false, transparent: true, opacity: 0.95 }));
+    this.brushRing = new Line(
+      ringGeo,
+      new LineBasicMaterial({
+        color: 0xffe627,
+        depthTest: false,
+        transparent: true,
+        opacity: 0.95,
+      }),
+    );
     this.brushRing.renderOrder = 10;
     this.brushRing.frustumCulled = false;
     this.brushRing.visible = false;
     this.scene.add(this.brushRing);
     const profGeo = new BufferGeometry();
     profGeo.setAttribute('position', new BufferAttribute(new Float32Array(129 * 3), 3));
-    this.profileLine = new Line(profGeo, new LineBasicMaterial({ color: 0xffe627, depthTest: false, transparent: true }));
+    this.profileLine = new Line(
+      profGeo,
+      new LineBasicMaterial({
+        color: 0xffe627,
+        depthTest: false,
+        transparent: true,
+      }),
+    );
     this.profileLine.renderOrder = 11;
     this.profileLine.frustumCulled = false;
     this.profileLine.visible = false;
@@ -431,10 +477,24 @@ export class TerrainScene {
       g.setIndex(idx);
       return g;
     };
-    this.skirt = new Mesh(mk(true), new MeshStandardMaterial({ vertexColors: true, roughness: 1, side: DoubleSide }));
+    this.skirt = new Mesh(
+      mk(true),
+      new MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 1,
+        side: DoubleSide,
+      }),
+    );
     this.waterSkirt = new Mesh(
       mk(false),
-      new MeshStandardMaterial({ color: 0x1b5a86, transparent: true, opacity: 0.72, roughness: 0.2, side: DoubleSide, depthWrite: false }),
+      new MeshStandardMaterial({
+        color: 0x1b5a86,
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.2,
+        side: DoubleSide,
+        depthWrite: false,
+      }),
     );
     this.skirt.receiveShadow = true;
     this.waterSkirt.renderOrder = 3;
@@ -724,13 +784,18 @@ export class TerrainScene {
     if (simDone > 0) this.onSim?.();
     let dirty = this.engine.takeDirty();
     this.overlayTimer += dt;
-    const waterMoved = this.terrainOverlay === 'cp-water' && this.engine.waterRevision !== this.overlayWaterRev;
+    const waterMoved = (this.terrainOverlay === 'cp-water' || this.terrainOverlay === 'flood') && this.engine.waterRevision !== this.overlayWaterRev;
     if ((dirty || waterMoved) && this.overlayData && this.overlayTimer > 1) {
       this.overlayWaterRev = this.engine.waterRevision;
       // Derived overlay fields (upstream area, elevation range) change with the terrain: refresh, redraw all.
       this.overlayTimer = 0;
       this.overlayData = prepareOverlay(this.terrainOverlay, this.engine);
-      dirty = { x0: 0, y0: 0, x1: this.engine.world.width, y1: this.engine.world.height };
+      dirty = {
+        x0: 0,
+        y0: 0,
+        x1: this.engine.world.width,
+        y1: this.engine.world.height,
+      };
     }
     if (dirty) {
       this.treesStale = true;
@@ -776,6 +841,7 @@ export class TerrainScene {
     this.waterLayer?.update(now / 1000);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
+    for (const fn of this.frameListeners) fn();
     if (shook) this.camera.position.sub(shook);
     const cpuMs = performance.now() - t0;
     this.fpsEma += ((rawDt > 0 ? 1 / rawDt : 60) - this.fpsEma) * 0.08;
@@ -794,7 +860,19 @@ export class TerrainScene {
     const hPx = Math.max(1, this.container.clientHeight);
     this.renderer.setSize(wPx, hPx, false);
     this.camera.aspect = wPx / hPx;
+    // A panel covering the left of the view (classroom lesson panel): shift the view centre right so
+    // the landscape sits in the visible part. Picking and label projection use the same matrix.
+    if (this.viewInsetLeft > 0) this.camera.setViewOffset(wPx, hPx, -this.viewInsetLeft / 2, 0, wPx, hPx);
+    else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
+  }
+
+  private viewInsetLeft = 0;
+  /** Reserve `px` CSS pixels on the left for an overlay panel (0 = none). */
+  setViewInsetLeft(px: number) {
+    if (px === this.viewInsetLeft) return;
+    this.viewInsetLeft = px;
+    this.resize();
   }
 
   // ---------- picking & brush ring ----------
@@ -847,7 +925,14 @@ export class TerrainScene {
     this.pins = pins.map((p) => {
       const g = new BufferGeometry();
       g.setAttribute('position', new BufferAttribute(new Float32Array(6), 3));
-      const stick = new Line(g, new LineBasicMaterial({ color: 0xffe627, depthTest: false, transparent: true }));
+      const stick = new Line(
+        g,
+        new LineBasicMaterial({
+          color: 0xffe627,
+          depthTest: false,
+          transparent: true,
+        }),
+      );
       stick.renderOrder = 12;
       stick.frustumCulled = false;
       const c = document.createElement('canvas');
@@ -865,7 +950,13 @@ export class TerrainScene {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(p.label, 32, 34);
-      const sprite = new Sprite(new SpriteMaterial({ map: new CanvasTexture(c), depthTest: false, transparent: true }));
+      const sprite = new Sprite(
+        new SpriteMaterial({
+          map: new CanvasTexture(c),
+          depthTest: false,
+          transparent: true,
+        }),
+      );
       sprite.renderOrder = 13;
       sprite.frustumCulled = false;
       this.pinGroup.add(stick, sprite);
@@ -927,11 +1018,12 @@ export class TerrainScene {
     this.controls.update();
   }
 
-  topDown() {
+  /** Look straight down at the whole map; `height` × map size above it (larger = more margin). */
+  topDown(height = 1.25) {
     const c = this.worldCentre();
     const s = this.worldSize();
     this.controls.target.copy(c);
-    this.camera.position.set(c.x, c.y + s * 1.25, c.z + s * 0.001);
+    this.camera.position.set(c.x, c.y + s * height, c.z + s * 0.001);
     this.controls.update();
   }
 
@@ -953,7 +1045,10 @@ export class TerrainScene {
   }
 
   getPose(): CameraPose {
-    return { position: this.camera.position.toArray() as CameraPose['position'], target: this.controls.target.toArray() as CameraPose['target'] };
+    return {
+      position: this.camera.position.toArray() as CameraPose['position'],
+      target: this.controls.target.toArray() as CameraPose['target'],
+    };
   }
 
   setPose(p: CameraPose) {

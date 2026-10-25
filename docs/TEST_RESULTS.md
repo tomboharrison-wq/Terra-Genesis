@@ -1,5 +1,18 @@
 # Test results (latest first)
 
+## 2026-10-25 M11-C01 (+ M11-C02 meteor model)
+- + hazards: surge profile; flood summary threshold; storm — peak ≥ every depth after each 300 s, rain restored on time (clock carries sub-step remainder, ends ≤ 1 step late), ledger closes < 1e-4, log began/ended; sea surge 3 m — > 60 % of the low plain wet, hill above run-up dry, sea level unchanged, peak 1–3 m, drains back, surgeIn ≈ seaOut, closure < 1e-4. Caught: closure scale ignored sea-supplied water (added gross surgeIn ledger term). Meteor: pi-scaling exponents exact, Barringer inputs → 1.55 km (real 1.19 km; impactor estimates 30–50 m), volume excavated = on-map + off-map ejecta, on-map share ≈ 1 − R/R_edge.
+- e2e (M10 build, before M11): 47/48 → spit lesson too slow at 7 fps (120 days/frame); now time-budgeted per frame. gpu-check gains a sea-surge CPU/GPU case (surgeIn, peak depth) — not yet run.
+- npm test 246: one timeout (climate quarter-year season run, 60 s) while e2e ran in parallel; passes alone in 36 s; timeout raised, speed-up in backlog.
+
+## 2026-10-23 M10-C03 … C05
+- + coastal: lesson stages reached by the chalk headland model in order (< 2000 steps, deterministic re-run); spit grows through the stages; bar lesson's lagoon area × 5+ at closure. Glacial: trough exponent b 1 → > 1.6, deepened > 100 m, hanging valley > 100 m; corries → arête (crest < 1/10), rock lip > 20 m above the hollow. Folds: stage mapping flat → folded → thrust → eroded. Volcano lesson builds and labels both volcanoes (composite taller). Curriculum: terminology per module (caught: rivers GCSE never said "source"), KS3 mean ≤ 26 words/sentence (caught one 28-word passage), lesson font sizes, contrast text/panel ≥ 7:1, muted ≥ 4.5:1, yellow titles ≥ 7:1.
+
+## 2026-10-23 M09-C04, M10-C01, M10-C02
+- npm test PASS 230 (+ challenges: windowed sea-inflow rate, delta/new-land/plateau metrics pass + fail cases, heavy rain refused, every setup generates; education: synthetic valley → mouth at outlet, confluence where the side valley joins, tributary up it, source at the head, watershed on the divide; lesson world: source's D8 path reaches the mouth; lesson contract; guided: waterfall overhang ≤ limit, collapses retreat ≥ 0.9 × limit, gorge = retreat; meander sinuosity ↑ and neck ↓ to cut-off, shorter after cut-off, oxbow ≈ one meander long, bend section deepest at the outer bank)
+- Challenge targets set from measured rates (browser): delta grows ≈ 260,000 m³/day at 50 mm/h (first 20,000 m³ target fell in an hour unaided — raised to 500,000 m³ in 5 days, starting dry). Plateau at 40 mm/h: 80 M m³ in the first hour (rain-triggered failure of dry-settled mudstone/clay scarps — wet stability −20 % rock / −35 % loose, M04) then ≈ 6 M m³/day; 86 M m³ after a day → target 100 M m³ in 10 days, starting dry.
+- Fixed on the way: feature rules (hillside rills counted as channels → confluence needs a branch with ≥ 10 % of the flow; source = head of the main stem); labels overlapping (stacked on longer stems); landscape behind the lesson panel (view offset); meander lesson labelled the slip-off slope on the outside of a bend (fixed: both banks of one bend).
+
 ## 2026-10-23 M09-C03
 - npm test PASS 220 (+ checkpoints: restore after 30 min more rain + erosion + a landslide + plant change gives back bedrock, soil, water, fluxes, suspended load, strata, plants, ash, lava and sim time exactly; the checkpoint is a deep copy; diff summary equals cell sums (−2 m × 100 cells, +0.5 m × 60, water, plants) and the ground overlay reads −2.0 m; different-world checkpoints cannot be compared but can be restored; cap of 6 drops the oldest and its comparison; delete ends a comparison)
 

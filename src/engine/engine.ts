@@ -21,7 +21,8 @@ import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
 import { episodePlan, runEruption, type VolcanoType } from '../sim/lava/build';
 import { caldera, type CalderaOptions, type CalderaResult } from '../sim/lava/caldera';
 import type { EruptionStyle } from '../sim/lava/tephra';
-import type { ErosionParams, WaterParams, WaterSource } from './world';
+import { floodSummary, surgeHeight, type FloodSummary, type HazardEvent } from '../sim/events/hazards';
+import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
 
 export type { VolcanoType } from '../sim/lava/build';
 
@@ -112,6 +113,9 @@ export class Engine {
     this.referenceSurface = this.surface.slice();
     this.compareResult = null;
     this.lastQuake = null;
+    this.hazard = null;
+    this.flood = null;
+    this.hazardLog = [];
     if (this.compareCheckpoint && !this.sameWorld(this.compareCheckpoint)) this.compareCheckpoint = null;
     const water = this.water;
     const sediment = this.sediment;
@@ -132,7 +136,19 @@ export class Engine {
   // ---------- water backend ----------
 
   get stepper(): Stepper {
-    const base = this.gpu ?? this.cpuStepper;
+    const hz = this.hazard;
+    const base0 = this.gpu ?? this.cpuStepper;
+    // A flood event runs on the solver's own clock, so the storm / surge timing is exact per step.
+    const base: Stepper =
+      hz && !hz.done
+        ? {
+            stableDt: () => base0.stableDt(),
+            step: (dt) => {
+              this.hazardStep(hz, dt);
+              base0.step(dt);
+            },
+          }
+        : base0;
     const lava = this.lava;
     if (!lava.active) return base;
     // Lava shares the water clock, sub-stepping inside each water step at its own stable step.
@@ -209,6 +225,7 @@ export class Engine {
       this.vegetationHook(done);
       this.tectonicsHook(done);
       this.lavaHook();
+      this.hazardHook();
       if (this.gpu) {
         this.syncTimer += realDt;
         if (this.syncTimer >= this.syncInterval) {
@@ -238,6 +255,7 @@ export class Engine {
       this.vegetationHook(d);
       this.tectonicsHook(d);
       this.lavaHook();
+      this.hazardHook();
       left -= seg;
       if (this.gpu && left > 0) this.gpu.syncToCpu();
       if (d === 0) break;
@@ -728,6 +746,124 @@ export class Engine {
     this.water.refreshSea();
     this.markDirty(res.rect);
     return res;
+  }
+
+  // ---------- flood hazards (storm, sea surge; sim/events/hazards.ts) ----------
+
+  /** The current or last flood event (null before the first one in this world). */
+  hazard: HazardEvent | null = null;
+  /** Flood record of the current / last event: deepest water per cell, and the water when it began. */
+  flood: { peak: Float32Array; start: Float32Array; label: string } | null = null;
+  /** Events in this world, with the simulated time they began and their result. */
+  hazardLog: { simS: number; text: string }[] = [];
+  private nextHazardId = 1;
+  private hazardChanged = false;
+
+  /** Storm: `rainMmH` over the whole map for `hours`, then the old rain; records `afterHours` more while it drains. */
+  startStorm(rainMmH: number, hours: number, afterHours = 6): HazardEvent {
+    return this.startHazard({
+      kind: 'storm',
+      rainMmH,
+      activeS: hours * 3600,
+      recordS: (hours + afterHours) * 3600,
+      label: `Storm ${rainMmH} mm/h for ${hours} h`,
+    });
+  }
+
+  /** Sea surge: the sea stands `heightM` higher for `minutes` (simplified tsunami), recorded `afterMinutes` more. */
+  startSurge(heightM: number, minutes: number, afterMinutes = 60): HazardEvent {
+    return this.startHazard({
+      kind: 'surge',
+      surgeM: heightM,
+      activeS: minutes * 60,
+      recordS: (minutes + afterMinutes) * 60,
+      rampS: Math.min(600, minutes * 15),
+      label: `Sea surge ${heightM} m for ${minutes} min`,
+    });
+  }
+
+  private startHazard(o: Partial<HazardEvent> & Pick<HazardEvent, 'kind' | 'activeS' | 'recordS' | 'label'>): HazardEvent {
+    this.stopHazard();
+    this.syncWater();
+    const w = this.world;
+    const hz: HazardEvent = {
+      id: this.nextHazardId++,
+      startS: w.simTimeSeconds,
+      elapsedS: 0,
+      rainMmH: 0,
+      prevRainMPerS: w.water.rainMPerS,
+      rainRestored: false,
+      surgeM: 0,
+      rampS: 0,
+      done: false,
+      ...o,
+    };
+    const start = w.waterDepthM.slice();
+    for (let i = 0; i < start.length; i++) if (this.water.sea[i]) start[i] = 0;
+    this.water.peakDepth = start.slice();
+    this.gpu?.uploadPeak();
+    this.flood = { peak: this.water.peakDepth, start, label: hz.label };
+    if (hz.kind === 'storm') w.water.rainMPerS = hz.rainMmH * MM_PER_H;
+    this.hazard = hz;
+    this.hazardLog.push({ simS: hz.startS, text: `${hz.label} began` });
+    this.emit({ type: 'water-params-changed' });
+    this.emit({ type: 'climate-changed' }); // overlay menu: flood extent available
+    return hz;
+  }
+
+  /** Per solver step: advance the event clock, set the surge, end the storm rain and the recording on time. */
+  private hazardStep(hz: HazardEvent, dt: number) {
+    if (hz.done) return;
+    hz.elapsedS += dt;
+    if (hz.kind === 'surge') this.water.surgeM = surgeHeight(hz, hz.elapsedS);
+    // (tolerance: the step sizes rarely sum exactly to the set duration)
+    if (hz.kind === 'storm' && !hz.rainRestored && hz.elapsedS >= hz.activeS - 1e-6) {
+      this.world.water.rainMPerS = hz.prevRainMPerS;
+      hz.rainRestored = true;
+      this.hazardChanged = true;
+    }
+    if (hz.elapsedS >= hz.recordS - 1e-6) this.finishHazard(hz);
+  }
+
+  private finishHazard(hz: HazardEvent) {
+    hz.done = true;
+    this.water.surgeM = 0;
+    if (hz.kind === 'storm' && !hz.rainRestored) {
+      this.world.water.rainMPerS = hz.prevRainMPerS;
+      hz.rainRestored = true;
+    }
+    this.hazardChanged = true;
+  }
+
+  /** End the current event now (rain back to normal, sea back down); the flood record is kept. */
+  stopHazard(): void {
+    const hz = this.hazard;
+    if (!hz || hz.done) return;
+    this.syncWater();
+    this.finishHazard(hz);
+    this.hazardHook();
+  }
+
+  /** After stepping: when an event ended, fold the GPU peak record, stop recording and log the result. */
+  private hazardHook() {
+    if (!this.hazardChanged) return;
+    this.hazardChanged = false;
+    const hz = this.hazard;
+    if (hz?.done && this.water.peakDepth) {
+      this.syncWater();
+      this.water.peakDepth = null;
+      const f = this.floodSummary()!;
+      this.hazardLog.push({
+        simS: hz.startS + hz.elapsedS,
+        text: `${hz.label} ended: ${(f.areaM2 / 1e6).toFixed(3)} km² flooded, deepest ${f.peakDepthM.toFixed(1)} m`,
+      });
+    }
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Flood extent of the current / last event (call syncWater first while one is running). */
+  floodSummary(): FloodSummary | null {
+    return this.flood ? floodSummary(this.flood.peak, this.flood.start, this.world.cellSizeM) : null;
   }
 
   /** Last earthquake (its shaking map drives the 'shaking' overlay). */

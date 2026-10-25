@@ -8,7 +8,10 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+const page = await browser.newPage({
+  viewport: { width: 1440, height: 900 },
+  acceptDownloads: true,
+});
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(e.message));
@@ -112,7 +115,11 @@ const w1 = await eng(() => {
   const stored = e.water.storedVolume();
   const inn = L.rainIn + L.sourceIn + L.toolIn;
   const out = L.infiltrated + L.evaporated + L.edgeOut + L.seaOut + L.toolOut;
-  return { t: e.world.simTimeSeconds, stored, closure: Math.abs(stored - (L.initialStored + inn - out)) / Math.max(1, L.initialStored + inn) };
+  return {
+    t: e.world.simTimeSeconds,
+    stored,
+    closure: Math.abs(stored - (L.initialStored + inn - out)) / Math.max(1, L.initialStored + inn),
+  };
 });
 check('Play advances simulated time and rain adds water', w1.t > 60 && w1.stored > 0, `t=${w1.t.toFixed(0)} s stored=${w1.stored.toFixed(0)} m³`);
 check('water budget closes in browser (GPU)', w1.closure < 1e-3, `closure=${w1.closure.toExponential(2)}`);
@@ -181,7 +188,11 @@ const ls1 = await sum();
 await page.keyboard.press('Control+z');
 await page.waitForTimeout(400);
 const ls2 = await sum();
-check('landslide tool runs and is undoable', /Landslide|stable/.test(slideToast) && Math.abs(ls2 - ls0) < 1e-6 * Math.abs(ls0) + 1e-3, `${slideToast.slice(0, 70)} Δ=${(ls1 - ls0).toFixed(3)}`);
+check(
+  'landslide tool runs and is undoable',
+  /Landslide|stable/.test(slideToast) && Math.abs(ls2 - ls0) < 1e-6 * Math.abs(ls0) + 1e-3,
+  `${slideToast.slice(0, 70)} Δ=${(ls1 - ls0).toFixed(3)}`,
+);
 await page.keyboard.press('1');
 
 // --- Erosion (M03): river-to-sea world, accelerated erosion, budget, save/reload ---
@@ -199,9 +210,17 @@ const er = await eng(() => {
   const S = e.sediment.ledger;
   const susp = e.sediment.suspendedVolume();
   const expected = S.initialSuspended + S.erodedLoose + S.erodedBedrock - S.deposited - S.seaDeposited - S.edgeExport;
-  return { eroded: S.erodedLoose + S.erodedBedrock, sea: S.seaDeposited, closure: Math.abs(susp - expected) / Math.max(1, S.erodedLoose + S.erodedBedrock) };
+  return {
+    eroded: S.erodedLoose + S.erodedBedrock,
+    sea: S.seaDeposited,
+    closure: Math.abs(susp - expected) / Math.max(1, S.erodedLoose + S.erodedBedrock),
+  };
 });
-check('erosion runs on GPU and moves sediment to the sea', er.eroded > 1000 && er.sea > 0, `eroded=${er.eroded.toFixed(0)} m³ seaDeposited=${er.sea.toFixed(0)} m³`);
+check(
+  'erosion runs on GPU and moves sediment to the sea',
+  er.eroded > 1000 && er.sea > 0,
+  `eroded=${er.eroded.toFixed(0)} m³ seaDeposited=${er.sea.toFixed(0)} m³`,
+);
 check('sediment budget closes in browser', er.closure < 1e-3, `closure=${er.closure.toExponential(2)}`);
 await page.selectOption('.timebar select.overlay-select', 'change');
 await page.waitForTimeout(800);
@@ -209,7 +228,13 @@ await shot('13-erosion-change-map');
 await page.selectOption('.timebar select.overlay-select', 'none');
 await page.keyboard.press('Control+s');
 await page.waitForTimeout(3500);
-const bedSum = () => eng(() => { const w = window.__terraGenesis.engine.world; let a = 0; for (let i = 0; i < w.bedrockElevationM.length; i++) a += w.bedrockElevationM[i] + w.looseSedimentThicknessM[i] + w.sedimentSuspendedM[i]; return a; });
+const bedSum = () =>
+  eng(() => {
+    const w = window.__terraGenesis.engine.world;
+    let a = 0;
+    for (let i = 0; i < w.bedrockElevationM.length; i++) a += w.bedrockElevationM[i] + w.looseSedimentThicknessM[i] + w.sedimentSuspendedM[i];
+    return a;
+  });
 const b1 = await bedSum();
 await page.goto(base);
 await page.waitForSelector('canvas');
@@ -232,7 +257,12 @@ const co = await eng(() => {
   const s1 = sea();
   e.setSeaLevel(0);
   e.advance(6 * 3600);
-  return { s0, s1, cliff: e.coast.ledger.cliffEroded, waves: e.world.coast.wavesOn };
+  return {
+    s0,
+    s1,
+    cliff: e.coast.ledger.cliffEroded,
+    waves: e.world.coast.wavesOn,
+  };
 });
 check('sea-level rise floods more cells', co.s1 > co.s0, `${co.s0} → ${co.s1} sea cells`);
 check('waves erode the headlands coast', co.waves && co.cliff > 1000, `cliff erosion ${co.cliff.toFixed(0)} m³`);
@@ -242,18 +272,28 @@ await page.click('.rail-btn:has-text("Coast")');
 await page.click('text=Open cave, arch, stack and stump lab');
 await page.waitForSelector('.arch-view canvas');
 await page.click('.dialog button.primary:has-text("Play")');
-await page.waitForFunction(() => document.querySelector('.arch-stages li.now')?.getAttribute('data-stage') === 'stack', null, { timeout: 240000 }).catch(() => {});
+await page
+  .waitForFunction(() => document.querySelector('.arch-stages li.now')?.getAttribute('data-stage') === 'stack', null, { timeout: 240000 })
+  .catch(() => {});
 await page.click('.dialog button.primary:has-text("Pause")').catch(() => {});
 await shot('23-arch-lab-stack');
 const archSeen = await page.$$eval('.arch-stages li', (els) => els.map((e) => e.getAttribute('data-stage') + ':' + e.querySelector('span').textContent));
-check('arch lab reaches the stack stage via cave and arch', archSeen.slice(1, 4).every((s) => /step \d+/.test(s)), archSeen.join(' '));
+check(
+  'arch lab reaches the stack stage via cave and arch',
+  archSeen.slice(1, 4).every((s) => /step \d+/.test(s)),
+  archSeen.join(' '),
+);
 await page.selectOption('.dialog select >> nth=0', 'clay');
 await page.waitForTimeout(300);
 const claySel = await page.locator('.dialog select').nth(1).inputValue();
 const q = await page.textContent('.arch-question');
 await page.click('.dialog button:has-text("Use this world")');
 const worldNote = await page.textContent('.dialog .hint.small.tight');
-check('arch lab scenarios and world coast set rock and waves', claySel === 'clay' && /clay/i.test(q) && /From this world/.test(worldNote), `${claySel} · ${worldNote}`);
+check(
+  'arch lab scenarios and world coast set rock and waves',
+  claySel === 'clay' && /clay/i.test(q) && /From this world/.test(worldNote),
+  `${claySel} · ${worldNote}`,
+);
 await page.click('.dialog [aria-label="Close"]');
 
 // --- Beaches, spits and bars lab (M05-C04b): bay-mouth bar closes a lagoon ---
@@ -302,10 +342,19 @@ const cl = await eng(() => {
   const stored = e.water.storedVolume();
   const inn = L.initialStored + L.rainIn + L.sourceIn + L.toolIn;
   const out = L.infiltrated + L.evaporated + L.seaOut + L.edgeOut + L.toolOut;
-  return { backend: e.backend, closure: Math.abs(inn - out - stored) / inn, evap: L.evaporated, rain: L.rainIn };
+  return {
+    backend: e.backend,
+    closure: Math.abs(inn - out - stored) / inn,
+    evap: L.evaporated,
+    rain: L.rainIn,
+  };
 });
 check('climate: wetter windward slopes and drier rain shadow', !!rx && +rx[2] > 1.5 && +rx[1] < 0.7, rx ? rx[0] : climText.slice(0, 80));
-check('climate: water budget closes with spatial rain on ' + cl.backend, cl.closure < 1e-4 && cl.evap > 0, `closure=${cl.closure.toExponential(2)} rain=${cl.rain.toFixed(0)} evap=${cl.evap.toFixed(0)} m³`);
+check(
+  'climate: water budget closes with spatial rain on ' + cl.backend,
+  cl.closure < 1e-4 && cl.evap > 0,
+  `closure=${cl.closure.toExponential(2)} rain=${cl.rain.toFixed(0)} evap=${cl.evap.toFixed(0)} m³`,
+);
 
 // --- Snow (M06-C02): cold spell builds a snowpack on the GPU, warm spell melts it ---
 await page.click('.climate-panel button:has-text("Temperature")'); // back to natural colours
@@ -327,11 +376,22 @@ const sn = await eng(() => {
   e.advance(6 * 3600);
   const warm = e.water.snowVolume();
   e.setClimateParams({ seaLevelTempC: -3 });
-  return { backend: e.backend, cold, warm, c1, c2: closure(), melt: L.snowmelt };
+  return {
+    backend: e.backend,
+    cold,
+    warm,
+    c1,
+    c2: closure(),
+    melt: L.snowmelt,
+  };
 });
 await page.waitForTimeout(1500);
 await shot('28-snow');
-check('snow: cold spell builds a snowpack, warm spell melts it (' + sn.backend + ')', sn.cold > 1e4 && sn.warm < sn.cold && sn.melt > 0 && sn.c1 < 1e-4 && sn.c2 < 1e-4, `snow ${sn.cold.toFixed(0)} → ${sn.warm.toFixed(0)} m³, closure ${sn.c1.toExponential(1)} / ${sn.c2.toExponential(1)}`);
+check(
+  'snow: cold spell builds a snowpack, warm spell melts it (' + sn.backend + ')',
+  sn.cold > 1e4 && sn.warm < sn.cold && sn.melt > 0 && sn.c1 < 1e-4 && sn.c2 < 1e-4,
+  `snow ${sn.cold.toFixed(0)} → ${sn.warm.toFixed(0)} m³, closure ${sn.c1.toExponential(1)} / ${sn.c2.toExponential(1)}`,
+);
 
 // --- Glaciers (M06-C03): ice grows above the snowline on the mountain world and flows ---
 await page.click('.climate-panel label.check:has-text("Glaciers grow") input');
@@ -351,18 +411,34 @@ const gl = await eng(() => {
   const stored = e.water.storedVolume();
   const inn = W.initialStored + W.rainIn + W.sourceIn + W.toolIn + W.glacierMeltIn;
   const wClosure = Math.abs(inn - (W.infiltrated + W.evaporated + W.seaOut + W.edgeOut + W.toolOut) - stored) / inn;
-  return { ice, iceClosure, wClosure, years: L.timeS / 3.15576e7, lag: L.lagS / 3.15576e7, ms, melt: W.glacierMeltIn };
+  return {
+    ice,
+    iceClosure,
+    wClosure,
+    years: L.timeS / 3.15576e7,
+    lag: L.lagS / 3.15576e7,
+    ms,
+    melt: W.glacierMeltIn,
+  };
 });
 await page.waitForTimeout(1500);
 await shot('29-glaciers');
-check('glaciers grow, conserve ice and keep the water budget', gl.ice > 1e5 && gl.years > 30 && Math.abs(gl.years + gl.lag - 120) < 1 && gl.iceClosure < 1e-6 && gl.wClosure < 1e-4, `ice ${(gl.ice / 1e6).toFixed(2)} M m³ after ${gl.years.toFixed(0)} yr (lag ${gl.lag.toFixed(0)} yr), ice closure ${gl.iceClosure.toExponential(1)}, water ${gl.wClosure.toExponential(1)}, ${gl.ms.toFixed(0)} ms`);
+check(
+  'glaciers grow, conserve ice and keep the water budget',
+  gl.ice > 1e5 && gl.years > 30 && Math.abs(gl.years + gl.lag - 120) < 1 && gl.iceClosure < 1e-6 && gl.wClosure < 1e-4,
+  `ice ${(gl.ice / 1e6).toFixed(2)} M m³ after ${gl.years.toFixed(0)} yr (lag ${gl.lag.toFixed(0)} yr), ice closure ${gl.iceClosure.toExponential(1)}, water ${gl.wClosure.toExponential(1)}, ${gl.ms.toFixed(0)} ms`,
+);
 
 // --- Vegetation (M06-C04): plants spread over the warm, wet lowlands and shield them from erosion ---
 const vg = await eng(() => {
   const e = window.__terraGenesis.engine;
   e.setGlacierParams({ enabled: false });
   e.setClimateParams({ seaLevelTempC: 14, seasonalAmpC: 6 });
-  e.setVegetationParams({ enabled: true, yearsPerSimHour: 100, annualPrecipMm: 1200 });
+  e.setVegetationParams({
+    enabled: true,
+    yearsPerSimHour: 100,
+    annualPrecipMm: 1200,
+  });
   e.advance(2 * 3600);
   const st = e.vegetation.stats();
   let hiCov = 0;
@@ -374,14 +450,18 @@ const vg = await eng(() => {
   for (const v of z) zmax = Math.max(zmax, v);
   for (let i = 0; i < z.length; i++) {
     if (z[i] < e.world.seaLevelM) continue;
-    if (z[i] > zmax - 300) (hiCov += e.world.vegCover[i]), hiN++;
-    else if (z[i] < e.world.seaLevelM + 400) (loCov += e.world.vegCover[i]), loN++;
+    if (z[i] > zmax - 300) ((hiCov += e.world.vegCover[i]), hiN++);
+    else if (z[i] < e.world.seaLevelM + 400) ((loCov += e.world.vegCover[i]), loN++);
   }
   return { ...st, hi: hiN ? hiCov / hiN : 0, lo: loN ? loCov / loN : 0 };
 });
 await page.waitForTimeout(2000);
 await shot('30-vegetation');
-check('vegetation grows on warm lowlands, thins towards the peaks', vg.coverPct > 5 && vg.lo > vg.hi, `cover ${vg.coverPct.toFixed(0)}% (forest ${vg.forestPct.toFixed(0)}%), lowland ${vg.lo.toFixed(2)} vs summits ${vg.hi.toFixed(2)}`);
+check(
+  'vegetation grows on warm lowlands, thins towards the peaks',
+  vg.coverPct > 5 && vg.lo > vg.hi,
+  `cover ${vg.coverPct.toFixed(0)}% (forest ${vg.forestPct.toFixed(0)}%), lowland ${vg.lo.toFixed(2)} vs summits ${vg.hi.toFixed(2)}`,
+);
 
 // --- Biome preset + what-if comparison (M06-C05) ---
 await page.click('text=New');
@@ -403,7 +483,12 @@ const pre = await eng(() => {
   const e = window.__terraGenesis.engine;
   let ice = 0;
   for (const h of e.world.iceThicknessM) ice += h;
-  return { climate: e.world.climate.enabled, glaciers: e.world.glacier.enabled, ice, plants: e.vegetation.stats().coverPct };
+  return {
+    climate: e.world.climate.enabled,
+    glaciers: e.world.glacier.enabled,
+    ice,
+    plants: e.vegetation.stats().coverPct,
+  };
 });
 const iceRow = cmpRows.find((r) => r[0] === 'Ice volume');
 check('alpine preset starts with climate, ice and plants', pre.climate && pre.glaciers && pre.ice > 0 && pre.plants > 1, `plants ${pre.plants.toFixed(0)}%`);
@@ -429,11 +514,23 @@ const pl = await eng(() => {
   for (const z of e.surface) z1 = Math.max(z1, z);
   let c = 0;
   for (const b of e.tectonics.boundary) if (b === 1) c++;
-  return { z0, z1, up: e.tectonics.ledger.uplifted, down: e.tectonics.ledger.subsided, years: e.tectonics.ledger.years, conv: c, plates: e.world.tectonics.plates.length };
+  return {
+    z0,
+    z1,
+    up: e.tectonics.ledger.uplifted,
+    down: e.tectonics.ledger.subsided,
+    years: e.tectonics.ledger.years,
+    conv: c,
+    plates: e.world.tectonics.plates.length,
+  };
 });
 await page.waitForTimeout(1500);
 await shot('33-plates');
-check('plates: boundaries deform the land in tectonic time', pl.plates === 3 && pl.years > 3e5 && (pl.conv === 0 || pl.up > 0) && pl.up + pl.down > 0, `${pl.plates} plates, ${Math.round(pl.years).toLocaleString()} yr: raised ${(pl.up / 1e9).toFixed(2)} km³, lowered ${(pl.down / 1e9).toFixed(2)} km³, top ${pl.z0.toFixed(0)} → ${pl.z1.toFixed(0)} m`);
+check(
+  'plates: boundaries deform the land in tectonic time',
+  pl.plates === 3 && pl.years > 3e5 && (pl.conv === 0 || pl.up > 0) && pl.up + pl.down > 0,
+  `${pl.plates} plates, ${Math.round(pl.years).toLocaleString()} yr: raised ${(pl.up / 1e9).toFixed(2)} km³, lowered ${(pl.down / 1e9).toFixed(2)} km³, top ${pl.z0.toFixed(0)} → ${pl.z1.toFixed(0)} m`,
+);
 
 // --- Subduction cross-section lab (M07-C03) ---
 await page.click('.plates-panel button:has-text("Open subduction zone cross-section")');
@@ -479,7 +576,11 @@ await shot('36-earthquake-shaking');
 await page.keyboard.press('Control+z');
 await page.waitForTimeout(400);
 const q2 = await sum();
-check('earthquake deforms the ground for good and undo restores it', q1 !== q0 && /earthquake/.test(qLabel ?? '') && Math.abs(q2 - q0) < 1e-6 * Math.abs(q0) + 1e-3, `Δ=${(q1 - q0).toFixed(1)} undo='${qLabel}' restored Δ=${(q2 - q0).toFixed(4)}`);
+check(
+  'earthquake deforms the ground for good and undo restores it',
+  q1 !== q0 && /earthquake/.test(qLabel ?? '') && Math.abs(q2 - q0) < 1e-6 * Math.abs(q0) + 1e-3,
+  `Δ=${(q1 - q0).toFixed(1)} undo='${qLabel}' restored Δ=${(q2 - q0).toFixed(4)}`,
+);
 
 // --- Volcano (M08-C01): a vent erupts; lava flows downhill and the volume ledger closes ---
 await page.click('.rail-btn:has-text("Quake")');
@@ -503,13 +604,21 @@ const lava = await page.evaluate(() => {
   const flow = e.lava.flowingVolume();
   let cells = 0;
   for (const h of e.world.lavaDepthM) if (h > 0.1) cells++;
-  return { erupted: L.erupted, closure: Math.abs(L.erupted - flow - L.solidified) / L.erupted, cells };
+  return {
+    erupted: L.erupted,
+    closure: Math.abs(L.erupted - flow - L.solidified) / L.erupted,
+    cells,
+  };
 });
 await page.click('button[aria-label="Step"]'); // one more step through the UI refreshes the panel
 await page.waitForTimeout(1500);
 await shot('37-lava-flow');
 const vp = await page.textContent('.volcano-panel');
-check('volcano vent erupts lava that spreads with a closed volume ledger', vent === 1 && lava.cells > 3 && Math.abs(lava.erupted - 200 * 1800) < 1 && lava.closure < 1e-4 && /Erupted/.test(vp ?? ''), `vent on land ${vent} ` + JSON.stringify(lava));
+check(
+  'volcano vent erupts lava that spreads with a closed volume ledger',
+  vent === 1 && lava.cells > 3 && Math.abs(lava.erupted - 200 * 1800) < 1 && lava.closure < 1e-4 && /Erupted/.test(vp ?? ''),
+  `vent on land ${vent} ` + JSON.stringify(lava),
+);
 
 // --- Explosive eruption (M08-C02): ash + cinder, thinning downwind, tephra ledger closes ---
 await page.selectOption('.volcano-panel select >> nth=2', 'explosive'); // selects: what to make, magma, style
@@ -527,13 +636,24 @@ const ash = await page.evaluate(() => {
   let cells = 0;
   for (const t of e.world.tephraM) if (t > 0.01) cells++;
   const pending = e.lava.pendingTephra();
-  return { onLand, erupted: L.tephraErupted, deposited: L.tephraDeposited, off: L.tephraOffMap, closure: Math.abs(L.tephraErupted - L.tephraDeposited - L.tephraOffMap - pending) / L.tephraErupted, cells };
+  return {
+    onLand,
+    erupted: L.tephraErupted,
+    deposited: L.tephraDeposited,
+    off: L.tephraOffMap,
+    closure: Math.abs(L.tephraErupted - L.tephraDeposited - L.tephraOffMap - pending) / L.tephraErupted,
+    cells,
+  };
 });
 await page.click('button[aria-label="Step"]');
 await page.waitForTimeout(1500);
 await shot('38-ash-fall');
 const ap = await page.textContent('.volcano-panel');
-check('explosive eruption lays ash and cinder with a closed tephra ledger', ash.deposited > 0 && ash.cells > 50 && ash.closure < 1e-4 && /Ash and cinder/.test(ap ?? ''), JSON.stringify(ash));
+check(
+  'explosive eruption lays ash and cinder with a closed tephra ledger',
+  ash.deposited > 0 && ash.cells > 50 && ash.closure < 1e-4 && /Ash and cinder/.test(ap ?? ''),
+  JSON.stringify(ash),
+);
 
 // --- Build a composite volcano (M08-C03): repeated eruptions, one undoable edit ---
 await page.selectOption('.volcano-panel select >> nth=0', 'composite');
@@ -545,7 +665,11 @@ await page.mouse.up();
 await page.waitForFunction(() => window.__terraGenesis.engine.history.undoLabel === 'Build composite volcano', null, { timeout: 300000 }).catch(() => {});
 const vb = await page.evaluate(() => {
   const e = window.__terraGenesis.engine;
-  return { label: e.history.undoLabel, lava: e.lava.ledger.erupted, ash: e.lava.ledger.tephraErupted };
+  return {
+    label: e.history.undoLabel,
+    lava: e.lava.ledger.erupted,
+    ash: e.lava.ledger.tephraErupted,
+  };
 });
 const v1 = await sum();
 await page.waitForTimeout(1500);
@@ -553,7 +677,11 @@ await shot('39-composite-volcano');
 await page.keyboard.press('Control+z');
 await page.waitForTimeout(500);
 const v2 = await sum();
-check('building a composite volcano raises the ground and undo removes it', vb.label === 'Build composite volcano' && v1 > v0 && Math.abs(v2 - v0) < 1e-6 * Math.abs(v0) + 1e-3, `Δ=${(v1 - v0).toFixed(0)} undoΔ=${(v2 - v0).toFixed(4)} ${JSON.stringify(vb)}`);
+check(
+  'building a composite volcano raises the ground and undo removes it',
+  vb.label === 'Build composite volcano' && v1 > v0 && Math.abs(v2 - v0) < 1e-6 * Math.abs(v0) + 1e-3,
+  `Δ=${(v1 - v0).toFixed(0)} undoΔ=${(v2 - v0).toFixed(4)} ${JSON.stringify(vb)}`,
+);
 
 // --- Volcanic island preset + caldera collapse (M08-C04) ---
 await page.click('text=New');
@@ -576,9 +704,22 @@ const isl = await page.evaluate(() => {
     if (e.surface[i] > e.surface[best]) best = i;
   }
   const s0 = e.surface.reduce((a, v) => a + v, 0);
-  const r = e.caldera({ xM: (best % w.width) * w.cellSizeM, yM: Math.floor(best / w.width) * w.cellSizeM, radiusM: 250, depthM: 100 });
+  const r = e.caldera({
+    xM: (best % w.width) * w.cellSizeM,
+    yM: Math.floor(best / w.width) * w.cellSizeM,
+    radiusM: 250,
+    depthM: 100,
+  });
   const s1 = e.surface.reduce((a, v) => a + v, 0);
-  return { land, top: e.surface[best], cells: r.cells, vol: r.volumeM3, drop: (s0 - s1) * w.cellSizeM * w.cellSizeM, label: e.history.undoLabel, s0 };
+  return {
+    land,
+    top: e.surface[best],
+    cells: r.cells,
+    vol: r.volumeM3,
+    drop: (s0 - s1) * w.cellSizeM * w.cellSizeM,
+    label: e.history.undoLabel,
+    s0,
+  };
 });
 await page.waitForTimeout(1200);
 await shot('41-caldera');
@@ -587,14 +728,22 @@ await page.waitForTimeout(500);
 const islUndo = await sum();
 check(
   'volcanic island preset grows an island; caldera drops exactly its volume and undo restores',
-  isl.land > 50 && isl.top > 50 && isl.cells > 50 && Math.abs(isl.drop - isl.vol) < 1e-3 * isl.vol && isl.label === 'Caldera collapse' && Math.abs(islUndo - isl.s0) < 1e-6 * Math.abs(isl.s0) + 1e-3,
+  isl.land > 50 &&
+    isl.top > 50 &&
+    isl.cells > 50 &&
+    Math.abs(isl.drop - isl.vol) < 1e-3 * isl.vol &&
+    isl.label === 'Caldera collapse' &&
+    Math.abs(islUndo - isl.s0) < 1e-6 * Math.abs(isl.s0) + 1e-3,
   JSON.stringify({ ...isl, s0: undefined }),
 );
 
 // --- Measure tool (M09-C01): pins read real cell values; pair distance; transect CSV ---
 await page.keyboard.press('m');
 await page.waitForTimeout(300);
-for (const [x, y] of [[620, 470], [860, 430]]) {
+for (const [x, y] of [
+  [620, 470],
+  [860, 430],
+]) {
   await page.mouse.move(x, y);
   await page.mouse.down();
   await page.mouse.up();
@@ -607,7 +756,11 @@ const ms = await page.evaluate(() => {
   const e = t.engine;
   const w = e.world;
   const cell = (p) => Math.round(p.yM / w.cellSizeM) * w.width + Math.round(p.xM / w.cellSizeM);
-  return { n: pins.length, d: pins.length === 2 ? Math.hypot(pins[1].xM - pins[0].xM, pins[1].yM - pins[0].yM) : 0, zA: pins[0] ? e.surface[cell(pins[0])] : null };
+  return {
+    n: pins.length,
+    d: pins.length === 2 ? Math.hypot(pins[1].xM - pins[0].xM, pins[1].yM - pins[0].yM) : 0,
+    zA: pins[0] ? e.surface[cell(pins[0])] : null,
+  };
 });
 const mp = await page.textContent('.measure-panel');
 const fmtD = (m) => (m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(0)} m`);
@@ -685,6 +838,147 @@ check(
   cp1 > cp0 + 1 && /Ground raised/.test(summary ?? '') && legendOk && cp2 === cp0,
   `Δ=${(cp1 - cp0).toFixed(1)} restoredΔ=${(cp2 - cp0).toFixed(4)} legend=${legendOk}`,
 );
+
+// --- Challenges (M09-C04): seeded start, live score, pass from measured new land ---
+await page.click('.topbar button:has-text("Challenges")');
+await page.click('.challenge-list li:has-text("volcanic island") button:has-text("Start")');
+await page.waitForTimeout(1500);
+const ch0 = await page.evaluate(() => window.__terraGenesis.ui().challenge);
+await page.click('.rail-btn:has-text("Volcano")');
+await page.selectOption('.volcano-panel select >> nth=0', 'island');
+await page.locator('.volcano-panel input[type=range]').nth(0).fill('6');
+await page.mouse.move(720, 450);
+await page.mouse.down();
+await page.mouse.up();
+await page.waitForFunction(() => window.__terraGenesis.ui().challenge?.status === 'passed', null, { timeout: 300000 }).catch(() => {});
+await page.waitForTimeout(800);
+const ch1 = await page.evaluate(() => window.__terraGenesis.ui().challenge);
+const hud = await page.textContent('.challenge-hud').catch(() => '');
+await shot('45-challenge-island');
+await page.click('.challenge-hud button:has-text("Close")').catch(() => {});
+check(
+  'challenge: island goal starts unmet and passes from measured new land',
+  ch0?.status === 'running' && ch0.fraction === 0 && ch1?.status === 'passed' && /Complete/.test(hud ?? ''),
+  `${ch0?.text} → ${ch1?.status}: ${ch1?.text}`,
+);
+
+// --- Education Mode (M10-C01): classroom layout, real-feature labels, stage states restored exactly ---
+const clickLesson = (label) =>
+  page.evaluate((t) => [...document.querySelectorAll('.lesson-panel button')].find((b) => b.textContent.includes(t))?.click(), label);
+await page.click('.topbar button:has-text("Lessons")');
+await page.click('.challenge-list li:has-text("drainage basin") button:has-text("Start")');
+await page.waitForFunction(() => window.__terraGenesis.ui().education && !window.__terraGenesis.ui().education.busy, null, { timeout: 60000 });
+await page.waitForTimeout(1200);
+const st1 = await page.evaluate(() => ({
+  labels: window.__terraGenesis.ui().lessonLabels.map((l) => l.text),
+  t: window.__terraGenesis.engine.world.simTimeSeconds,
+}));
+const railHidden = await page.$eval('.toolrail', (el) => getComputedStyle(el).display === 'none').catch(() => true);
+await shot('46-lesson-stage1');
+await clickLesson('Next');
+await page.waitForFunction(() => window.__terraGenesis.ui().education.stage === 1 && !window.__terraGenesis.ui().education.busy, null, { timeout: 600000 });
+const st2 = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  let water = 0;
+  for (const d of e.world.waterDepthM) water += d;
+  return { t: e.world.simTimeSeconds, water };
+});
+await clickLesson('Previous');
+await page.waitForFunction(() => window.__terraGenesis.ui().education.stage === 0, null, { timeout: 60000 });
+await page.waitForTimeout(500);
+const back = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  let water = 0;
+  for (const d of e.world.waterDepthM) water += d;
+  return { t: e.world.simTimeSeconds, water };
+});
+await clickLesson('Exit lesson');
+await page.waitForTimeout(500);
+check(
+  'lesson: classroom layout, labels from the simulated basin, Next runs 2 h of rain, Previous restores stage 1 exactly',
+  railHidden &&
+    st1.labels.includes('Watershed') &&
+    st1.labels.includes('Mouth') &&
+    st2.t - st1.t === 7200 &&
+    st2.water > 0 &&
+    back.t === st1.t &&
+    back.water === 0,
+  `labels ${st1.labels.join('/')} · t ${st1.t}→${st2.t}→${back.t} · water ${st2.water.toFixed(1)}→${back.water}`,
+);
+
+// --- Guided river lessons (M10-C02): waterfall retreat and meander cut-off, marked as guided models ---
+const guidedRun = async (name, steps) => {
+  await page.evaluate(() => window.__terraGenesis.ui().set({ dialog: 'lessons' }));
+  await page.waitForTimeout(300);
+  await page.click(`.challenge-list li:has-text("${name}") button:has-text("Start")`);
+  await page.waitForTimeout(600);
+  for (let k = 0; k < steps; k++) {
+    await clickLesson('Next');
+    await page.waitForTimeout(300);
+  }
+  await page.waitForTimeout(4500); // stage animation
+  return page.textContent('.guided-stage');
+};
+const wf = await guidedRun('waterfall', 3);
+await shot('47-guided-waterfall');
+const mn = await guidedRun('Meanders', 3);
+await shot('48-guided-meander');
+await clickLesson('Exit lesson');
+check(
+  'guided lessons: waterfall retreats to leave a gorge; meander cut off into an oxbow; both marked as guided models',
+  /Gorge \d+ m long/.test(wf ?? '') &&
+    /collapse/.test(wf ?? '') &&
+    /Oxbow lake/.test(mn ?? '') &&
+    /Guided model/.test(wf ?? '') &&
+    /Guided model/.test(mn ?? ''),
+  `${(wf ?? '').match(/Gorge \d+ m long/)?.[0]} · ${(mn ?? '').match(/Oxbow lake/)?.[0]}`,
+);
+
+// --- Coastal lessons (M10-C03): arch model run to the stack stage; spit grows ---
+await guidedRun('Caves, arches', 3);
+await page.waitForFunction(() => /Now: Stack/.test(document.querySelector('.guided-stage')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => {});
+const archTxt = await page.textContent('.guided-stage');
+await shot('49-lesson-stack');
+await guidedRun('Longshore drift', 3);
+await page.waitForFunction(() => /30 years/.test(document.querySelector('.guided-stage')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => {});
+const spitTxt = await page.textContent('.guided-stage');
+await shot('50-lesson-spit');
+await clickLesson('Exit lesson');
+check(
+  'coastal lessons: the chalk headland model reaches a stack; the spit lesson runs the shoreline model for 30 years',
+  /Now: Stack/.test(archTxt ?? '') && /30 years/.test(spitTxt ?? '') && /Guided model/.test(spitTxt ?? ''),
+  `${(archTxt ?? '').match(/Now: \w+/)?.[0]} · ${(spitTxt ?? '').match(/\d+ years/)?.[0]}`,
+);
+
+// --- Flood hazards (M11-C01): storm from the Floods panel; peak depth record, extent overlay, event log ---
+await page.keyboard.press('h');
+await page.waitForTimeout(400);
+await page.evaluate(() => document.querySelector('.hazards-panel button')?.click()); // Start storm
+await page.waitForTimeout(500);
+const flood = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  e.setPlaying(false);
+  e.advance(2400);
+  const p = e.flood.peak;
+  const d = e.world.waterDepthM;
+  let below = 0;
+  for (let i = 0; i < d.length; i++) if (p[i] < d[i]) below++;
+  e.stopHazard();
+  const f = e.floodSummary();
+  let n = 0;
+  for (let i = 0; i < p.length; i++) if (p[i] - e.flood.start[i] >= 0.3) n++;
+  return { below, cells: f.cells, n, area: f.areaM2, deep: f.peakDepthM, log: e.hazardLog.map((l) => l.text), rain: e.world.water.rainMPerS };
+});
+await page.waitForTimeout(1500);
+const floodPanel = await page.textContent('.hazards-panel');
+const floodLegend = (await page.textContent('.timebar .legend').catch(() => '')) ?? '';
+await shot('51-flood-extent');
+check(
+  'flood hazards: storm records the deepest water (≥ every depth), extent = cells over the threshold, overlay legend, event logged',
+  flood.below === 0 && flood.cells === flood.n && /Land flooded/.test(floodPanel ?? '') && /0.3 m/.test(floodLegend) && /ended/.test(flood.log.join(' ')),
+  `${(flood.area / 1e6).toFixed(3)} km² · deepest ${flood.deep.toFixed(2)} m · cells below peak ${flood.below} · legend ${/0.3 m/.test(floodLegend)}`,
+);
+await page.keyboard.press('1');
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

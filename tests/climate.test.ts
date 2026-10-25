@@ -108,7 +108,7 @@ describe('M06-C01 climate: temperature, season, orographic rain and rain shadow'
     e.advance(YEAR_S / 4); // a quarter of a year (no water: fast)
     expect(e.world.climate.seasonPhase).toBeCloseTo(0.25, 2);
     expect(e.climate.temperatureC[0]).toBeGreaterThan(t0 + 0.9 * e.world.climate.seasonalAmpC);
-  }, 60000);
+  }, 180000); // ~36 s alone (788k steps at the 10 s max step); slower under load — backlog M11-C05
 
   it('climate settings are saved; older files load with climate off', () => {
     const w = ridgeWorld();

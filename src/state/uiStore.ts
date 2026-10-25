@@ -4,7 +4,19 @@ import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainSce
 import type { WaterView } from '../renderer/waterLayer';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
-export type ToolId = 'navigate' | BrushKind | WaterToolId | 'profile' | 'landslide' | 'coast' | 'climate' | 'plates' | 'earthquake' | 'volcano' | 'measure';
+export type ToolId =
+  | 'navigate'
+  | BrushKind
+  | WaterToolId
+  | 'profile'
+  | 'landslide'
+  | 'coast'
+  | 'climate'
+  | 'plates'
+  | 'earthquake'
+  | 'volcano'
+  | 'measure'
+  | 'hazards';
 
 export const isBrushTool = (t: ToolId): t is BrushKind =>
   t !== 'navigate' &&
@@ -16,6 +28,7 @@ export const isBrushTool = (t: ToolId): t is BrushKind =>
   t !== 'earthquake' &&
   t !== 'volcano' &&
   t !== 'measure' &&
+  t !== 'hazards' &&
   !t.startsWith('water-') &&
   t !== 'spring';
 
@@ -91,7 +104,15 @@ export interface SimInfo {
     snowmeltM3: number;
   };
   lava: {
-    vents: { id: number; x: number; y: number; rateM3PerS: number; kind: 'basalt' | 'andesite'; remainingS: number; style?: 'lava' | 'explosive' | 'mixed' }[];
+    vents: {
+      id: number;
+      x: number;
+      y: number;
+      rateM3PerS: number;
+      kind: 'basalt' | 'andesite';
+      remainingS: number;
+      style?: 'lava' | 'explosive' | 'mixed';
+    }[];
     tephraEruptedM3: number;
     tephraDepositedM3: number;
     tephraOffMapM3: number;
@@ -108,7 +129,13 @@ export interface SimInfo {
     enabled: boolean;
     yearsPerSimHour: number;
     beltWidthM: number;
-    plates: { id: number; name: string; kind: 'continental' | 'oceanic'; vxMmYr: number; vyMmYr: number }[];
+    plates: {
+      id: number;
+      name: string;
+      kind: 'continental' | 'oceanic';
+      vxMmYr: number;
+      vyMmYr: number;
+    }[];
     upliftedM3: number;
     subsidedM3: number;
     years: number;
@@ -236,6 +263,29 @@ export interface VolcanoSettings {
 interface UiState {
   tool: ToolId;
   volcano: VolcanoSettings;
+  /** Education Mode (spec G): active lesson, stage, explanation level and label switches. */
+  education: {
+    lessonId: string;
+    stage: number;
+    level: 'ks3' | 'gcse';
+    labels: boolean;
+    answer: boolean;
+    busy: boolean;
+    /** Presentation: text scale, high contrast, panel hidden (map only). */
+    big?: boolean;
+    contrast?: boolean;
+    hidePanel?: boolean;
+  } | null;
+  /** Labels of the current lesson stage, at world positions. */
+  lessonLabels: { text: string; xM: number; yM: number; answer?: boolean }[];
+  /** Active challenge (spec F6) and its live score. */
+  challenge: {
+    id: string;
+    status: 'running' | 'passed' | 'failed';
+    text: string;
+    fraction: number;
+    elapsedS: number;
+  } | null;
   /** Progress of a volcano build in progress (eruptions done / total). */
   volcanoBuild: { type: string; done: number; total: number } | null;
   quake: QuakeSettings;
@@ -262,7 +312,7 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints';
+  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints' | 'challenges' | 'lessons';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;
@@ -286,9 +336,27 @@ let toastId = 0;
 
 export const useUi = create<UiState>((set) => ({
   tool: 'navigate',
-  volcano: { kind: 'basalt', style: 'lava', mode: 'eruption', episodes: 8, calderaRadiusM: 600, calderaDepthM: 150, rateM3PerS: 50, hours: 6 },
+  volcano: {
+    kind: 'basalt',
+    style: 'lava',
+    mode: 'eruption',
+    episodes: 8,
+    calderaRadiusM: 600,
+    calderaDepthM: 150,
+    rateM3PerS: 50,
+    hours: 6,
+  },
   volcanoBuild: null,
-  quake: { type: 'reverse', mw: 7, strikeDeg: 30, landslides: true, shake: true },
+  challenge: null,
+  education: null,
+  lessonLabels: [],
+  quake: {
+    type: 'reverse',
+    mw: 7,
+    strikeDeg: 30,
+    landslides: true,
+    shake: true,
+  },
   lastQuake: null,
   radiusM: 300,
   hardness: 0.3,

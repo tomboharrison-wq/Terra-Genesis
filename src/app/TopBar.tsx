@@ -55,6 +55,12 @@ export function TopBar() {
         <button onClick={() => set({ dialog: 'checkpoints' })} title="Snapshots of this session: restore exactly, or map what changed since">
           <Icon name="checkpoint" /> Checkpoints
         </button>
+        <button onClick={() => set({ dialog: 'lessons' })} title="Education Mode: classroom lessons for KS3 / GCSE">
+          <Icon name="lesson" /> Lessons
+        </button>
+        <button onClick={() => set({ dialog: 'challenges' })} title="Goals scored from the simulation">
+          <Icon name="flag" /> Challenges
+        </button>
         <span className="sep" />
         <button onClick={() => void exportWorldFile()} title="Download world as a .tgw file">
           <Icon name="export" /> Export

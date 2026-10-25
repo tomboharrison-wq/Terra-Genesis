@@ -40,13 +40,15 @@ describe('M09-C02 map overlays', () => {
     const e = new Engine(w);
     const ids = () => OVERLAYS.filter((o) => o.available(e)).map((o) => o.id);
     expect(ids()).toEqual(expect.arrayContaining(['elevation', 'slope', 'aspect', 'geology', 'flow', 'change']));
-    for (const missing of ['ice', 'plants', 'ash', 'temperature', 'rainfall', 'shaking', 'compare', 'plates', 'waves']) expect(ids()).not.toContain(missing);
+    for (const missing of ['ice', 'plants', 'ash', 'temperature', 'rainfall', 'shaking', 'compare', 'plates', 'waves', 'flood']) expect(ids()).not.toContain(missing);
     w.iceThicknessM[100] = 30;
     w.vegCover[200] = 0.5;
     w.tephraM[300] = 0.2;
     w.looseSedimentThicknessM[300] = 0.2;
     e.setClimateParams({ enabled: true });
-    expect(ids()).toEqual(expect.arrayContaining(['ice', 'plants', 'ash', 'temperature', 'rainfall']));
+    e.startStorm(50, 1);
+    e.advance(600);
+    expect(ids()).toEqual(expect.arrayContaining(['ice', 'plants', 'ash', 'temperature', 'rainfall', 'flood']));
     // Every generic overlay produces finite colours in 0 … 1 for every cell.
     const out = new Float32Array(3);
     for (const o of OVERLAYS.filter((q) => q.colour)) {

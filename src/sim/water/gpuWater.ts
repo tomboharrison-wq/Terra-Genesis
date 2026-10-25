@@ -54,6 +54,7 @@ uniform ivec2 uSize;
 uniform float uDt;
 uniform float uCs;
 uniform float uSea;
+uniform float uSurge; // sea surge above sea level (m), hazards.ts
 uniform sampler2D uBed;
 float zAt(ivec2 c) { vec4 b = texelFetch(uBed, c, 0); return b.r + b.g; }
 bool seaAt(ivec2 c) { return zAt(c) < uSea; }
@@ -136,16 +137,30 @@ float nb(ivec2 j, float Hi, float zi, float fOld, bool inside) {
   float zj = zAt(j);
   bool sj = zj < uSea;
   float dj = texelFetch(uState, j, 0).r;
-  return face(fOld, Hi, zi, sj ? uSea : zj + dj, sj ? min(zj, uSea) : zj);
+  return face(fOld, Hi, zi, sj ? uSea + uSurge : zj + dj, sj ? min(zj, uSea) : zj);
+}
+// Raised sea (surge): an unlimited fixed-head source facing each land neighbour.
+float surgeFace(ivec2 j, float zs, float fOld, bool inside) {
+  if (!inside) return 0.0;
+  float zj = zAt(j);
+  if (zj < uSea) return 0.0;
+  return face(fOld, uSea + uSurge, zs, zj + texelFetch(uState, j, 0).r, zj);
 }
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   float zi = zAt(c);
   float di = texelFetch(uState, c, 0).r;
-  if (zi < uSea || di <= 0.0) { oFlux = vec4(0.0); return; }
   gdt = ${G} * uDt;
   fr = gdt * uManning2 / uCs;
   vec4 F = texelFetch(uFlux, c, 0);
+  if (zi < uSea) {
+    if (uSurge <= 0.0) { oFlux = vec4(0.0); return; }
+    float zs = min(zi, uSea);
+    oFlux = vec4(surgeFace(c + ivec2(-1, 0), zs, F.x, c.x > 0), surgeFace(c + ivec2(1, 0), zs, F.y, c.x < uSize.x - 1),
+                 surgeFace(c + ivec2(0, -1), zs, F.z, c.y > 0), surgeFace(c + ivec2(0, 1), zs, F.w, c.y < uSize.y - 1));
+    return;
+  }
+  if (di <= 0.0) { oFlux = vec4(0.0); return; }
   float Hi = zi + di;
   float f0 = nb(c + ivec2(-1, 0), Hi, zi, F.x, c.x > 0);
   float f1 = nb(c + ivec2(1, 0), Hi, zi, F.y, c.x < uSize.x - 1);
@@ -182,6 +197,7 @@ void main() {
   oSnow = texelFetch(uSnow, c, 0);
   if (seaAt(c)) {
     acc.b += inflow * uDt / A;
+    acc.r += (F.x + F.y + F.z + F.w) * uDt / A; // sea surge onto the land (sea cells never infiltrate)
     oState = vec4(0.0, 0.0, 0.0, evapAcc);
     oAcc = acc;
     return;
@@ -203,6 +219,17 @@ void main() {
   }
   oState = vec4(dNew, v, evapAcc);
   oAcc = acc;
+}`;
+
+// Deepest water reached per cell while a flood event is recorded (hazards.ts).
+const PEAK_FS = `${HEADER}
+uniform sampler2D uState;
+uniform sampler2D uPeak;
+out vec4 oPeak;
+void main() {
+  ivec2 c = ivec2(gl_FragCoord.xy);
+  float d = seaAt(c) ? 0.0 : texelFetch(uState, c, 0).r;
+  oPeak = vec4(max(texelFetch(uPeak, c, 0).r, d), 0.0, 0.0, 0.0);
 }`;
 
 const SEDIMENT_FS = `${HEADER}
@@ -402,6 +429,10 @@ export class GpuWater implements Stepper {
   private snow: Pair;
   private sedA: Pair;
   private sedB: Pair;
+  private peak: Pair;
+  private fbPeak: [WebGLFramebuffer, WebGLFramebuffer];
+  private pk = 0;
+  private peakProg: Prog;
   private strataB: WebGLTexture;
   private strataM: WebGLTexture;
   private climateTex: WebGLTexture;
@@ -447,6 +478,7 @@ export class GpuWater implements Stepper {
     this.snow = pair();
     this.sedA = pair();
     this.sedB = pair();
+    this.peak = pair();
     this.strataB = this.tex();
     this.strataM = this.tex();
     this.climateTex = this.tex();
@@ -457,15 +489,18 @@ export class GpuWater implements Stepper {
       }
     this.fbStateAcc = [this.fb([this.state[0], this.acc[0], this.snow[0]]), this.fb([this.state[1], this.acc[1], this.snow[1]])];
     this.fbFlux = [this.fb([this.flux[0]]), this.fb([this.flux[1]])];
+    this.fbPeak = [this.fb([this.peak[0]]), this.fb([this.peak[1]])];
     this.fbBed = [this.fb([this.bed[0], this.sedA[0], this.sedB[0]]), this.fb([this.bed[1], this.sedA[1], this.sedB[1]])];
     this.vao = gl.createVertexArray()!;
     this.forcing = this.program(FORCING_FS);
     this.fluxProg = this.program(FLUX_FS);
     this.update = this.program(UPDATE_FS);
     this.sediment = this.program(SEDIMENT_FS);
+    this.peakProg = this.program(PEAK_FS);
     this.uploadGround();
     this.uploadWater();
     this.uploadClimate();
+    this.uploadPeak();
   }
 
   // ---------- GL helpers ----------
@@ -598,6 +633,15 @@ export class GpuWater implements Stepper {
     this.write(this.acc[this.s], new Float32Array(n * 4));
   }
 
+  /** Upload the CPU peak-depth record (WaterSim.peakDepth) when a flood recording starts. */
+  uploadPeak(): void {
+    const pd = this.sim.peakDepth;
+    if (!pd) return;
+    const t = new Float32Array(this.W * this.H * 4);
+    for (let i = 0; i < pd.length; i++) t[i * 4] = pd[i];
+    this.write(this.peak[this.pk], t);
+  }
+
   /**
    * Read GPU state back into the CPU mirror and fold accumulators into the ledgers.
    * Returns true if bed fields (terrain) were read back, i.e. the surface may have changed.
@@ -636,6 +680,7 @@ export class GpuWater implements Stepper {
     this.read(this.fbFlux[this.f], 0, w.waterFluxM3PerS);
     const d = w.waterDepthM;
     let lost = 0;
+    let surge = 0;
     let evap = 0;
     let rain = 0;
     let sea = 0;
@@ -645,7 +690,8 @@ export class GpuWater implements Stepper {
       d[i] = st[o];
       this.sim.vx[i] = st[o + 1];
       this.sim.vy[i] = st[o + 2];
-      lost += ac[o];
+      if (this.sim.sea[i]) surge += ac[o];
+      else lost += ac[o];
       evap += st[o + 3];
       st[o + 3] = 0;
       rain += ac[o + 1];
@@ -657,6 +703,7 @@ export class GpuWater implements Stepper {
     L.snowfall += fell * A;
     L.snowmelt += melt * A;
     L.infiltrated += lost * A;
+    L.surgeIn += surge * A;
     L.evaporated += evap * A;
     if (evap > 0) this.write(this.state[this.s], st); // clear the evaporation accumulators
     L.rainIn += rain * A;
@@ -709,6 +756,12 @@ export class GpuWater implements Stepper {
       this.sim.refreshSea();
       bedChanged = true;
     }
+    const pd = this.sim.peakDepth;
+    if (pd) {
+      const t = new Float32Array(n * 4);
+      this.read(this.fbPeak[this.pk], 0, t);
+      for (let i = 0; i < n; i++) if (t[i * 4] > pd[i]) pd[i] = t[i * 4];
+    }
     this.sim.refreshStats();
     this.assumedDepthM = Math.max(4, this.sim.maxDepth * 1.25);
     return bedChanged;
@@ -728,7 +781,7 @@ export class GpuWater implements Stepper {
 
   stableDt(): number {
     const cs = this.world.cellSizeM;
-    const c = Math.sqrt(G * this.assumedDepthM) + 0.5 * this.sim.maxSpeed;
+    const c = Math.sqrt(G * Math.max(this.assumedDepthM, 1.5 * this.sim.surgeM)) + 0.5 * this.sim.maxSpeed;
     const limit = (this.sim.cfl * cs) / c;
     let dt = this.sim.maxDt;
     for (let k = 0; k < 16 && dt > limit; k++) dt *= 0.5;
@@ -765,6 +818,7 @@ export class GpuWater implements Stepper {
       gl.uniform1f(this.uni(pr, 'uDt'), dt);
       gl.uniform1f(this.uni(pr, 'uCs'), w.cellSizeM);
       gl.uniform1f(this.uni(pr, 'uSea'), w.seaLevelM);
+      gl.uniform1f(this.uni(pr, 'uSurge'), this.sim.surgeM);
       this.bindTex(pr, 'uBed', 0, bed);
     };
 
@@ -807,6 +861,16 @@ export class GpuWater implements Stepper {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     this.f = f1;
 
+    // 3b. peak depth (only while a flood event is recorded): peak[pk], state[s] → peak[1-pk]
+    if (this.sim.peakDepth) {
+      common(this.peakProg);
+      this.bindTex(this.peakProg, 'uState', 1, this.state[s0]);
+      this.bindTex(this.peakProg, 'uPeak', 2, this.peak[this.pk]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbPeak[1 - this.pk]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      this.pk = 1 - this.pk;
+    }
+
     // 4. sediment: bed[b], sedA/B[b] + prev/new state + flux → bed[1-b], sedA/B[1-b]
     const e = w.erosion;
     if (this.sed && e.enabled) {
@@ -845,9 +909,22 @@ export class GpuWater implements Stepper {
     if (this.disposed) return;
     this.disposed = true;
     const gl = this.gl;
-    for (const t of [...this.bed, ...this.state, ...this.flux, ...this.acc, ...this.snow, ...this.sedA, ...this.sedB, this.strataB, this.strataM, this.climateTex]) gl.deleteTexture(t);
-    for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed]) gl.deleteFramebuffer(fb);
-    for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment]) gl.deleteProgram(pr.p);
+    for (const t of [
+      ...this.bed,
+      ...this.state,
+      ...this.flux,
+      ...this.acc,
+      ...this.snow,
+      ...this.sedA,
+      ...this.sedB,
+      ...this.peak,
+      this.strataB,
+      this.strataM,
+      this.climateTex,
+    ])
+      gl.deleteTexture(t);
+    for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed, ...this.fbPeak]) gl.deleteFramebuffer(fb);
+    for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment, this.peakProg]) gl.deleteProgram(pr.p);
     gl.deleteVertexArray(this.vao);
   }
 }

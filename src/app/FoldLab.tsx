@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog } from './Dialog';
 import { useUi } from '../state/uiStore';
-import { foldGeometry, L0_KM, LAYERS, type FoldParams, type Pt } from '../local/folds/model';
+import { foldGeometry, L0_KM, LAYERS, type FoldGeometry, type FoldParams, type Pt } from '../local/folds/model';
 import { Icon } from './icons';
 
 const W = 660;
@@ -11,7 +11,12 @@ const ZMAX = 24; // km drawn
 /** Fold mountains lab (guided cross-section, spec E9 "fold mountain formation"). */
 export function FoldLab() {
   const close = () => useUi.getState().set({ dialog: null });
-  const [p, setP] = useState<FoldParams>({ shortening: 0.3, wavelengthKm: 12, thrust: false, erosion: 0 });
+  const [p, setP] = useState<FoldParams>({
+    shortening: 0.3,
+    wavelengthKm: 12,
+    thrust: false,
+    erosion: 0,
+  });
   const [playing, setPlaying] = useState(false);
   const raf = useRef(0);
   const g = useMemo(() => foldGeometry(p), [p]);
@@ -31,17 +36,9 @@ export function FoldLab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
 
-  const pad = 40;
-  const sx = (W - 2 * pad) / L0_KM;
-  const sz = (H - 30) / ZMAX;
-  const off = (L0_KM - g.lengthKm) / 2; // keep the belt centred as it shortens
-  const X = (x: number) => pad + (x + off) * sx;
-  const Z = (z: number) => H - 10 - z * sz;
-  const poly = (pts: Pt[]) => pts.map((q) => `${X(q.x).toFixed(1)},${Z(q.z).toFixed(1)}`).join(' ');
-  const ant = g.anticlines[Math.floor(g.anticlines.length / 2)];
-  const syn = g.synclines[0];
-  const er = g.erosionZ;
   const pct = Math.round(p.shortening * 100);
+  const sx = (W - 80) / L0_KM; // as in FoldSection (for the 'heights drawn ×' note)
+  const sz = (H - 30) / ZMAX;
 
   return (
     <Dialog title="Fold mountains (guided cross-section)" onClose={close} wide>
@@ -85,46 +82,7 @@ export function FoldLab() {
           </span>
         )}
       </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="slump-svg" role="img" aria-label="Fold mountains cross-section">
-        <rect x={0} y={0} width={W} height={H} fill="#cfe0ec" />
-        {/* Deeper crust below the thrust's sole (fills under the lifted hanging wall) */}
-        <rect x={X(0)} y={Z(g.thrustSlipKm / 2 + 1)} width={X(g.lengthKm) - X(0)} height={H} fill="#6d6560" />
-        {/* Basement (crystalline rock under the sedimentary pile) */}
-        {g.basement.map((q, k) => (
-          <polygon key={`b${k}`} points={poly(q)} fill="#6d6560" />
-        ))}
-        {/* Converging continents */}
-        <rect x={0} y={Z(10)} width={X(0)} height={H} fill="#8a7a66" />
-        <rect x={X(g.lengthKm)} y={Z(10)} width={W - X(g.lengthKm)} height={H} fill="#8a7a66" />
-        <path d={`M8,${Z(12)}l24,0l-6,-4m6,4l-6,4`} stroke="#1d1a16" strokeWidth={2} fill="none" />
-        <path d={`M${W - 8},${Z(12)}l-24,0l6,-4m-6,4l6,4`} stroke="#1d1a16" strokeWidth={2} fill="none" />
-        {g.layers.map((parts, i) =>
-          parts.map((q, k) => <polygon key={`${i}-${k}`} points={poly(q)} fill={LAYERS[i].colour} stroke="#3b2a1c" strokeWidth={0.6} />),
-        )}
-        {er !== null && <rect x={0} y={0} width={W} height={Z(er)} fill="#cfe0ec" />}
-        {er !== null && <line x1={X(0)} x2={X(g.lengthKm)} y1={Z(er)} y2={Z(er)} stroke="#205b41" strokeWidth={2} />}
-        {g.thrust && <polyline points={poly(g.thrust)} stroke="#ed3f23" strokeWidth={2.5} strokeDasharray="6 4" fill="none" />}
-        {ant && (er === null || er > ant.z - 1) && (
-          <text className="slump-label" x={X(ant.x)} y={Z(Math.min(ant.z, er ?? ant.z)) - 8} textAnchor="middle">
-            Anticline (arch)
-          </text>
-        )}
-        {syn && (
-          <text className="slump-label" x={X(syn.x)} y={Z(Math.min(syn.z, er ?? syn.z)) - 8} textAnchor="middle">
-            Syncline (trough)
-          </text>
-        )}
-        {er !== null && (
-          <text className="slump-label" x={X(g.lengthKm) - 4} y={Z(er) - 6} textAnchor="end">
-            Erosion surface: old rock in anticline cores, young rock in synclines
-          </text>
-        )}
-        {g.thrust && (
-          <text className="slump-label red" x={X(g.thrust[1].x) + 6} y={Z(g.thrust[1].z) + 14}>
-            Thrust fault
-          </text>
-        )}
-      </svg>
+      <FoldSection g={g} />
       <div className="legend swatches" style={{ marginTop: 6 }}>
         {LAYERS.map((l, i) => (
           <span key={l.name}>
@@ -141,10 +99,66 @@ export function FoldLab() {
           </button>
         </div>
         <span className="muted small">
-          Guided model: each layer keeps its length (it buckles) and its area (it thickens). Heights drawn ×{(sz / sx).toFixed(1)}. On the map, colliding continents
-          fold their rock layers the same way.
+          Guided model: each layer keeps its length (it buckles) and its area (it thickens). Heights drawn ×{(sz / sx).toFixed(1)}. On the map, colliding
+          continents fold their rock layers the same way.
         </span>
       </div>
     </Dialog>
+  );
+}
+
+/** The fold-mountain cross-section drawing (shared by the lab and the tectonics lessons). */
+export function FoldSection({ g }: { g: FoldGeometry }) {
+  const pad = 40;
+  const sx = (W - 2 * pad) / L0_KM;
+  const sz = (H - 30) / ZMAX;
+  const off = (L0_KM - g.lengthKm) / 2; // keep the belt centred as it shortens
+  const X = (x: number) => pad + (x + off) * sx;
+  const Z = (z: number) => H - 10 - z * sz;
+  const poly = (pts: Pt[]) => pts.map((q) => `${X(q.x).toFixed(1)},${Z(q.z).toFixed(1)}`).join(' ');
+  const ant = g.anticlines[Math.floor(g.anticlines.length / 2)];
+  const syn = g.synclines[0];
+  const er = g.erosionZ;
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="slump-svg" role="img" aria-label="Fold mountains cross-section">
+      <rect x={0} y={0} width={W} height={H} fill="#cfe0ec" />
+      {/* Deeper crust below the thrust's sole (fills under the lifted hanging wall) */}
+      <rect x={X(0)} y={Z(g.thrustSlipKm / 2 + 1)} width={X(g.lengthKm) - X(0)} height={H} fill="#6d6560" />
+      {/* Basement (crystalline rock under the sedimentary pile) */}
+      {g.basement.map((q, k) => (
+        <polygon key={`b${k}`} points={poly(q)} fill="#6d6560" />
+      ))}
+      {/* Converging continents */}
+      <rect x={0} y={Z(10)} width={X(0)} height={H} fill="#8a7a66" />
+      <rect x={X(g.lengthKm)} y={Z(10)} width={W - X(g.lengthKm)} height={H} fill="#8a7a66" />
+      <path d={`M8,${Z(12)}l24,0l-6,-4m6,4l-6,4`} stroke="#1d1a16" strokeWidth={2} fill="none" />
+      <path d={`M${W - 8},${Z(12)}l-24,0l6,-4m-6,4l6,4`} stroke="#1d1a16" strokeWidth={2} fill="none" />
+      {g.layers.map((parts, i) =>
+        parts.map((q, k) => <polygon key={`${i}-${k}`} points={poly(q)} fill={LAYERS[i].colour} stroke="#3b2a1c" strokeWidth={0.6} />),
+      )}
+      {er !== null && <rect x={0} y={0} width={W} height={Z(er)} fill="#cfe0ec" />}
+      {er !== null && <line x1={X(0)} x2={X(g.lengthKm)} y1={Z(er)} y2={Z(er)} stroke="#205b41" strokeWidth={2} />}
+      {g.thrust && <polyline points={poly(g.thrust)} stroke="#ed3f23" strokeWidth={2.5} strokeDasharray="6 4" fill="none" />}
+      {ant && (er === null || er > ant.z - 1) && (
+        <text className="slump-label" x={X(ant.x)} y={Z(Math.min(ant.z, er ?? ant.z)) - 8} textAnchor="middle">
+          Anticline (arch)
+        </text>
+      )}
+      {syn && (
+        <text className="slump-label" x={X(syn.x)} y={Z(Math.min(syn.z, er ?? syn.z)) - 8} textAnchor="middle">
+          Syncline (trough)
+        </text>
+      )}
+      {er !== null && (
+        <text className="slump-label" x={X(g.lengthKm) - 4} y={Z(er) - 6} textAnchor="end">
+          Erosion surface: old rock in anticline cores, young rock in synclines
+        </text>
+      )}
+      {g.thrust && (
+        <text className="slump-label red" x={X(g.thrust[1].x) + 6} y={Z(g.thrust[1].z) + 14}>
+          Thrust fault
+        </text>
+      )}
+    </svg>
   );
 }

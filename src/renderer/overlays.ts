@@ -1,6 +1,7 @@
 import { Color } from 'three';
 import type { WorldState } from '../engine/world';
 import { MATERIALS } from '../terrain/materials';
+import { FLOOD_THRESHOLD_M } from '../sim/events/hazards';
 
 /**
  * Scientific map overlays (spec F4): each one colours the terrain by a field the simulation really
@@ -31,6 +32,7 @@ export type OverlayId =
   | 'plates'
   | 'shaking'
   | 'compare'
+  | 'flood'
   | 'cp-ground'
   | 'cp-water'
   | 'cp-plants'
@@ -44,13 +46,24 @@ export interface OverlaySource {
   climate: { temperatureC: Float32Array; rainFactor: Float32Array };
   coast: { exposure: Float32Array };
   lastQuake: { shaking: Float32Array } | null;
+  /** Flood record of the current / last storm or sea surge (deepest water, water when it began). */
+  flood: { peak: Float32Array; start: Float32Array; label: string } | null;
   compareResult: { coverDiff: Float32Array } | null;
   /** Checkpoint chosen for the 'since checkpoint' difference overlays. */
-  compareCheckpoint: { label: string; surface: Float32Array; world: WorldState } | null;
+  compareCheckpoint: {
+    label: string;
+    surface: Float32Array;
+    world: WorldState;
+  } | null;
 }
 
 export type Legend =
-  | { kind: 'ramp'; css: string; labels: [string, string, string]; unit?: string }
+  | {
+      kind: 'ramp';
+      css: string;
+      labels: [string, string, string];
+      unit?: string;
+    }
   | { kind: 'swatches'; items: { colour: string; label: string }[] };
 
 export interface OverlayDef {
@@ -87,34 +100,42 @@ const NB8: [number, number, number][] = [
 ];
 
 /**
- * D8 flow accumulation: every cell passes its own area plus everything it receives to its steepest
- * downhill neighbour (drop / distance, diagonals at √2 cs). Returns upstream area per cell (m²,
- * including the cell itself). Flow stops in hollows (no lower neighbour) and at sea cells.
+ * D8 receivers: each cell's steepest downhill neighbour (drop / distance, diagonals at √2 cs), or −1
+ * in a hollow (no lower neighbour) or on a sea cell (flow ends there).
  */
-export function flowAccumulation(z: Float32Array, W: number, H: number, cs: number, isSea?: (i: number) => boolean): Float32Array {
-  const n = W * H;
-  const A = cs * cs;
-  const acc = new Float64Array(n).fill(A);
-  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => z[b] - z[a]);
-  for (const i of order) {
+export function d8Receivers(z: Float32Array, W: number, H: number, cs: number, isSea?: (i: number) => boolean): Int32Array {
+  const rec = new Int32Array(W * H).fill(-1);
+  for (let i = 0; i < W * H; i++) {
     if (isSea?.(i)) continue;
     const x = i % W;
     const y = (i / W) | 0;
-    let best = -1;
     let bestS = 0;
     for (const [dx, dy, d] of NB8) {
       const xn = x + dx;
       const yn = y + dy;
       if (xn < 0 || yn < 0 || xn >= W || yn >= H) continue;
       const j = yn * W + xn;
-      const s = (z[i] - z[j]) / d;
+      const s = (z[i] - z[j]) / (d * cs);
       if (s > bestS) {
         bestS = s;
-        best = j;
+        rec[i] = j;
       }
     }
-    if (best >= 0) acc[best] += acc[i];
   }
+  return rec;
+}
+
+/**
+ * D8 flow accumulation: every cell passes its own area plus everything it receives to its steepest
+ * downhill neighbour (see d8Receivers). Returns upstream area per cell (m², including the cell
+ * itself). Flow stops in hollows (no lower neighbour) and at sea cells.
+ */
+export function flowAccumulation(z: Float32Array, W: number, H: number, cs: number, isSea?: (i: number) => boolean, receivers?: Int32Array): Float32Array {
+  const n = W * H;
+  const rec = receivers ?? d8Receivers(z, W, H, cs, isSea);
+  const acc = new Float64Array(n).fill(cs * cs);
+  const order = Array.from({ length: n }, (_, i) => i).sort((a, b) => z[b] - z[a]);
+  for (const i of order) if (rec[i] >= 0) acc[rec[i]] += acc[i];
   return Float32Array.from(acc);
 }
 
@@ -193,6 +214,8 @@ const FLOW = ['#e8f1fb', '#8fbbe9', '#3a86f0', '#0b4aa8', '#06225a'];
 const ICE = ['#eef7fc', '#9fd0ea', '#3f8fc7', '#14507f'];
 const PLANTS = ['#f2efd8', '#b9d18a', '#25b755', '#1c6b3c', '#0f3a22'];
 const ASH = ['#ecebea', '#b4b1ae', '#76726e', '#3d3a38'];
+// Flood: single-hue sequential through Scouts blue (light = shallow, dark = deep).
+const FLOOD = ['#d6e8fb', '#7fb3ef', '#006ddf', '#003a7a'];
 // Aspect: 8 sectors N, NE … NW in a validated categorical order (dataviz validator: lightness band,
 // chroma, adjacent CVD ΔE ≥ 9, normal-vision ΔE ≥ 19.6; contrast relief = labelled legend + inspector).
 const ASPECT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
@@ -207,6 +230,7 @@ const flowRamp = ramp(FLOW);
 const iceRamp = ramp(ICE);
 const plantRamp = ramp(PLANTS);
 const ashRamp = ramp(ASH);
+const floodRamp = ramp(FLOOD);
 const ROCK_LIN = MATERIALS.map((m) => lin(`#${m.colour.toString(16).padStart(6, '0')}`));
 
 const fmtM = (m: number) => (Math.abs(m) >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(m < 10 ? 1 : 0)} m`);
@@ -251,7 +275,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Terrain',
     available: () => true,
     describe: (s, i) => `${slopeDegAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i).toFixed(1)}° slope`,
-    legend: () => ({ kind: 'ramp', css: css(SLOPE), labels: ['0°', '30°', '≥ 60°'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: css(SLOPE),
+      labels: ['0°', '30°', '≥ 60°'],
+    }),
     colour: (s, i, _d, out, o) => slopeRamp(slopeDegAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i) / 60, out, o),
   },
   {
@@ -263,7 +291,10 @@ export const OVERLAYS: OverlayDef[] = [
       const a = aspectAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i);
       return a === null ? 'flat (under 0.5°)' : `faces ${SECTORS[aspectSector(a)]} (${Math.round(a)}°)`;
     },
-    legend: () => ({ kind: 'swatches', items: [...SECTORS.map((l, k) => ({ colour: ASPECT[k], label: l })), { colour: '#b9b6b0', label: 'flat (< 0.5°)' }] }),
+    legend: () => ({
+      kind: 'swatches',
+      items: [...SECTORS.map((l, k) => ({ colour: ASPECT[k], label: l })), { colour: '#b9b6b0', label: 'flat (< 0.5°)' }],
+    }),
     colour: (s, i, _d, out, o) => {
       const a = aspectAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i);
       const c = a === null ? FLAT : ASPECT_LIN[aspectSector(a)];
@@ -282,7 +313,10 @@ export const OVERLAYS: OverlayDef[] = [
       const present = new Set(s.world.materialId);
       return {
         kind: 'swatches',
-        items: MATERIALS.filter((m) => present.has(m.id)).map((m) => ({ colour: `#${m.colour.toString(16).padStart(6, '0')}`, label: m.name })),
+        items: MATERIALS.filter((m) => present.has(m.id)).map((m) => ({
+          colour: `#${m.colour.toString(16).padStart(6, '0')}`,
+          label: m.name,
+        })),
       };
     },
     colour: (s, i, _d, out, o) => {
@@ -300,7 +334,11 @@ export const OVERLAYS: OverlayDef[] = [
     describe: (_s, i, d) => (d.flow ? `${fmtArea(d.flow[i])} drains through here` : null),
     legend: (s) => {
       const a = s.world.cellSizeM ** 2;
-      return { kind: 'ramp', css: css(FLOW), labels: [`1 cell (${fmtArea(a)})`, fmtArea(100 * a), `≥ ${fmtArea(FLOW_MAX_CELLS * a)}`] };
+      return {
+        kind: 'ramp',
+        css: css(FLOW),
+        labels: [`1 cell (${fmtArea(a)})`, fmtArea(100 * a), `≥ ${fmtArea(FLOW_MAX_CELLS * a)}`],
+      };
     },
     colour: (s, i, d, out, o) => flowRamp(d.flow ? logT(d.flow[i] / s.world.cellSizeM ** 2, 1, FLOW_MAX_CELLS) : 0, out, o),
   },
@@ -313,7 +351,11 @@ export const OVERLAYS: OverlayDef[] = [
       const dz = s.surface[i] - s.referenceSurface[i];
       return Math.abs(dz) < 0.05 ? 'no change (within 5 cm)' : `${dz > 0 ? 'built up' : 'worn down'} ${fmtM(Math.abs(dz))}`;
     },
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #ed3f23, #f4a08f, #9aa0a0, #8fb8ef, #006ddf)', labels: ['−10 m', '±5 cm', '+10 m'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #ed3f23, #f4a08f, #9aa0a0, #8fb8ef, #006ddf)',
+      labels: ['−10 m', '±5 cm', '+10 m'],
+    }),
   },
   {
     id: 'temperature',
@@ -321,7 +363,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Climate',
     available: (s) => s.world.climate.enabled,
     describe: (s, i) => `${s.climate.temperatureC[i].toFixed(1)} °C`,
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #2a5fa8, #dedbd2, #c8402a)', labels: ['−20 °C', '0', '+30 °C'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #2a5fa8, #dedbd2, #c8402a)',
+      labels: ['−20 °C', '0', '+30 °C'],
+    }),
   },
   {
     id: 'rainfall',
@@ -329,7 +375,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Climate',
     available: (s) => s.world.climate.enabled,
     describe: (s, i) => `${s.climate.rainFactor[i].toFixed(2)} × map mean`,
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #b4c6d3, #0a3a6b)', labels: ['none', '1.5× mean', '3× mean'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #b4c6d3, #0a3a6b)',
+      labels: ['none', '1.5× mean', '3× mean'],
+    }),
   },
   {
     id: 'ice',
@@ -337,7 +387,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Ice & life',
     available: (s) => any(s.world.iceThicknessM, 0.5),
     describe: (s, i) => (s.world.iceThicknessM[i] > 0.05 ? `${fmtM(s.world.iceThicknessM[i])} of ice` : 'no ice'),
-    legend: () => ({ kind: 'ramp', css: css(ICE), labels: ['none', `${ICE_HI / 2} m`, `≥ ${ICE_HI} m`] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: css(ICE),
+      labels: ['none', `${ICE_HI / 2} m`, `≥ ${ICE_HI} m`],
+    }),
     colour: (s, i, _d, out, o) => {
       const h = s.world.iceThicknessM[i];
       if (h <= 0.05) {
@@ -352,7 +406,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Ice & life',
     available: (s) => any(s.world.vegCover, 0.01),
     describe: (s, i) => `${Math.round(100 * s.world.vegCover[i])}% plant cover`,
-    legend: () => ({ kind: 'ramp', css: css(PLANTS), labels: ['bare', '50%', '100%'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: css(PLANTS),
+      labels: ['bare', '50%', '100%'],
+    }),
     colour: (s, i, _d, out, o) => plantRamp(s.world.vegCover[i], out, o),
   },
   {
@@ -364,7 +422,11 @@ export const OVERLAYS: OverlayDef[] = [
       const a = Math.min(s.world.tephraM[i], s.world.looseSedimentThicknessM[i]);
       return a > 0.001 ? `${a < 1 ? `${Math.round(a * 100)} cm` : fmtM(a)} of ash / cinder` : 'no ash';
     },
-    legend: () => ({ kind: 'ramp', css: css(ASH), labels: ['1 cm', '10 cm', '≥ 1 m'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: css(ASH),
+      labels: ['1 cm', '10 cm', '≥ 1 m'],
+    }),
     colour: (s, i, _d, out, o) => {
       const a = Math.min(s.world.tephraM[i], s.world.looseSedimentThicknessM[i]);
       if (a < ASH_LO * 0.5) {
@@ -395,7 +457,11 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Earth',
     available: (s) => s.lastQuake !== null,
     describe: (s, i) => (s.lastQuake ? `intensity ${s.lastQuake.shaking[i].toFixed(1)}` : null),
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #ffe627, #ff912a, #ed3f23)', labels: ['III felt', 'VI', 'X violent'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #ffe627, #ff912a, #ed3f23)',
+      labels: ['III felt', 'VI', 'X violent'],
+    }),
   },
   {
     id: 'waves',
@@ -403,7 +469,33 @@ export const OVERLAYS: OverlayDef[] = [
     group: 'Coast',
     available: (s) => s.world.coast.wavesOn,
     describe: (s, i) => (s.coast.exposure[i] > 0 ? `${(s.coast.exposure[i] / 1000).toFixed(1)} kW/m wave power` : 'not on the coast'),
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #ffe627, #ff912a, #ed3f23)', labels: ['low', '15', '≥ 30 kW/m'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #ffe627, #ff912a, #ed3f23)',
+      labels: ['low', '15', '≥ 30 kW/m'],
+    }),
+  },
+  {
+    id: 'flood',
+    label: 'Flood extent (deepest water)',
+    group: 'Water',
+    available: (s) => s.flood !== null,
+    describe: (s, i) => {
+      const f = s.flood;
+      if (!f) return null;
+      if (s.surface[i] < s.world.seaLevelM) return 'sea';
+      const rise = f.peak[i] - f.start[i];
+      if (f.peak[i] < 0.005) return 'stayed dry';
+      return `deepest ${fmtM(f.peak[i])} (${fmtM(f.start[i])} before) — ${rise >= FLOOD_THRESHOLD_M ? 'flooded' : `rose under ${FLOOD_THRESHOLD_M * 100} cm, not counted`}`;
+    },
+    legend: () => ({ kind: 'ramp', css: css(FLOOD), labels: [`rose ≥ ${FLOOD_THRESHOLD_M} m`, '1.5 m deep', '≥ 3 m deep'] }),
+    colour: (s, i, _d, out, o) => {
+      const f = s.flood!;
+      if (s.surface[i] < s.world.seaLevelM || f.peak[i] - f.start[i] < FLOOD_THRESHOLD_M) {
+        const g = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
+        out[o] = out[o + 1] = out[o + 2] = g; // not flooded: neutral grey
+      } else floodRamp(Math.min(1, f.peak[i] / 3), out, o);
+    },
   },
   {
     id: 'compare',
@@ -412,7 +504,11 @@ export const OVERLAYS: OverlayDef[] = [
     available: (s) => s.compareResult !== null,
     describe: (s, i) =>
       s.compareResult ? `${s.compareResult.coverDiff[i] >= 0 ? '+' : ''}${Math.round(100 * s.compareResult.coverDiff[i])}% plant cover` : null,
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)', labels: ['fewer plants', 'same', 'more plants'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)',
+      labels: ['fewer plants', 'same', 'more plants'],
+    }),
   },
 ];
 
@@ -463,7 +559,11 @@ OVERLAYS.push(
       s.compareCheckpoint
         ? `${signed(s.world.waterDepthM[i] - s.compareCheckpoint.world.waterDepthM[i], (x) => (x < 1 ? `${Math.round(x * 100)} cm` : fmtM(x)))} water${since(s)}`
         : null,
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #006ddf)', labels: ['−10 m drier', '±1 cm', '+10 m wetter'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #006ddf)',
+      labels: ['−10 m drier', '±1 cm', '+10 m wetter'],
+    }),
     colour: (s, i, _d, out, o) => waterDiff(s.compareCheckpoint ? s.world.waterDepthM[i] - s.compareCheckpoint.world.waterDepthM[i] : 0, out, o),
   },
   {
@@ -475,7 +575,11 @@ OVERLAYS.push(
       s.compareCheckpoint
         ? `${signed(100 * (s.world.vegCover[i] - s.compareCheckpoint.world.vegCover[i]), (x) => `${Math.round(x)}%`)} plant cover${since(s)}`
         : null,
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)', labels: ['fewer plants', 'same', 'more plants'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #a0522d, #9aa0a0, #25b755)',
+      labels: ['fewer plants', 'same', 'more plants'],
+    }),
     colour: (s, i, _d, out, o) => plantDiff(s.compareCheckpoint ? s.world.vegCover[i] - s.compareCheckpoint.world.vegCover[i] : 0, out, o),
   },
   {
@@ -484,7 +588,11 @@ OVERLAYS.push(
     group: 'Since checkpoint',
     available: (s) => s.compareCheckpoint !== null && (any(s.world.iceThicknessM, 0.5) || any(s.compareCheckpoint.world.iceThicknessM, 0.5)),
     describe: (s, i) => (s.compareCheckpoint ? `${signed(s.world.iceThicknessM[i] - s.compareCheckpoint.world.iceThicknessM[i], fmtM)} ice${since(s)}` : null),
-    legend: () => ({ kind: 'ramp', css: 'linear-gradient(90deg, #ff912a, #9aa0a0, #2a5fa8)', labels: ['−100 m melted', '±0.5 m', '+100 m grown'] }),
+    legend: () => ({
+      kind: 'ramp',
+      css: 'linear-gradient(90deg, #ff912a, #9aa0a0, #2a5fa8)',
+      labels: ['−100 m melted', '±0.5 m', '+100 m grown'],
+    }),
     colour: (s, i, _d, out, o) => iceDiff(s.compareCheckpoint ? s.world.iceThicknessM[i] - s.compareCheckpoint.world.iceThicknessM[i] : 0, out, o),
   },
 );
