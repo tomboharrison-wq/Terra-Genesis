@@ -1,3 +1,5 @@
+import { craterSize } from '../sim/events/meteor';
+import { IMPACTORS } from './MeteorPanel';
 import { useEffect, useRef } from 'react';
 import { TerrainScene } from '../renderer/TerrainScene';
 import { overlayById } from '../renderer/overlays';
@@ -18,6 +20,16 @@ function currentBrush(): BrushParams | null {
 function ringRadius(): number | null {
   const s = useUi.getState();
   if (isBrushTool(s.tool) || s.tool === 'water-add' || s.tool === 'water-drain' || s.tool === 'landslide') return s.radiusM;
+  if (s.tool === 'meteor') {
+    const m = s.meteor;
+    const c = craterSize({
+      diameterM: m.diameterM,
+      speedMS: m.speedKmS * 1000,
+      densityKgM3: IMPACTORS.find((k) => k.id === m.kind)!.density,
+      angleDeg: m.angleDeg,
+    });
+    return Math.max(c.diameterM / 2, (s.world?.cellSizeM ?? 10) * 2);
+  }
   if (s.tool === 'spring' || s.tool === 'profile' || s.tool === 'measure' || s.tool === 'earthquake' || s.tool === 'volcano')
     return (s.world?.cellSizeM ?? 10) * 2;
   return null;
@@ -142,6 +154,19 @@ export function Viewport() {
             : `up to ${r.maxUpM.toFixed(2)} m raised, ${r.maxDownM.toFixed(2)} m dropped`;
         ui.toast(
           `M${q.mw.toFixed(1)} earthquake: ${r.ruptureKm.toFixed(1)} km rupture, ${move}${r.landslides ? `, ${r.landslides} landslide${r.landslides > 1 ? 's' : ''}` : ''}`,
+          'success',
+        );
+        return;
+      }
+      if (ui.tool === 'meteor') {
+        const m = ui.meteor;
+        const density = IMPACTORS.find((k) => k.id === m.kind)!.density;
+        const r = engine.impact({ xM: hit.xM, yM: hit.yM, diameterM: m.diameterM, speedMS: m.speedKmS * 1000, densityKgM3: density, angleDeg: m.angleDeg });
+        getScene()?.shake(Math.min(9, 5 + 0.67 * Math.log10(Math.max(1e-3, r.megatons))));
+        ui.toast(
+          `Impact: crater ${Math.round(r.diameterM)} m across and ${Math.round(r.depthM)} m deep; ${Math.round(r.excavatedM3).toLocaleString()} m³ thrown out${
+            r.ejectaOffMapM3 > 0.05 * r.excavatedM3 ? ` (${Math.round((100 * r.ejectaOffMapM3) / r.excavatedM3)}% beyond the map edge)` : ''
+          }`,
           'success',
         );
         return;

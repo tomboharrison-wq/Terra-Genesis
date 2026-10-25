@@ -2,7 +2,7 @@
 Updated: 2026-10-25, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M11 — Disasters, exports, final QA (M10 Education Mode complete)
-Current chunk: M11-C02 — meteor, drought, event comparison (see NEXT_TASK)
+Current chunk: M11-C04 — final QA (see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -13,12 +13,8 @@ Verified working:
   stump voxel lab, coastal slump cycle, one-line shoreline lab (bars, lagoons, recurves; not on world map — M05-C04c).
 - M06 climate (lapse, seasons, orographic rain/shadow) · snow (v6) · glaciers (SIA, abrasion, moraines, v7) · plants (v8).
 - M06-C05 biome presets (src/terrain/biomes.ts, spin-up) + what-if compare (two cloned spin-ups, plant-difference overlay).
-- M07-C01 plates (src/sim/tectonics/plates.ts, PlatesPanel, 'plates' overlay + arrows, profile plate strip): plateId
-  (v9), rigid velocities, boundary classification, Gaussian belts (uplift / trench) moving rock + strata;
-  C02: rifts as stepped fault blocks; transform slip shifts whole columns of the higher-id plate per cell.
-  C03: subducting side trench, arc vents 2.5 belt widths inboard growing volcanic cones; Subduction lab (SVG).
-  C04: Fold lab (src/local/folds) + c–c belts fold strata boundaries (surface unchanged).
-  C05: Quake tool (sim/tectonics/earthquake.ts): W&C scaling, fault deformation, shaking overlay, undo incl. strata.
+- M07 plates (src/sim/tectonics/plates.ts, v9): boundaries, uplift/trench belts, rifts, transform column shifts,
+  subduction arcs + Subduction lab, Fold lab, Quake tool (earthquake.ts, W&C scaling, undo incl. strata).
 - M08 volcanoes (src/sim/lava/): lavaSim (Bingham flow, η,τ(T), cooling, solidify → addTopRock; v10), tephra.ts
   (Mastin plume, cinder ring + settleLoose 8-nbr, wind-stretched fall, tephraM v11), build.ts (shield/composite/
   island plans, rest years skipped; growIsland → 'volcanic-island' preset), caldera.ts (piston). VolcanoPanel (V).
@@ -28,18 +24,20 @@ Verified working:
 - M10 education: src/education (types, features.ts, lessons/), app/educationRunner.ts (per-stage world copies),
   EducationMode.tsx (panel, labels, GuidedStage, presentation, teacher links ?lesson=&stage=&level=), guided views
   GuidedRiver/GuidedGlacial/CoastalLessons/FoldSection; models src/local/{waterfall,meander,glacial}. 11 lessons, 5 modules.
-- M11-C01 floods (src/sim/events/hazards.ts, engine hazard section, HazardsPanel 'Floods' H): storm, sea surge
+- M11-C01 floods (src/sim/events/hazards.ts, engine hazard section, HazardsPanel, tool H): storm, sea surge
   (raised sea head in both solvers, surgeIn ledger), per-step peak depth (GPU max pass), 'flood' overlay, event log.
+  C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
+  C03 ExportDialog + app/exportImages.ts + persistence/exports.ts (own PNG encoder, 16-bit heightmap, raw).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
 - Water depth is float32: a closed basin lake over simulated years drifts ~% in the ledger (backlog M02-C07).
-- Real M4 GPU speed unmeasured. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
+- Real GPU speed unmeasured; Firefox/WebKit untested; live deploy unverified here. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
 - No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
-- Mountains have no height limit (no isostasy); erosion must balance uplift. - Inland cells below sea level count as sea.
+- No isostasy (mountains unlimited). Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
-Relevant paths: src/sim/events/hazards.ts, src/engine/engine.ts (hazards), src/app/HazardsPanel.tsx
-Last checks: typecheck PASS · npm test 246 PASS · build PASS (M10) · e2e + gpu-check of M11-C01 build PENDING
+Relevant paths: scripts/screenshot.mjs (e2e), src/app/styles.css, src/persistence/
+Last checks: typecheck · npm test 255 · build · gpu-check 12/12 PASS · e2e 48/49 (M11-C01 build; overlay check, rerun pending)
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

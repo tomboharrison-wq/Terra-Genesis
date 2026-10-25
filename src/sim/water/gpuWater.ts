@@ -221,15 +221,17 @@ void main() {
   oAcc = acc;
 }`;
 
-// Deepest water reached per cell while a flood event is recorded (hazards.ts).
+// Deepest (floods) or shallowest (droughts, uLow = 1) water reached per cell while an event is recorded.
 const PEAK_FS = `${HEADER}
 uniform sampler2D uState;
 uniform sampler2D uPeak;
+uniform int uLow;
 out vec4 oPeak;
 void main() {
   ivec2 c = ivec2(gl_FragCoord.xy);
   float d = seaAt(c) ? 0.0 : texelFetch(uState, c, 0).r;
-  oPeak = vec4(max(texelFetch(uPeak, c, 0).r, d), 0.0, 0.0, 0.0);
+  float p = texelFetch(uPeak, c, 0).r;
+  oPeak = vec4(uLow == 1 ? min(p, d) : max(p, d), 0.0, 0.0, 0.0);
 }`;
 
 const SEDIMENT_FS = `${HEADER}
@@ -633,7 +635,7 @@ export class GpuWater implements Stepper {
     this.write(this.acc[this.s], new Float32Array(n * 4));
   }
 
-  /** Upload the CPU peak-depth record (WaterSim.peakDepth) when a flood recording starts. */
+  /** Upload the CPU depth record (WaterSim.peakDepth) when an event recording starts. */
   uploadPeak(): void {
     const pd = this.sim.peakDepth;
     if (!pd) return;
@@ -760,7 +762,9 @@ export class GpuWater implements Stepper {
     if (pd) {
       const t = new Float32Array(n * 4);
       this.read(this.fbPeak[this.pk], 0, t);
-      for (let i = 0; i < n; i++) if (t[i * 4] > pd[i]) pd[i] = t[i * 4];
+      if (this.sim.recordLow) {
+        for (let i = 0; i < n; i++) if (t[i * 4] < pd[i]) pd[i] = t[i * 4];
+      } else for (let i = 0; i < n; i++) if (t[i * 4] > pd[i]) pd[i] = t[i * 4];
     }
     this.sim.refreshStats();
     this.assumedDepthM = Math.max(4, this.sim.maxDepth * 1.25);
@@ -866,6 +870,7 @@ export class GpuWater implements Stepper {
       common(this.peakProg);
       this.bindTex(this.peakProg, 'uState', 1, this.state[s0]);
       this.bindTex(this.peakProg, 'uPeak', 2, this.peak[this.pk]);
+      gl.uniform1i(this.uni(this.peakProg, 'uLow'), this.sim.recordLow ? 1 : 0);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbPeak[1 - this.pk]);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.pk = 1 - this.pk;

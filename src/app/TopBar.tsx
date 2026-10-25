@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useUi } from '../state/uiStore';
-import { engine, exportWorldFile, importWorldFile, renameWorld, saveToSlot } from './runtime';
+import { engine, importWorldFile, renameWorld, saveToSlot } from './runtime';
 import { Icon } from './icons';
 import type { Quality } from '../renderer/TerrainScene';
 
@@ -62,7 +62,7 @@ export function TopBar() {
           <Icon name="flag" /> Challenges
         </button>
         <span className="sep" />
-        <button onClick={() => void exportWorldFile()} title="Download world as a .tgw file">
+        <button onClick={() => set({ dialog: 'export' })} title="Project file, images, heightmaps">
           <Icon name="export" /> Export
         </button>
         <button onClick={() => fileRef.current?.click()} title="Open a .tgw world file">

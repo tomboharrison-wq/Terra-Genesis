@@ -9,6 +9,7 @@ import { VolcanoPanel } from './VolcanoPanel';
 import { MeasurePanel } from './MeasurePanel';
 import { CoastPanel } from './CoastPanel';
 import { HazardsPanel } from './HazardsPanel';
+import { MeteorPanel } from './MeteorPanel';
 import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
@@ -157,6 +158,7 @@ export function ToolPanel() {
       {t.id === 'volcano' && <VolcanoPanel />}
       {t.id === 'measure' && <MeasurePanel />}
       {t.id === 'hazards' && <HazardsPanel />}
+      {t.id === 'meteor' && <MeteorPanel />}
       {(t.id === 'profile' || s.profile) && <ProfilePanel />}
       {(water || (!brush && !measure && !events && !coastTool && !climateTool && !platesTool && !quakeTool)) && <WaterPanel />}
       {(water || (!brush && !measure && !coastTool && !climateTool && !platesTool && !quakeTool)) && <ErosionPanel />}

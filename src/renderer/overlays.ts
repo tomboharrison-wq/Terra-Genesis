@@ -1,7 +1,7 @@
 import { Color } from 'three';
 import type { WorldState } from '../engine/world';
 import { MATERIALS } from '../terrain/materials';
-import { FLOOD_THRESHOLD_M } from '../sim/events/hazards';
+import { DRY_M, FLOOD_THRESHOLD_M, WET_M } from '../sim/events/hazards';
 
 /**
  * Scientific map overlays (spec F4): each one colours the terrain by a field the simulation really
@@ -33,6 +33,7 @@ export type OverlayId =
   | 'shaking'
   | 'compare'
   | 'flood'
+  | 'drought'
   | 'cp-ground'
   | 'cp-water'
   | 'cp-plants'
@@ -46,8 +47,8 @@ export interface OverlaySource {
   climate: { temperatureC: Float32Array; rainFactor: Float32Array };
   coast: { exposure: Float32Array };
   lastQuake: { shaking: Float32Array } | null;
-  /** Flood record of the current / last storm or sea surge (deepest water, water when it began). */
-  flood: { peak: Float32Array; start: Float32Array; label: string } | null;
+  /** Depth record of the current / last event: deepest water (storm, surge) or shallowest (drought), and the water when it began. */
+  flood: { peak: Float32Array; start: Float32Array; label: string; kind: string } | null;
   compareResult: { coverDiff: Float32Array } | null;
   /** Checkpoint chosen for the 'since checkpoint' difference overlays. */
   compareCheckpoint: {
@@ -216,6 +217,8 @@ const PLANTS = ['#f2efd8', '#b9d18a', '#25b755', '#1c6b3c', '#0f3a22'];
 const ASH = ['#ecebea', '#b4b1ae', '#76726e', '#3d3a38'];
 // Flood: single-hue sequential through Scouts blue (light = shallow, dark = deep).
 const FLOOD = ['#d6e8fb', '#7fb3ef', '#006ddf', '#003a7a'];
+// Drought: single-hue sequential through Scouts orange (light = little lost, dark = dried up).
+const DROUGHT = ['#ffe9d1', '#ffbe80', '#ff912a', '#9c4a00'];
 // Aspect: 8 sectors N, NE … NW in a validated categorical order (dataviz validator: lightness band,
 // chroma, adjacent CVD ΔE ≥ 9, normal-vision ΔE ≥ 19.6; contrast relief = labelled legend + inspector).
 const ASPECT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
@@ -231,6 +234,7 @@ const iceRamp = ramp(ICE);
 const plantRamp = ramp(PLANTS);
 const ashRamp = ramp(ASH);
 const floodRamp = ramp(FLOOD);
+const droughtRamp = ramp(DROUGHT);
 const ROCK_LIN = MATERIALS.map((m) => lin(`#${m.colour.toString(16).padStart(6, '0')}`));
 
 const fmtM = (m: number) => (Math.abs(m) >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${m.toFixed(m < 10 ? 1 : 0)} m`);
@@ -479,7 +483,7 @@ export const OVERLAYS: OverlayDef[] = [
     id: 'flood',
     label: 'Flood extent (deepest water)',
     group: 'Water',
-    available: (s) => s.flood !== null,
+    available: (s) => s.flood !== null && s.flood.kind !== 'drought',
     describe: (s, i) => {
       const f = s.flood;
       if (!f) return null;
@@ -495,6 +499,28 @@ export const OVERLAYS: OverlayDef[] = [
         const g = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
         out[o] = out[o + 1] = out[o + 2] = g; // not flooded: neutral grey
       } else floodRamp(Math.min(1, f.peak[i] / 3), out, o);
+    },
+  },
+  {
+    id: 'drought',
+    label: 'Drought (water lost)',
+    group: 'Water',
+    available: (s) => s.flood?.kind === 'drought',
+    describe: (s, i) => {
+      const f = s.flood;
+      if (!f) return null;
+      if (s.surface[i] < s.world.seaLevelM) return 'sea';
+      if (f.start[i] < WET_M) return 'no standing water when the drought began';
+      const lost = 1 - f.peak[i] / f.start[i];
+      return `${fmtM(f.start[i])} → lowest ${fmtM(f.peak[i])} (${Math.round(100 * lost)}% lost${f.peak[i] < DRY_M ? ', dried up' : ''})`;
+    },
+    legend: () => ({ kind: 'ramp', css: css(DROUGHT), labels: ['little lost', 'half lost', 'dried up'] }),
+    colour: (s, i, _d, out, o) => {
+      const f = s.flood!;
+      if (s.surface[i] < s.world.seaLevelM || f.start[i] < WET_M) {
+        const g = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
+        out[o] = out[o + 1] = out[o + 2] = g; // no water to lose: neutral grey
+      } else droughtRamp(f.peak[i] < DRY_M ? 1 : 1 - f.peak[i] / f.start[i], out, o);
     },
   },
   {

@@ -11,11 +11,14 @@
  * shoaling, breaking or backwash force, and every sea cell rises at once (inland cells below sea level
  * count as sea, so they rise too). Run-up = the surge height you set.
  *
+ * Drought: no rain and evaporation raised to `evapMmDay` for `activeS`, then both put back. Springs
+ * keep flowing. The record is then the LOWEST water reached on each cell (lakes and rivers shrinking).
+ *
  * Flood extent = land cells where the deepest water during the event (peak) was at least
  * `FLOOD_THRESHOLD_M` higher than the water there when the event began, so rivers and lakes that
  * were already full do not count as flooded. Peak depth is updated after every solver step.
  */
-export type HazardKind = 'storm' | 'surge';
+export type HazardKind = 'storm' | 'surge' | 'drought';
 
 export interface HazardEvent {
   id: number;
@@ -35,6 +38,9 @@ export interface HazardEvent {
   rainRestored: boolean;
   surgeM: number;
   rampS: number;
+  /** Drought: evaporation during the event (mm/day) and the evaporation before it (m/s). */
+  evapMmDay: number;
+  prevEvapMPerS: number;
   done: boolean;
 }
 
@@ -74,6 +80,39 @@ export function floodSummary(peak: Float32Array, start: Float32Array, cellSizeM:
     }
   }
   return { areaM2: cells * cellSizeM * cellSizeM, cells, peakDepthM: deep, peakRiseM: rise };
+}
+
+export const WET_M = 0.05;
+export const DRY_M = 0.01;
+
+export interface DroughtSummary {
+  /** Area that held standing water (≥ 5 cm) when the drought began (m²). */
+  wetStartM2: number;
+  /** Of that, the area whose water fell below 1 cm at some point (m²). */
+  driedM2: number;
+  /** Surface water on the land when the drought began (m³). */
+  startM3: number;
+}
+
+/** Drought record: `low` = lowest depth reached on each cell, `start` = depth when it began. */
+export function droughtSummary(low: Float32Array, start: Float32Array, cellSizeM: number): DroughtSummary {
+  const A = cellSizeM * cellSizeM;
+  let wet = 0;
+  let dried = 0;
+  let s = 0;
+  for (let i = 0; i < low.length; i++) {
+    s += start[i];
+    if (start[i] >= WET_M) {
+      wet++;
+      if (low[i] < DRY_M) dried++;
+    }
+  }
+  return { wetStartM2: wet * A, driedM2: dried * A, startM3: s * A };
+}
+
+/** Lower every entry of `low` to at most the current depth. */
+export function updateLow(low: Float32Array, depth: Float32Array): void {
+  for (let i = 0; i < low.length; i++) if (depth[i] < low[i]) low[i] = depth[i];
 }
 
 /** Raise every entry of `peak` to at least the current depth (land cells only; sea depth is 0). */

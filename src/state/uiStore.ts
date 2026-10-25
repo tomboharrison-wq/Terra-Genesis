@@ -16,7 +16,8 @@ export type ToolId =
   | 'earthquake'
   | 'volcano'
   | 'measure'
-  | 'hazards';
+  | 'hazards'
+  | 'meteor';
 
 export const isBrushTool = (t: ToolId): t is BrushKind =>
   t !== 'navigate' &&
@@ -29,6 +30,7 @@ export const isBrushTool = (t: ToolId): t is BrushKind =>
   t !== 'volcano' &&
   t !== 'measure' &&
   t !== 'hazards' &&
+  t !== 'meteor' &&
   !t.startsWith('water-') &&
   t !== 'spring';
 
@@ -248,6 +250,13 @@ export interface QuakeSettings {
   shake: boolean;
 }
 
+export interface MeteorSettings {
+  kind: 'stony' | 'iron' | 'comet';
+  diameterM: number;
+  speedKmS: number;
+  angleDeg: number;
+}
+
 export interface VolcanoSettings {
   kind: 'basalt' | 'andesite';
   style: 'lava' | 'explosive' | 'mixed';
@@ -289,6 +298,7 @@ interface UiState {
   /** Progress of a volcano build in progress (eruptions done / total). */
   volcanoBuild: { type: string; done: number; total: number } | null;
   quake: QuakeSettings;
+  meteor: MeteorSettings;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: {
     mw: number;
@@ -312,7 +322,7 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints' | 'challenges' | 'lessons';
+  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints' | 'challenges' | 'lessons' | 'export';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;
@@ -358,6 +368,7 @@ export const useUi = create<UiState>((set) => ({
     shake: true,
   },
   lastQuake: null,
+  meteor: { kind: 'stony', diameterM: 30, speedKmS: 17, angleDeg: 45 },
   radiusM: 300,
   hardness: 0.3,
   rates: { ...DEFAULT_RATES },

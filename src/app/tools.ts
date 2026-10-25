@@ -153,9 +153,16 @@ export const TOOLS: ToolDef[] = [
   {
     group: 'events',
     id: 'hazards',
-    label: 'Floods',
+    label: 'Hazards',
     key: 'H',
-    hint: 'Storms and sea surges run through the real water model; the deepest water on every cell is recorded as the flood extent.',
+    hint: 'Storms, sea surges and droughts run through the real water model; the deepest (or shallowest) water on every cell is recorded and mapped.',
+  },
+  {
+    group: 'events',
+    id: 'meteor',
+    label: 'Meteor',
+    key: 'J',
+    hint: 'Click the map to drop a meteor: it digs a crater sized by the impact-scaling laws and throws the rock out as an ejecta blanket. Undo (Ctrl+Z) removes it.',
   },
   {
     group: 'water',

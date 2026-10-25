@@ -2,7 +2,7 @@ import type { WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
 import { emptyLedger, type WaterLedger } from './ledger';
 import type { ClimateField } from '../climate/climate';
-import { updatePeak } from '../events/hazards';
+import { updateLow, updatePeak } from '../events/hazards';
 
 const G = 9.81;
 
@@ -48,8 +48,12 @@ export class WaterSim implements Stepper {
    * and sea cells send water onto the land next to them (ledgered as surgeIn).
    */
   surgeM = 0;
-  /** Deepest water reached on each cell since recording began (flood events), or null when not recording. */
+  /**
+   * Event depth record: deepest water reached on each cell since recording began (floods), or the
+   * shallowest when `recordLow` (droughts); null when not recording.
+   */
   peakDepth: Float32Array | null = null;
+  recordLow = false;
 
   constructor(
     private world: WorldState,
@@ -159,7 +163,7 @@ export class WaterSim implements Stepper {
   step(dt: number): void {
     this.applyForcing(dt);
     this.route(dt);
-    if (this.peakDepth) updatePeak(this.peakDepth, this.world.waterDepthM);
+    if (this.peakDepth) (this.recordLow ? updateLow : updatePeak)(this.peakDepth, this.world.waterDepthM);
     this.refreshStats();
   }
 

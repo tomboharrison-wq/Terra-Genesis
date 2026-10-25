@@ -1,3 +1,4 @@
+import { ExportDialog } from './ExportDialog';
 import { useEffect } from 'react';
 import { Viewport } from './Viewport';
 import { TopBar } from './TopBar';
@@ -65,6 +66,7 @@ export function App() {
       {dialog === 'checkpoints' && <CheckpointsDialog />}
       {dialog === 'challenges' && <ChallengesDialog />}
       {dialog === 'lessons' && <LessonsDialog />}
+      {dialog === 'export' && <ExportDialog />}
       <ChallengeHud />
     </div>
   );

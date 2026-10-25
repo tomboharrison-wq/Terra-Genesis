@@ -121,4 +121,37 @@ describe('M11-C01 flood hazards', () => {
     expect(L.surgeIn).toBeGreaterThan(0.5 * f.areaM2); // the sea pushed water onto the land …
     expect(L.seaOut).toBeGreaterThan(0.9 * L.surgeIn); // … and took (nearly) all of it back
   });
+
+  it('drought: lowest depth ≤ every depth seen, lakes shrink, weather restored, ledger closes; log kept across checkpoint restore', () => {
+    const e = valley();
+    const w = e.world;
+    // A pond in the channel, poured in with the (ledgered) water tool.
+    e.water.addWaterDisc(13, 16, 3, 1.5);
+    w.water.rainMPerS = 1 * MM_PER_H;
+    w.water.evaporationMPerS = 0;
+    const cp = e.takeCheckpoint('before');
+    e.startDrought(2, 12);
+    expect(w.water.rainMPerS).toBe(0);
+    expect(w.water.evaporationMPerS).toBeCloseTo(0.012 / 86400, 15);
+    const low = e.flood!.peak;
+    for (let k = 0; k < 12; k++) {
+      e.advance(4 * 3600);
+      const d = w.waterDepthM;
+      for (let i = 0; i < d.length; i++) expect(low[i]).toBeLessThanOrEqual(d[i]);
+    }
+    e.advance(20);
+    expect(e.hazard!.done).toBe(true);
+    expect(w.water.rainMPerS).toBeCloseTo(1 * MM_PER_H, 15);
+    expect(w.water.evaporationMPerS).toBe(0);
+    const d = e.droughtSummary()!;
+    expect(d.wetStartM2).toBeGreaterThan(0);
+    expect(e.water.surfaceVolume()).toBeLessThan(d.startM3); // water was lost
+    expect(e.floodSummary()).toBeNull();
+    expect(closureError(e.water.ledger, e.water.storedVolume())).toBeLessThan(1e-4);
+    expect(e.hazardLog.at(-1)!.result!.kind).toBe('drought');
+    // Restore the checkpoint to try again: the log (for comparison) is kept, the record is not.
+    e.restoreCheckpoint(cp.id);
+    expect(e.hazardLog.length).toBe(2);
+    expect(e.flood).toBeNull();
+  });
 });

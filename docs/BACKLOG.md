@@ -3,12 +3,13 @@
 | ID | Outcome | Status |
 |---|---|---|
 | M04-C06 | Worlds are settled dry at generation, so the first heavy rain makes weak scarps fail en masse (plateau: 80 M m³ in an hour). Decide: settle to wet stability, or a gentle first-rain warm-up, or keep and explain | TODO |
-| M11-C02 | Meteor impact (crater + ejecta, real excavation volumes), drought (rain off + higher evaporation, lakes and rivers shrink), event comparison table | READY |
-| M11-C03 | Exports: map image, heightmap, overlay image, project file — each tested | TODO |
-| M11-C04 | Final accessibility, performance, saving, browser and deployment QA | TODO |
+| M11-C04 | Final QA: accessibility (keyboard-only pass, focus order, labels, contrast audit of panels), performance (256²/512² timings), saving (all slots, autosave, old formats), browsers (Chromium/Firefox/WebKit e2e smoke), deployment (live site check) | READY |
 | M10-C06 | Lessons still to add: headlands & bays (emergent), coastal slumping, subduction / plate boundaries, glacier retreat | TODO |
 | M11-C06 | Tsunami as a travelling long wave (sea cells in the solver, wave speed √(gh), run-up) instead of a level surge | TODO |
 | M11-C05 | Slow test: climate 'seasons advance' takes ~36 s for a quarter year at the 10 s max step (60 s timeout; fails under heavy CPU load) | TODO |
+| M11-C07 | Complex craters: central peak, terraces, breccia lens; airburst for small stony bodies | TODO |
+| M11-C03 | Export dialog: project .tgw, view PNG, top-down map PNG (overlay colours, legend, scale bar, north), 16-bit heightmap PNG (own encoder, min/max tEXt), float32 .raw + .json | DONE |
+| M11-C02 | Meteor tool (pi-scaling crater, (R/r)³ ejecta, volume conserved incl. off-map, undoable, logged); drought (rain off, evaporation set, lowest-water record CPU+GPU, drought overlay); comparison table; event log kept across checkpoint restore | DONE |
 | M11-C01 | Floods: storm (rain for hours, restored after) and sea surge (simplified tsunami: raised sea head floods via the solver); per-step peak depth (CPU + GPU pass); flood-extent overlay; summary; checkpoint before; event log | DONE |
 | M10-C05 | Presentation (bigger text, high contrast, map-only), teacher links to a stage, curriculum-terminology + KS3 readability + projection contrast tests | DONE |
 | M10-C04 | Volcano types (emergent build + labels), glacial trough & hanging valley, corrie/arête/tarn (guided), fold mountains (fold-lab section) | DONE |

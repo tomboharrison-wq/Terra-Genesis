@@ -784,7 +784,9 @@ export class TerrainScene {
     if (simDone > 0) this.onSim?.();
     let dirty = this.engine.takeDirty();
     this.overlayTimer += dt;
-    const waterMoved = (this.terrainOverlay === 'cp-water' || this.terrainOverlay === 'flood') && this.engine.waterRevision !== this.overlayWaterRev;
+    const waterMoved =
+      (this.terrainOverlay === 'cp-water' || this.terrainOverlay === 'flood' || this.terrainOverlay === 'drought') &&
+      this.engine.waterRevision !== this.overlayWaterRev;
     if ((dirty || waterMoved) && this.overlayData && this.overlayTimer > 1) {
       this.overlayWaterRev = this.engine.waterRevision;
       // Derived overlay fields (upstream area, elevation range) change with the terrain: refresh, redraw all.
@@ -868,6 +870,12 @@ export class TerrainScene {
   }
 
   private viewInsetLeft = 0;
+  /** PNG of the current view: render now and read the canvas in the same task (no preserved buffer needed). */
+  captureView(): Promise<Blob> {
+    this.renderer.render(this.scene, this.camera);
+    return new Promise((resolve, reject) => this.renderer.domElement.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas capture failed'))), 'image/png'));
+  }
+
   /** Reserve `px` CSS pixels on the left for an overlay panel (0 = none). */
   setViewInsetLeft(px: number) {
     if (px === this.viewInsetLeft) return;

@@ -46,7 +46,7 @@ for (const r of res) {
   }
   if (r.maxPeakDiffM !== undefined) {
     const rel = Math.abs(r.gpuSurgeInM3 - r.cpuSurgeInM3) / Math.max(1e-6, r.cpuSurgeInM3);
-    ok = ok && r.cpuSurgeInM3 > 0 && rel < 1e-3 && r.maxPeakDiffM < 0.01;
+    ok = ok && (r.name !== 'sea-surge' || (r.cpuSurgeInM3 > 0 && rel < 1e-3)) && r.maxPeakDiffM < 0.01;
     extra += ` | surge onto land cpu ${r.cpuSurgeInM3.toFixed(1)} gpu ${r.gpuSurgeInM3.toFixed(1)} m³, peak-depth maxΔ ${(r.maxPeakDiffM * 1000).toFixed(3)} mm`;
   }
   fail ||= !ok;

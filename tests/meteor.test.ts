@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createWorld, setUniformStrata } from '../src/engine/world';
 import { craterSize, impact } from '../src/sim/events/meteor';
+import { Engine } from '../src/engine/engine';
 
 const flat = (N: number, cs: number, z = 100) => {
   const w = createWorld({ width: N, height: N, cellSizeM: cs, seed: 1, seaLevelM: 0 });
@@ -54,5 +55,19 @@ describe('M11-C02 meteor impact', () => {
     expect(r.rimM).toBeGreaterThan(0.1 * r.depthM);
     // Soil went first, then rock: the bowl floor is in bedrock with no soil left.
     expect(w.looseSedimentThicknessM[100 * N + 100]).toBe(0);
+  });
+
+  it('engine impact is one undoable edit and is logged', () => {
+    const { w } = flat(120, 10);
+    const e = new Engine(w);
+    const z0 = e.surface.slice();
+    const r = e.impact({ xM: 600, yM: 600, diameterM: 6, speedMS: 17000, densityKgM3: 3000, angleDeg: 45 });
+    expect(r.diameterM).toBeGreaterThan(50);
+    expect(e.surface[60 * 120 + 60]).toBeLessThan(z0[60 * 120 + 60] - 5);
+    expect(e.hazardLog.at(-1)!.text).toMatch(/crater \d+ m across/);
+    e.undo();
+    let maxD = 0;
+    for (let i = 0; i < z0.length; i++) maxD = Math.max(maxD, Math.abs(e.surface[i] - z0[i]));
+    expect(maxD).toBe(0);
   });
 });

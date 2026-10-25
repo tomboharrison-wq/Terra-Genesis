@@ -17,7 +17,9 @@ function Slider(p: { label: string; value: string; min: number; max: number; ste
   );
 }
 
-/** Flood hazards (spec E12): storm and sea surge events, the flood extent they cause, and an event log. */
+const fmtArea = (m2: number) => (m2 >= 1e5 ? `${(m2 / 1e6).toFixed(2)} km²` : `${Math.round(m2).toLocaleString()} m²`);
+
+/** Water hazards (spec E12): storm, sea surge and drought events, what they did, an event log and a comparison table. */
 export function HazardsPanel() {
   useUi((s) => s.sim); // re-render on every simulation sync
   const overlay = useUi((s) => s.terrainOverlay);
@@ -26,19 +28,26 @@ export function HazardsPanel() {
   const [hours, setHours] = useState(3);
   const [surge, setSurge] = useState(4);
   const [minutes, setMinutes] = useState(45);
+  const [days, setDays] = useState(10);
+  const [evap, setEvap] = useState(6);
   const [checkpoint, setCheckpoint] = useState(true);
   const hz = engine.hazard;
   const running = !!hz && !hz.done;
   const f = engine.floodSummary();
+  const dr = engine.droughtSummary();
+  const results = engine.hazardLog.filter((l) => l.result);
 
-  const start = (kind: 'storm' | 'surge') => {
-    const label = kind === 'storm' ? `Before storm ${rain} mm/h` : `Before sea surge ${surge} m`;
+  const start = (kind: 'storm' | 'surge' | 'drought') => {
+    const label = kind === 'storm' ? `Before storm ${rain} mm/h` : kind === 'surge' ? `Before sea surge ${surge} m` : `Before drought ${days} days`;
     if (checkpoint) engine.takeCheckpoint(`${label} (${fmtSimTime(engine.world.simTimeSeconds)})`);
     if (kind === 'storm') engine.startStorm(rain, hours);
-    else engine.startSurge(surge, minutes);
+    else if (kind === 'surge') engine.startSurge(surge, minutes);
+    else engine.startDrought(days, evap);
     engine.setPlaying(true);
-    set({ terrainOverlay: 'flood' });
+    set({ terrainOverlay: kind === 'drought' ? 'drought' : 'flood' });
   };
+  const status = (h: NonNullable<typeof hz>) =>
+    h.elapsedS >= h.activeS ? 'draining' : h.kind === 'storm' ? 'raining' : h.kind === 'surge' ? `sea ${engine.water.surgeM.toFixed(1)} m up` : 'no rain';
 
   return (
     <section className="hazards-panel">
@@ -64,6 +73,17 @@ export function HazardsPanel() {
         Start sea surge
       </button>
 
+      <h3>Drought</h3>
+      <Slider label="Lasting" value={`${days} days`} min={1} max={60} step={1} v={days} onChange={setDays} />
+      <Slider label="Evaporation" value={`${evap} mm/day`} min={1} max={15} step={0.5} v={evap} onChange={setEvap} />
+      <p className="hint small tight">
+        No rain, and open water evaporates at this rate (a hot UK summer day ≈ 4–6 mm/day, deserts 10+). Springs keep flowing. The lowest water on every cell is
+        recorded: watch lakes shrink and rivers dry up. Speed up time to run days quickly.
+      </p>
+      <button className="small" disabled={running} onClick={() => start('drought')}>
+        Start drought
+      </button>
+
       <label className="field check">
         <input type="checkbox" checked={checkpoint} onChange={(e) => setCheckpoint(e.target.checked)} /> Take a checkpoint before each event (to compare or try
         again)
@@ -75,9 +95,7 @@ export function HazardsPanel() {
           <p className="hint small tight">
             <b>{hz.label}</b>
             <br />
-            {running
-              ? `${fmtSpan(hz.elapsedS)} in · ${hz.elapsedS < hz.activeS ? (hz.kind === 'storm' ? 'raining' : `sea ${engine.water.surgeM.toFixed(1)} m up`) : 'draining'} · recording until ${fmtSpan(hz.recordS)}`
-              : `Finished after ${fmtSpan(hz.elapsedS)}.`}
+            {running ? `${fmtSpan(hz.elapsedS)} in · ${status(hz)} · recording until ${fmtSpan(hz.recordS)}` : `Finished after ${fmtSpan(hz.elapsedS)}.`}
             {running && !useUi.getState().sim?.playing && ' — press Play to run time.'}
           </p>
           {running && (
@@ -91,7 +109,7 @@ export function HazardsPanel() {
         <>
           <dl className="budget">
             <dt title={`Land where the water rose by at least ${FLOOD_THRESHOLD_M} m (rivers and lakes already full do not count)`}>Land flooded</dt>
-            <dd>{f.areaM2 >= 1e5 ? `${(f.areaM2 / 1e6).toFixed(2)} km²` : `${Math.round(f.areaM2).toLocaleString()} m²`}</dd>
+            <dd>{fmtArea(f.areaM2)}</dd>
             <dt>Deepest flood water</dt>
             <dd>{f.peakDepthM.toFixed(2)} m</dd>
           </dl>
@@ -101,6 +119,51 @@ export function HazardsPanel() {
           <p className="hint small tight">
             Compare: restore the “Before …” checkpoint (Checkpoints), change something — e.g. build a levee with Raise — and run the same event again.
           </p>
+        </>
+      )}
+      {dr && (
+        <>
+          <dl className="budget">
+            <dt>Standing water at the start</dt>
+            <dd>{fmtArea(dr.wetStartM2)}</dd>
+            <dt title="Of that, water that fell below 1 cm deep">Dried up</dt>
+            <dd>{fmtArea(dr.driedM2)}</dd>
+            <dt>Surface water</dt>
+            <dd>
+              {Math.round(dr.startM3).toLocaleString()} → {Math.round(engine.water.surfaceVolume()).toLocaleString()} m³
+            </dd>
+          </dl>
+          <button
+            className={`small ${overlay === 'drought' ? 'active' : ''}`}
+            onClick={() => set({ terrainOverlay: overlay === 'drought' ? 'none' : 'drought' })}
+          >
+            {overlay === 'drought' ? 'Hide drought map' : 'Show drought map'}
+          </button>
+        </>
+      )}
+      {results.length > 1 && (
+        <>
+          <h3>Compare events</h3>
+          <table className="values compare-events">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Started</th>
+                <th title="Storms and surges: land flooded. Droughts: water dried up. Meteors: crater area.">Area</th>
+                <th>Measured</th>
+              </tr>
+            </thead>
+            <tbody>
+              {results.slice(-6).map((l, k) => (
+                <tr key={k}>
+                  <td>{l.result!.label}</td>
+                  <td>{fmtSimTime(l.result!.startS)}</td>
+                  <td>{fmtArea(l.result!.areaM2)}</td>
+                  <td>{l.result!.measure}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </>
       )}
       {engine.hazardLog.length > 0 && (

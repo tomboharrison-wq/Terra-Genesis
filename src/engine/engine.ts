@@ -21,10 +21,20 @@ import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
 import { episodePlan, runEruption, type VolcanoType } from '../sim/lava/build';
 import { caldera, type CalderaOptions, type CalderaResult } from '../sim/lava/caldera';
 import type { EruptionStyle } from '../sim/lava/tephra';
-import { floodSummary, surgeHeight, type FloodSummary, type HazardEvent } from '../sim/events/hazards';
+import { droughtSummary, floodSummary, surgeHeight, type DroughtSummary, type FloodSummary, type HazardEvent, type HazardKind } from '../sim/events/hazards';
+import { impact, type ImpactOptions, type ImpactResult } from '../sim/events/meteor';
 import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
 
 export type { VolcanoType } from '../sim/lava/build';
+
+/** One line of the event log; `result` holds the measured outcome used by the comparison table. */
+export interface HazardLogEntry {
+  simS: number;
+  text: string;
+  result?: { label: string; kind: HazardKind | 'meteor'; startS: number; areaM2: number; measure: string };
+}
+
+const fmtM3 = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(2)} million m³` : `${Math.round(v).toLocaleString()} m³`);
 
 /** A volcano being built eruption by eruption (call step() once per frame until it returns false). */
 export interface VolcanoBuild {
@@ -115,7 +125,10 @@ export class Engine {
     this.lastQuake = null;
     this.hazard = null;
     this.flood = null;
-    this.hazardLog = [];
+    this.lastImpact = null;
+    // The event log survives restoring a checkpoint of the same world (run, restore, change, run again).
+    if (world.meta.createdAtIso !== this.hazardLogWorld) this.hazardLog = [];
+    this.hazardLogWorld = world.meta.createdAtIso;
     if (this.compareCheckpoint && !this.sameWorld(this.compareCheckpoint)) this.compareCheckpoint = null;
     const water = this.water;
     const sediment = this.sediment;
@@ -752,10 +765,14 @@ export class Engine {
 
   /** The current or last flood event (null before the first one in this world). */
   hazard: HazardEvent | null = null;
-  /** Flood record of the current / last event: deepest water per cell, and the water when it began. */
-  flood: { peak: Float32Array; start: Float32Array; label: string } | null = null;
-  /** Events in this world, with the simulated time they began and their result. */
-  hazardLog: { simS: number; text: string }[] = [];
+  /**
+   * Depth record of the current / last event: deepest water per cell (storm, surge) or the shallowest
+   * (drought, kind 'drought'), and the water when it began.
+   */
+  flood: { peak: Float32Array; start: Float32Array; label: string; kind: HazardKind } | null = null;
+  /** Events in this world: simulated time, text, and (when finished) the measured result for comparison. */
+  hazardLog: HazardLogEntry[] = [];
+  private hazardLogWorld = '';
   private nextHazardId = 1;
   private hazardChanged = false;
 
@@ -767,6 +784,17 @@ export class Engine {
       activeS: hours * 3600,
       recordS: (hours + afterHours) * 3600,
       label: `Storm ${rainMmH} mm/h for ${hours} h`,
+    });
+  }
+
+  /** Drought: no rain and evaporation at `evapMmDay` for `days`, then both back to what they were. */
+  startDrought(days: number, evapMmDay: number): HazardEvent {
+    return this.startHazard({
+      kind: 'drought',
+      evapMmDay,
+      activeS: days * 86400,
+      recordS: days * 86400,
+      label: `Drought ${days} days, evaporation ${evapMmDay} mm/day`,
     });
   }
 
@@ -795,15 +823,22 @@ export class Engine {
       rainRestored: false,
       surgeM: 0,
       rampS: 0,
+      evapMmDay: 0,
+      prevEvapMPerS: w.water.evaporationMPerS,
       done: false,
       ...o,
     };
     const start = w.waterDepthM.slice();
     for (let i = 0; i < start.length; i++) if (this.water.sea[i]) start[i] = 0;
     this.water.peakDepth = start.slice();
+    this.water.recordLow = hz.kind === 'drought';
     this.gpu?.uploadPeak();
-    this.flood = { peak: this.water.peakDepth, start, label: hz.label };
+    this.flood = { peak: this.water.peakDepth, start, label: hz.label, kind: hz.kind };
     if (hz.kind === 'storm') w.water.rainMPerS = hz.rainMmH * MM_PER_H;
+    if (hz.kind === 'drought') {
+      w.water.rainMPerS = 0;
+      w.water.evaporationMPerS = hz.evapMmDay / 1000 / 86400;
+    }
     this.hazard = hz;
     this.hazardLog.push({ simS: hz.startS, text: `${hz.label} began` });
     this.emit({ type: 'water-params-changed' });
@@ -817,21 +852,22 @@ export class Engine {
     hz.elapsedS += dt;
     if (hz.kind === 'surge') this.water.surgeM = surgeHeight(hz, hz.elapsedS);
     // (tolerance: the step sizes rarely sum exactly to the set duration)
-    if (hz.kind === 'storm' && !hz.rainRestored && hz.elapsedS >= hz.activeS - 1e-6) {
-      this.world.water.rainMPerS = hz.prevRainMPerS;
-      hz.rainRestored = true;
-      this.hazardChanged = true;
-    }
+    if (hz.kind !== 'surge' && !hz.rainRestored && hz.elapsedS >= hz.activeS - 1e-6) this.restoreWeather(hz);
     if (hz.elapsedS >= hz.recordS - 1e-6) this.finishHazard(hz);
   }
 
   private finishHazard(hz: HazardEvent) {
     hz.done = true;
     this.water.surgeM = 0;
-    if (hz.kind === 'storm' && !hz.rainRestored) {
-      this.world.water.rainMPerS = hz.prevRainMPerS;
-      hz.rainRestored = true;
-    }
+    if (hz.kind !== 'surge' && !hz.rainRestored) this.restoreWeather(hz);
+    this.hazardChanged = true;
+  }
+
+  /** Storm / drought over: rain (and evaporation) back to what they were before the event. */
+  private restoreWeather(hz: HazardEvent) {
+    this.world.water.rainMPerS = hz.prevRainMPerS;
+    if (hz.kind === 'drought') this.world.water.evaporationMPerS = hz.prevEvapMPerS;
+    hz.rainRestored = true;
     this.hazardChanged = true;
   }
 
@@ -852,18 +888,68 @@ export class Engine {
     if (hz?.done && this.water.peakDepth) {
       this.syncWater();
       this.water.peakDepth = null;
-      const f = this.floodSummary()!;
-      this.hazardLog.push({
-        simS: hz.startS + hz.elapsedS,
-        text: `${hz.label} ended: ${(f.areaM2 / 1e6).toFixed(3)} km² flooded, deepest ${f.peakDepthM.toFixed(1)} m`,
-      });
+      const simS = hz.startS + hz.elapsedS;
+      if (hz.kind === 'drought') {
+        const d = this.droughtSummary()!;
+        const nowM3 = this.water.surfaceVolume();
+        this.hazardLog.push({
+          simS,
+          text: `${hz.label} ended: ${(d.driedM2 / 1e6).toFixed(3)} of ${(d.wetStartM2 / 1e6).toFixed(3)} km² of water dried up`,
+          result: { label: hz.label, kind: hz.kind, startS: hz.startS, areaM2: d.driedM2, measure: `surface water ${fmtM3(d.startM3)} → ${fmtM3(nowM3)}` },
+        });
+      } else {
+        const f = this.floodSummary()!;
+        this.hazardLog.push({
+          simS,
+          text: `${hz.label} ended: ${(f.areaM2 / 1e6).toFixed(3)} km² flooded, deepest ${f.peakDepthM.toFixed(1)} m`,
+          result: { label: hz.label, kind: hz.kind, startS: hz.startS, areaM2: f.areaM2, measure: `deepest ${f.peakDepthM.toFixed(2)} m` },
+        });
+      }
     }
     this.emit({ type: 'water-params-changed' });
   }
 
-  /** Flood extent of the current / last event (call syncWater first while one is running). */
+  /** Flood extent of the current / last storm or surge (call syncWater first while one is running). */
   floodSummary(): FloodSummary | null {
-    return this.flood ? floodSummary(this.flood.peak, this.flood.start, this.world.cellSizeM) : null;
+    return this.flood && this.flood.kind !== 'drought' ? floodSummary(this.flood.peak, this.flood.start, this.world.cellSizeM) : null;
+  }
+
+  /** Water dried up in the current / last drought. */
+  droughtSummary(): DroughtSummary | null {
+    return this.flood?.kind === 'drought' ? droughtSummary(this.flood.peak, this.flood.start, this.world.cellSizeM) : null;
+  }
+
+  /** Last meteor impact. */
+  lastImpact: ImpactResult | null = null;
+
+  /** Meteor impact: crater + ejecta blanket (sim/events/meteor.ts), undoable as one edit, logged. */
+  impact(o: ImpactOptions): ImpactResult {
+    this.syncWater();
+    const rec = new StrokeRecorder(this.world, 'Meteor impact');
+    const res = impact(this.world, this.surface, o, rec.capture);
+    const cmd = rec.finish();
+    if (cmd) {
+      this.history.push(cmd);
+      this.emit({ type: 'history-changed' });
+    }
+    this.lastImpact = res;
+    this.water.refreshSea();
+    if (res.rect.x1 > res.rect.x0) this.markDirty(res.rect);
+    this.vegetationRevision++;
+    const label = `Meteor ${o.diameterM} m at ${(o.speedMS / 1000).toFixed(0)} km/s`;
+    this.hazardLog.push({
+      simS: this.world.simTimeSeconds,
+      text: `${label}: crater ${Math.round(res.diameterM)} m across, ${fmtM3(res.excavatedM3)} dug out`,
+      result: {
+        label,
+        kind: 'meteor',
+        startS: this.world.simTimeSeconds,
+        areaM2: Math.PI * (res.diameterM / 2) ** 2,
+        measure: `${Math.round(res.depthM)} m deep, ${res.megatons.toPrecision(3)} Mt`,
+      },
+    });
+    this.emit({ type: 'climate-changed' }); // overlay / panels refresh
+    return res;
   }
 
   /** Last earthquake (its shaking map drives the 'shaking' overlay). */

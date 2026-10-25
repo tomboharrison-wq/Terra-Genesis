@@ -148,6 +148,14 @@ function fixture(name: string): WorldState {
       w.water.boundary = 'closed';
       return w;
     }
+    case 'drought-pond': {
+      // A pond drying under strong evaporation: the GPU low-depth record must match the CPU's.
+      const w = mk(32, 10, (x, y) => 0.01 * ((x - 16) ** 2 + (y - 16) ** 2));
+      w.water.boundary = 'closed';
+      w.water.evaporationMPerS = 400 * MM_PER_H;
+      for (let i = 0; i < 32 * 32; i++) w.waterDepthM[i] = Math.max(0, 1.2 - w.bedrockElevationM[i]);
+      return w;
+    }
     case 'bowl-overflow': {
       const w = mk(33, 10, (x, y) => {
         const rim = y === 0 || y === 32 || x === 0 || x === 32 ? 8 : 0;
@@ -184,6 +192,7 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
     'snow-ridge',
     'veg-erosion',
     'sea-surge',
+    'drought-pond',
   ]) {
     const wc = fixture(name);
     const wg = cloneWorld(wc);
@@ -204,9 +213,15 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
     }
     const gSed = new SedimentSim(wg, sg, gsim);
     const surge = name === 'sea-surge';
+    const drought = name === 'drought-pond';
     if (surge) {
       cpu.peakDepth = new Float32Array(wc.width * wc.height);
       gsim.peakDepth = new Float32Array(wg.width * wg.height);
+    }
+    if (drought) {
+      cpu.peakDepth = wc.waterDepthM.slice();
+      gsim.peakDepth = wg.waterDepthM.slice();
+      cpu.recordLow = gsim.recordLow = true;
     }
     const gpu = new GpuWater(ctx, wg, sg, gsim, gSed);
     let t = 0;
@@ -250,8 +265,8 @@ export function runGpuSelfTest(gl?: WebGL2RenderingContext, simSeconds = 1800): 
         }
       : {};
     let peakDiff = 0;
-    if (surge) for (let i = 0; i < sc.length; i++) peakDiff = Math.max(peakDiff, Math.abs(cpu.peakDepth![i] - gsim.peakDepth![i]));
-    const surgeRes = surge ? { cpuSurgeInM3: cpu.ledger.surgeIn, gpuSurgeInM3: gsim.ledger.surgeIn, maxPeakDiffM: peakDiff } : {};
+    if (surge || drought) for (let i = 0; i < sc.length; i++) peakDiff = Math.max(peakDiff, Math.abs(cpu.peakDepth![i] - gsim.peakDepth![i]));
+    const surgeRes = surge || drought ? { cpuSurgeInM3: cpu.ledger.surgeIn, gpuSurgeInM3: gsim.ledger.surgeIn, maxPeakDiffM: peakDiff } : {};
     out.push({
       ...erosion,
       ...surgeRes,

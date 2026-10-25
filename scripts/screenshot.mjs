@@ -799,7 +799,7 @@ const noIce = await page.evaluate(() => Math.max(...window.__terraGenesis.engine
 check(
   'map overlays recolour the terrain with legends; overlays without data are not offered',
   changed.length === 5 && noIce && !offered.includes('ice') && /Geology/.test(ovText ?? ''),
-  `changed ${changed.join(',')} · offered ${offered.join(',')}`,
+  `changed ${changed.join(',')} · offered ${offered.join(',')} · noIce ${noIce} · inspector ${JSON.stringify((ovText ?? '').slice(0, 80))}`,
 );
 
 // --- Checkpoints (M09-C03): take, change the world, compare (summary + map), restore exactly ---
@@ -979,6 +979,136 @@ check(
   `${(flood.area / 1e6).toFixed(3)} km² · deepest ${flood.deep.toFixed(2)} m · cells below peak ${flood.below} · legend ${/0.3 m/.test(floodLegend)}`,
 );
 await page.keyboard.press('1');
+
+// --- Drought + meteor (M11-C02): low-water record, drought map, crater from a map click, undo, comparison table ---
+await page.keyboard.press('h');
+await page.waitForTimeout(400);
+await page.evaluate(() => [...document.querySelectorAll('.hazards-panel button')].find((b) => /Start drought/.test(b.textContent))?.click());
+await page.waitForTimeout(500);
+const drought = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  e.setPlaying(false);
+  e.advance(86400);
+  const low = e.flood.peak;
+  const d = e.world.waterDepthM;
+  let above = 0;
+  for (let i = 0; i < d.length; i++) if (low[i] > d[i]) above++;
+  e.stopHazard();
+  return { above, kind: e.flood.kind, dried: e.droughtSummary().driedM2, wet: e.droughtSummary().wetStartM2 };
+});
+await page.waitForTimeout(1500);
+const droughtLegend = (await page.textContent('.timebar .legend').catch(() => '')) ?? '';
+const comparePanel = (await page.textContent('.hazards-panel')) ?? '';
+await shot('52-drought');
+await page.keyboard.press('j');
+await page.waitForTimeout(400);
+const preImpact = await sum();
+await page.mouse.click(700, 480);
+await page.waitForTimeout(1500);
+const impactToast = (await page.textContent('.toasts').catch(() => '')) ?? '';
+const crater = await page.evaluate(
+  () =>
+    window.__terraGenesis.engine.lastImpact && {
+      d: window.__terraGenesis.engine.lastImpact.diameterM,
+      ex: window.__terraGenesis.engine.lastImpact.excavatedM3,
+    },
+);
+await shot('53-meteor-crater');
+const postImpact = await sum();
+await page.keyboard.press('Control+z');
+await page.waitForTimeout(800);
+const undone = await sum();
+check(
+  'drought records the lowest water (≤ every depth) with its map; meteor click digs a crater, Ctrl+Z removes it; events compared',
+  drought.above === 0 &&
+    drought.kind === 'drought' &&
+    /dried up/.test(droughtLegend) &&
+    /Compare events/.test(comparePanel) &&
+    /Impact: crater/.test(impactToast) &&
+    postImpact !== preImpact &&
+    undone === preImpact,
+  `dried ${(drought.dried / 1e6).toFixed(3)} of ${(drought.wet / 1e6).toFixed(3)} km² · crater ${crater ? Math.round(crater.d) : '—'} m, ${crater ? Math.round(crater.ex) : 0} m³ · undo ${undone === preImpact}`,
+);
+await page.keyboard.press('1');
+
+// --- Exports (M11-C03): every item in the Export dialog downloads a real file of the right kind ---
+const fsp = (await import('node:fs')).promises;
+await page.click('.topbar button:has-text("Export")');
+await page.waitForTimeout(400);
+const grab = async (id, n = 1) => {
+  const dls = [];
+  const got = new Promise((resolve) => {
+    const on = (d) => {
+      dls.push(d);
+      if (dls.length === n) {
+        page.off('download', on);
+        resolve();
+      }
+    };
+    page.on('download', on);
+  });
+  await page.click(`[data-export="${id}"]`);
+  await Promise.race([got, page.waitForTimeout(20000)]);
+  return Promise.all(dls.map(async (d) => ({ name: d.suggestedFilename(), bytes: await fsp.readFile(await d.path()) })));
+};
+const isPng = (b) => b && b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71;
+const ex = {};
+for (const [id, n] of [
+  ['project', 1],
+  ['view', 1],
+  ['map', 1],
+  ['heightmap', 1],
+  ['raw', 2],
+])
+  ex[id] = await grab(id, n);
+const dims = await page.evaluate(() => ({
+  W: window.__terraGenesis.engine.world.width,
+  H: window.__terraGenesis.engine.world.height,
+  z0: window.__terraGenesis.engine.surface[0],
+}));
+const hm = ex.heightmap[0]?.bytes;
+const raw = ex.raw.find((f) => f.name.endsWith('.raw'))?.bytes;
+const meta = ex.raw.find((f) => f.name.endsWith('.json'));
+const metaJson = meta ? JSON.parse(meta.bytes.toString('utf8')) : {};
+const exportOk = {
+  project: ex.project[0]?.bytes[0] === 0x1f && ex.project[0]?.bytes[1] === 0x8b && ex.project[0].bytes.length > 1000,
+  view: isPng(ex.view[0]?.bytes) && ex.view[0].bytes.length > 5000,
+  map: isPng(ex.map[0]?.bytes) && ex.map[0].bytes.readUInt32BE(16) >= dims.W,
+  heightmap: isPng(hm) && hm.readUInt32BE(16) === dims.W && hm.readUInt32BE(20) === dims.H && hm[24] === 16 && hm[25] === 0 && hm.includes('MinElevationM'),
+  raw: raw?.length === dims.W * dims.H * 4 && Math.abs(raw.readFloatLE(0) - dims.z0) < 1e-3 && metaJson.width === dims.W,
+};
+await page.click('.dialog [aria-label="Close"]');
+check(
+  'exports: project file, view image, map image, 16-bit heightmap and float32 raw + json all download with the right content',
+  Object.values(exportOk).every(Boolean),
+  JSON.stringify(exportOk),
+);
+
+// --- Accessibility (M11-C04): every button has an accessible name; Tab reaches controls with a visible focus ring; Escape closes dialogs ---
+const unnamed = await page.$$eval('button', (bs) => bs.filter((b) => !(b.textContent?.trim() || b.getAttribute('aria-label') || b.title)).map((b) => b.outerHTML.slice(0, 80)));
+await page.keyboard.press('1');
+await page.locator('.topbar button').first().focus();
+const tabbed = [];
+for (let k = 0; k < 6; k++) {
+  await page.keyboard.press('Tab');
+  tabbed.push(
+    await page.evaluate(() => {
+      const el = document.activeElement;
+      const cs = el ? getComputedStyle(el) : null;
+      return { tag: el?.tagName, ring: !!cs && cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 1 };
+    }),
+  );
+}
+await page.click('.topbar button:has-text("Export")');
+await page.waitForTimeout(300);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+const dialogGone = (await page.$('.dialog')) === null;
+check(
+  'accessibility: every button is named, Tab moves through controls with a visible focus ring, Escape closes dialogs',
+  unnamed.length === 0 && tabbed.every((t) => ['BUTTON', 'INPUT', 'SELECT', 'A'].includes(t.tag) && t.ring) && dialogGone,
+  `unnamed ${unnamed.length}${unnamed.length ? ' e.g. ' + unnamed[0] : ''} · tab ${tabbed.map((t) => t.tag + (t.ring ? '✓' : '✗')).join(' ')} · escape ${dialogGone}`,
+);
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

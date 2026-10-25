@@ -40,7 +40,8 @@ describe('M09-C02 map overlays', () => {
     const e = new Engine(w);
     const ids = () => OVERLAYS.filter((o) => o.available(e)).map((o) => o.id);
     expect(ids()).toEqual(expect.arrayContaining(['elevation', 'slope', 'aspect', 'geology', 'flow', 'change']));
-    for (const missing of ['ice', 'plants', 'ash', 'temperature', 'rainfall', 'shaking', 'compare', 'plates', 'waves', 'flood']) expect(ids()).not.toContain(missing);
+    for (const missing of ['ice', 'plants', 'ash', 'temperature', 'rainfall', 'shaking', 'compare', 'plates', 'waves', 'flood', 'drought'])
+      expect(ids()).not.toContain(missing);
     w.iceThicknessM[100] = 30;
     w.vegCover[200] = 0.5;
     w.tephraM[300] = 0.2;

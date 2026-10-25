@@ -176,3 +176,11 @@
 - Both run through the real water model. The sea surge floods whatever land the higher sea can reach and drains back; it is clearly labelled a simplified tsunami (no travelling wave, breaking or backwash).
 - The deepest water reached on every cell is recorded at every solver step. The "Flood extent" map shows where water rose by 0.3 m or more (full rivers and lakes do not count as flooded), with the area flooded and the deepest water.
 - A checkpoint is taken before each event so you can restore it, change something (such as building a levee) and run the same event again. An event log records each event with its simulated time and result.
+
+## M11-C02 — Droughts, meteors and comparing events
+- Hazards tool (H) now also runs a drought: no rain, and water evaporates at a rate you choose for a number of days. The lowest water on every cell is recorded; the drought map shows how much each lake and river lost and where it dried up.
+- New Meteor tool (J): pick a stony, iron or icy impactor, its size, speed and angle; the panel predicts the crater and the energy. Clicking the map digs a crater sized by the impact-scaling laws used by scientists and throws the rock out as a blanket that thins with distance and builds the rim. Undo removes it.
+- A comparison table lists finished events side by side (area flooded, dried up or cratered, and what was measured). The log is kept when you restore a checkpoint, so you can run the same event again after changing something.
+
+## M11-C03 — Exports
+- The Export button opens a list of five downloads: the project file (.tgw, opens again with Import); an image of the 3D view; a top-down map image in the chosen map colouring, with title, legend, scale bar and north arrow; a 16-bit heightmap PNG for GIS and 3D programs (lowest and highest heights stored inside the file); and exact elevation data as 32-bit floats with a .json description.

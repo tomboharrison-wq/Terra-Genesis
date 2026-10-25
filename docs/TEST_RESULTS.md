@@ -1,5 +1,17 @@
 # Test results (latest first)
 
+## 2026-10-25 M11-C04 (QA, part 1)
+- Accessibility: WCAG contrast from styles.css — caught the Play button (light text on Scouts green, 2.41:1) → dark text (≈ 6.8:1); all other pairs ≥ 4.5:1. Tool shortcuts unique. e2e adds: every button named, Tab focus ring, Escape closes dialogs.
+- Saving: files written as v1 … v11 all decode, validate and run; newer-version files refused with a message.
+- Performance (CPU reference, this container, measured while an e2e also ran): 128² 9.4 ms/step, 256² 37 ms/step, 512² 147 ms/step (water + sediment). GPU (gpu-check, SwiftShader): 0.3–1.1 ms/step submit on 32–96² fixtures. Real-hardware GPU timing still unmeasured.
+- Browsers: only Chromium is installed here; Firefox / WebKit not tested.
+- Deployment: not verifiable from this session (container cannot reach netlify.app; the site is not in the connected Netlify account).
+- gpu-check 12/12 (new: sea-surge surgeIn equal, peak Δ 0.001 mm; drought-pond low record). npm test 255 PASS.
+- e2e of the M11-C01 build: 48/49 — flood check PASS (0.937 km², deepest 2.29 m, peak ≥ depth everywhere); the overlay check failed on its inspector/ice condition while CPU benchmarks ran alongside (detail now prints which) — rerun pending.
+
+## 2026-10-25 M11-C02, C03
+- + drought: lowest depth ≤ every depth after each 4 h, rain and evaporation restored, water lost, ledger closes; event log survives checkpoint restore. Meteor in engine: crater dug, logged, Ctrl+Z restores the surface exactly. gpu-check gains drought-pond (low record CPU vs GPU). Exports: CRC-32 check value, 16-bit heightmap PNG decodes to identical values (north at top, min/max text), RGBA round trip, float32 raw exact. npm test 251 PASS.
+
 ## 2026-10-25 M11-C01 (+ M11-C02 meteor model)
 - + hazards: surge profile; flood summary threshold; storm — peak ≥ every depth after each 300 s, rain restored on time (clock carries sub-step remainder, ends ≤ 1 step late), ledger closes < 1e-4, log began/ended; sea surge 3 m — > 60 % of the low plain wet, hill above run-up dry, sea level unchanged, peak 1–3 m, drains back, surgeIn ≈ seaOut, closure < 1e-4. Caught: closure scale ignored sea-supplied water (added gross surgeIn ledger term). Meteor: pi-scaling exponents exact, Barringer inputs → 1.55 km (real 1.19 km; impactor estimates 30–50 m), volume excavated = on-map + off-map ejecta, on-map share ≈ 1 − R/R_edge.
 - e2e (M10 build, before M11): 47/48 → spit lesson too slow at 7 fps (120 days/frame); now time-budgeted per frame. gpu-check gains a sea-surge CPU/GPU case (surgeIn, peak depth) — not yet run.

@@ -682,6 +682,7 @@ input[type='range'] {
 .timebar .play {
   background: var(--scouts-green);
   border-color: var(--scouts-green);
+  color: #0b1912; /* dark on Scouts green ≈ 6.8:1 (light text was 2.4:1) */
   padding: 6px 12px;
 }
 .timebar .play.on {
@@ -1562,4 +1563,19 @@ table.summary td:last-child {
 }
 .hazards-panel button.small {
   margin: 2px 0 6px;
+}
+
+/* Export dialog (M11-C03) */
+.export-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.export-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--panel-border);
 }
