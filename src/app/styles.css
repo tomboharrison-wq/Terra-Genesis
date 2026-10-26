@@ -696,6 +696,9 @@ input[type='range'] {
 .timebar .achieved {
   color: var(--muted);
   font-size: 12px;
+  display: inline-block;
+  min-width: 64px;
+  font-variant-numeric: tabular-nums;
 }
 .timebar .achieved.slow {
   color: var(--scouts-orange);
@@ -1915,4 +1918,8 @@ table.summary td:last-child {
 .timebar .lapse-rate {
   font-size: 12px;
   white-space: nowrap;
+  width: 270px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }

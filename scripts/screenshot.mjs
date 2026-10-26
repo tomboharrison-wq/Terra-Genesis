@@ -923,7 +923,9 @@ const guidedRun = async (name, steps) => {
 };
 const wf = await guidedRun('waterfall', 3);
 await shot('47-guided-waterfall');
-const mn = await guidedRun('Meanders', 3);
+let mn = await guidedRun('Meanders', 3);
+await page.waitForFunction(() => /Oxbow lake/.test(document.querySelector('.guided-stage')?.textContent ?? ''), null, { timeout: 30000 }).catch(() => {});
+mn = await page.textContent('.guided-stage');
 await shot('48-guided-meander');
 await clickLesson('Exit lesson');
 check(
