@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-26 M12-C01 Landform Show + Time-lapse
+- npm test 262 PASS (+ landforms: spec coverage of all 27 Topic 1 landforms, stage order, KS3 sentence length, process wording, glossary completeness, clock monotonic; time-lapse on/off restores settings; adaptive step cap shrinks on slow frames and recovers). e2e 56/56 PASS (+ Landform Show plays at once, clock advances, glossary, exam steps, Escape; time-lapse one click on, second click restores).
+- Found by testing: time bar readouts changed width so buttons moved while playing (fixed widths); time-lapse queued more GPU work than a slow chip could run — 27–58 s frames headless → adaptive per-frame step cap → ~1 s (idle level in this environment). Every scene reviewed frame by frame from rendered contact sheets; fixed shapes (ribbon lake, arch, hanging valley), snow reappearing after melt, overlapping/off-frame labels.
+
 ## 2026-10-26 M11-C04 final
 - npm test 256 PASS (+ frame-rate independence: bit-identical at 60 / 20 / uneven fps). gpu-check 12/12. e2e 54/54 PASS: + slot saved with Ctrl+S loads back exactly after a change; Help shows the build version. Caught on the way: a duplicate variable in the new e2e step (script did not start); the spit lesson needed > 60 s to reach 30 years at headless frame rates (model ≈ 3 s of compute for 30 years) → 35 ms model budget per frame, e2e wait 120 s.
 
