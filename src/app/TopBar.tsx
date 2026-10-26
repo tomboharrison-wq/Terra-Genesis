@@ -55,6 +55,9 @@ export function TopBar() {
         <button onClick={() => set({ dialog: 'checkpoints' })} title="Snapshots of this session: restore exactly, or map what changed since">
           <Icon name="checkpoint" /> Checkpoints
         </button>
+        <button className="lf-open" onClick={() => set({ dialog: 'landforms' })} title="Watch any GCSE landform form, step by step">
+          <Icon name="landform" /> Landforms
+        </button>
         <button onClick={() => set({ dialog: 'lessons' })} title="Education Mode: classroom lessons for KS3 / GCSE">
           <Icon name="lesson" /> Lessons
         </button>

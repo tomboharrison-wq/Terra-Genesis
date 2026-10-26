@@ -1,5 +1,5 @@
 import { useUi } from '../state/uiStore';
-import { engine, syncSim } from './runtime';
+import { engine, setTimeLapse, syncSim } from './runtime';
 import { Icon } from './icons';
 import type { WaterView } from '../renderer/waterLayer';
 import { OVERLAYS, overlayById, type Legend, type OverlayDef } from '../renderer/overlays';
@@ -21,6 +21,12 @@ export function fmtSimTime(s: number) {
   return `Day ${day + 1} · ${pad(h)}:${pad(m)}:${pad(sec)}`;
 }
 
+function fmtYearsPerSec(y: number) {
+  if (y >= 1000) return `${(y / 1000).toFixed(1)} thousand years`;
+  if (y >= 1) return `${y.toFixed(y < 10 ? 1 : 0)} years`;
+  return `${(y * 12).toFixed(1)} months`;
+}
+
 function fmtRate(v: number) {
   if (v >= 86400) return `${(v / 86400).toFixed(1)} d/s`;
   if (v >= 3600) return `${(v / 3600).toFixed(1)} h/s`;
@@ -38,6 +44,7 @@ const VIEWS: { v: WaterView; label: string }[] = [
 /** Simulation time controls (spec F3) and water view selector with legend. */
 export function TimeBar() {
   const sim = useUi((s) => s.sim);
+  const lapse = useUi((s) => s.timeLapse);
   const view = useUi((s) => s.waterView);
   const set = useUi((s) => s.set);
   if (!sim) return null;
@@ -71,6 +78,22 @@ export function TimeBar() {
           </option>
         ))}
       </select>
+      <button
+        className={lapse ? 'active-toggle lapse' : 'lapse'}
+        onClick={() => setTimeLapse(!lapse)}
+        title="Time-lapse: run as fast as possible with erosion, coasts, glaciers and plants sped up ×1000 (click again to go back to your settings)"
+        aria-pressed={lapse}
+      >
+        ⏩ Time-lapse
+      </button>
+      {lapse && sim.playing && (
+        <span
+          className="achieved lapse-rate"
+          title="Landscape time per real second: erosion and coasts = water time × 1000; glaciers and plants = 1000 years per simulated hour"
+        >
+          erosion ≈ {fmtYearsPerSec((sim.achievedSpeed * 1000) / (365.25 * 86400))}/s · ice ≈ {fmtYearsPerSec((sim.achievedSpeed / 3600) * 1000)}/s
+        </span>
+      )}
       <span className="clock" title="Simulated time since this world was created">
         {fmtSimTime(sim.simTimeS)}
       </span>

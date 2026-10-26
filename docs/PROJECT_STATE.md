@@ -29,6 +29,7 @@ Verified working:
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
   C03 ExportDialog + app/exportImages.ts + persistence/exports.ts (own PNG encoder, 16-bit heightmap, raw).
   C04 QA: contrast/a11y/save-version/frame-rate tests, slot round trip e2e, version in Help (vite define).
+- M12 Landform Show (src/education/landforms, src/app/landforms/*Scenes.tsx, LandformShow.tsx; ?landform=id) + Time-lapse.
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:

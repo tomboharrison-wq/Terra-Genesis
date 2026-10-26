@@ -196,3 +196,11 @@
 - Help shows the build version (commit and build time), so you can check the live site is the latest build.
 - Checked: the simulation gives bit-identical results at 60, 20 or uneven frame rates; a saved slot loads back exactly; worlds from every earlier save-file version open.
 - Terra Genesis now has every planned milestone (M01–M11). Remaining ideas are listed in the backlog.
+
+## M12-C01 — Landform Show (every GCSE landform, one click) and Time-lapse
+- New **Landforms** button (top bar): every landform named in Edexcel GCSE Geography A Topic 1 — coasts (1.4), rivers (1.8) and glaciated uplands (1.12), 27 in all, grouped into 17 formations. Click one and its formation plays at once, step by step, as a labelled animated diagram.
+- Each step has a caption in KS3 or GCSE wording, on-screen arrows and annotations for the processes happening at that moment (pebbles hurled at cliffs, air squeezed into cracks, the zigzag of longshore drift, swirling rocks in a plunge pool, freeze-thaw in a corrie back wall, rocks plucked from a roche moutonnée…), and the processes in use are highlighted — click one for its definition.
+- A time-lapse clock shows how many years have passed (e.g. ≈ 2,000 years for a cliff to retreat, 50,000 years for corries), with speeds from 0.25× to 16×, a timeline to scrub, step back/forward, and Present (full screen).
+- "Exam answer" shows the numbered formation steps for an explain question; "Explore in the simulator" opens the matching lesson; "Copy link" gives a link that opens that landform straight away.
+- Five formations are drawn from the tested guided models (waterfall, meanders, oxbow lakes, corries, glacial troughs); the rest are animated textbook diagrams, labelled as simplified and not to scale. Each names a real UK example.
+- Simulator: new **⏩ Time-lapse** button — the fastest speed with erosion, coasts, glaciers and plants sped up ×1000, showing landscape years per second; click again to go back to your own settings.

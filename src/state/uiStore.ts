@@ -299,6 +299,11 @@ interface UiState {
   volcanoBuild: { type: string; done: number; total: number } | null;
   quake: QuakeSettings;
   meteor: MeteorSettings;
+  /** Landform Show: formation shown, and a scripted seek (0 … 1) for tests / links. */
+  landformId: string | null;
+  /** Simulator time-lapse: fastest speed and maximum landscape acceleration (runtime.setTimeLapse). */
+  timeLapse: boolean;
+  landformSeek: number | null;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: {
     mw: number;
@@ -322,7 +327,21 @@ interface UiState {
   world: WorldInfo | null;
   hover: HoverInfo | null;
   stats: FrameStats | null;
-  dialog: null | 'new' | 'load' | 'help' | 'slump' | 'arch' | 'shore' | 'subduction' | 'folds' | 'checkpoints' | 'challenges' | 'lessons' | 'export';
+  dialog:
+    | null
+    | 'new'
+    | 'load'
+    | 'help'
+    | 'slump'
+    | 'arch'
+    | 'shore'
+    | 'subduction'
+    | 'folds'
+    | 'checkpoints'
+    | 'challenges'
+    | 'lessons'
+    | 'export'
+    | 'landforms';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;
@@ -369,6 +388,9 @@ export const useUi = create<UiState>((set) => ({
   },
   lastQuake: null,
   meteor: { kind: 'stony', diameterM: 30, speedKmS: 17, angleDeg: 45 },
+  landformId: null,
+  timeLapse: false,
+  landformSeek: null,
   radiusM: 300,
   hardness: 0.3,
   rates: { ...DEFAULT_RATES },

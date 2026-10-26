@@ -17,6 +17,11 @@ Live site: https://terra-genesis.netlify.app — open **? → Help**; the versio
   16-bit heightmap, float32 elevation + JSON), Import.
 
 ## For teachers
+- **Landforms** (top bar, yellow) → every Edexcel GCSE Topic 1 landform (coasts, rivers, glaciated uplands). Click one
+  and its formation plays straight away, step by step, with labelled processes, a time-lapse clock (0.25×–16×), a
+  process glossary (click a process), and the numbered steps of an exam answer. **Present** = full screen; **Copy
+  link** opens that landform directly (`?landform=spits`). Pause, step back/forward or drag the timeline at any point.
+- In the simulator, **⏩ Time-lapse** (time bar) runs everything as fast as possible with landscape processes ×1000.
 - **Lessons** → pick one of 11 lessons in 5 modules (rivers, coasts, volcanoes, glaciation, tectonics), KS3 or GCSE
   wording. Panel buttons: Bigger text, High contrast, Hide panel (map only), and **Copy link to this stage** — the
   link opens the lesson straight at that stage for the class.

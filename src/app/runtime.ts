@@ -409,3 +409,38 @@ export function runVolcanoBuild(xM: number, yM: number, type: VolcanoType, episo
   };
   requestAnimationFrame(() => setTimeout(tick, 0));
 }
+
+// ---------- time-lapse (watch glaciers, rivers and coasts change quickly) ----------
+
+/** Settings in force before time-lapse was switched on (restored when it is switched off). */
+let lapseSaved: { speed: number; speedup: number; glacier: number; plants: number } | null = null;
+export const TIME_LAPSE = { speed: 86400, speedup: 1000, years: 1000 };
+
+/**
+ * Time-lapse: the fastest simulation speed plus the largest geomorphic accelerations (erosion and coasts
+ * ×1000, glaciers and plants 1000 years per simulated hour). Water still flows in real simulated time;
+ * the landscape processes are accelerated, as their own sliders state.
+ */
+export function setTimeLapse(on: boolean): void {
+  const w = engine.world;
+  if (on && !lapseSaved) {
+    lapseSaved = { speed: engine.clock.speed, speedup: w.erosion.speedup, glacier: w.glacier.yearsPerSimHour, plants: w.vegetation.yearsPerSimHour };
+    engine.setSpeed(TIME_LAPSE.speed);
+    engine.setErosionParams({ speedup: TIME_LAPSE.speedup });
+    engine.setGlacierParams({ yearsPerSimHour: TIME_LAPSE.years });
+    engine.setVegetationParams({ yearsPerSimHour: TIME_LAPSE.years });
+    engine.setPlaying(true);
+  } else if (!on && lapseSaved) {
+    engine.setSpeed(lapseSaved.speed);
+    engine.setErosionParams({ speedup: lapseSaved.speedup });
+    engine.setGlacierParams({ yearsPerSimHour: lapseSaved.glacier });
+    engine.setVegetationParams({ yearsPerSimHour: lapseSaved.plants });
+    lapseSaved = null;
+  }
+  useUi.getState().set({ timeLapse: on && lapseSaved !== null });
+  syncSim();
+}
+onWorldReplaced(() => {
+  lapseSaved = null;
+  useUi.getState().set({ timeLapse: false });
+});

@@ -28,6 +28,7 @@ const P: Record<string, string> = {
   undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   redo: 'M15 14l5-5-5-5M20 9H10a6 6 0 000 12h3',
   save: 'M5 3h11l4 4v14H4V3zM8 3v5h8V3M8 21v-7h8v7',
+  landform: 'M2 20l6-9 4 5 3-4 7 8zM8 11l2-6 2 4M17 6a2 2 0 100-.1',
   lesson: 'M2 7l10-4 10 4-10 4zM6 9v5c0 2 3 4 6 4s6-2 6-4V9M22 7v6',
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
   checkpoint: 'M5 3h14v18l-7-4-7 4zM9 9l2 2 4-4',

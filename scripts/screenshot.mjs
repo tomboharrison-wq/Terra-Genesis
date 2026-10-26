@@ -1155,6 +1155,49 @@ const helpVer = (await page.textContent('.dialog .version').catch(() => '')) ?? 
 await page.keyboard.press('Escape');
 check('Help shows the build version (commit and build time)', /^[0-9a-f]{7}|unknown/.test(ver) && helpVer.includes(ver), `${ver}`);
 
+// --- Landform Show (Edexcel Topic 1 landforms): one click plays a formation; time-lapse clock; glossary; Escape closes ---
+await page.click('.topbar button:has-text("Landforms")');
+await page.waitForSelector('.lf-svg', { timeout: 15000 });
+const yearA = await page.textContent('.lf-clock b');
+await page.waitForTimeout(2500);
+const yearB = await page.textContent('.lf-clock b');
+const nItems = await page.locator('.lf-item').count();
+await page.click('.lf-item:has-text("Corries")');
+await page.selectOption('.lf-speed select', '16');
+await page.waitForTimeout(2500);
+const corrieCaption = await page.textContent('.lf-caption');
+await page.click('.lf-chip:has-text("plucking")');
+const def = (await page.textContent('.lf-def').catch(() => '')) ?? '';
+await page.click('button:has-text("Exam answer")');
+const examSteps = await page.locator('.lf-exam li').count();
+await shot('54-landform-show');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+const lfClosed = (await page.$('.lf-show')) === null;
+check(
+  'Landform Show: 17 spec formations, plays at once with a time-lapse clock, glossary definitions, exam steps, Escape closes',
+  nItems === 17 && yearA !== yearB && /Step [2-6] of 6/.test(corrieCaption ?? '') && /freezes onto/.test(def) && examSteps >= 4 && lfClosed,
+  `${nItems} formations · clock ${yearA} → ${yearB} · ${(corrieCaption ?? '').match(/Step \d of \d/)?.[0]} · def ${def.length} chars · exam ${examSteps}`,
+);
+// --- Simulator time-lapse ---
+await page.click('.timebar button.lapse');
+await page.waitForTimeout(800);
+const lapseOn = await page.evaluate(() => ({
+  speed: window.__terraGenesis.engine.clock.speed,
+  k: window.__terraGenesis.engine.world.erosion.speedup,
+  ice: window.__terraGenesis.engine.world.glacier.yearsPerSimHour,
+  on: window.__terraGenesis.ui().timeLapse,
+}));
+await page.click('.timebar button.lapse');
+await page.waitForTimeout(400);
+const lapseOff = await page.evaluate(() => ({ speed: window.__terraGenesis.engine.clock.speed, on: window.__terraGenesis.ui().timeLapse }));
+await page.evaluate(() => window.__terraGenesis.engine.setPlaying(false));
+check(
+  'simulator time-lapse: one click sets the fastest speed and ×1000 landscape time, a second click restores',
+  lapseOn.on && lapseOn.speed === 86400 && lapseOn.k === 1000 && lapseOn.ice === 1000 && !lapseOff.on && lapseOff.speed !== 86400,
+  JSON.stringify({ lapseOn, lapseOff }),
+);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

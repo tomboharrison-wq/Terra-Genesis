@@ -1,3 +1,4 @@
+import { LandformShow } from './LandformShow';
 import { ExportDialog } from './ExportDialog';
 import { useEffect } from 'react';
 import { Viewport } from './Viewport';
@@ -33,7 +34,12 @@ export function App() {
   useEffect(() => {
     const q = new URLSearchParams(location.search);
     const lesson = q.get('lesson');
-    if (lesson) {
+    const landform = q.get('landform');
+    if (landform) {
+      // Teacher link: open the Landform Show at that landform (it plays straight away).
+      useUi.getState().set({ dialog: 'landforms', landformId: landform });
+      void restoreAutosave();
+    } else if (lesson) {
       // Teacher link: open the lesson at the given stage (1-based) and level.
       const lv = q.get('level');
       startLessonAt(lesson, Number(q.get('stage') ?? '1') - 1, lv === 'ks3' || lv === 'gcse' ? lv : undefined);
@@ -67,6 +73,7 @@ export function App() {
       {dialog === 'challenges' && <ChallengesDialog />}
       {dialog === 'lessons' && <LessonsDialog />}
       {dialog === 'export' && <ExportDialog />}
+      {dialog === 'landforms' && <LandformShow />}
       <ChallengeHud />
     </div>
   );
