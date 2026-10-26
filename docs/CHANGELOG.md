@@ -190,3 +190,9 @@
 - The tool bar now fits on a 900-pixel-high screen: on shorter screens it shows the tools in two columns instead of scrolling.
 - The Meteor tool no longer shows the unrelated water and erosion panels underneath it, and its crater figures no longer overlap the text below.
 - Worlds saved by every earlier version of Terra Genesis still open.
+
+## M11-C04 — Final checks (complete)
+- Help now describes everything that is simulated (it still said erosion was "next") and states the known limits.
+- Help shows the build version (commit and build time), so you can check the live site is the latest build.
+- Checked: the simulation gives bit-identical results at 60, 20 or uneven frame rates; a saved slot loads back exactly; worlds from every earlier save-file version open.
+- Terra Genesis now has every planned milestone (M01–M11). Remaining ideas are listed in the backlog.

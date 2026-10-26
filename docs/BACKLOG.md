@@ -3,7 +3,7 @@
 | ID | Outcome | Status |
 |---|---|---|
 | M04-C06 | Worlds are settled dry at generation, so the first heavy rain makes weak scarps fail en masse (plateau: 80 M m³ in an hour). Decide: settle to wet stability, or a gentle first-rain warm-up, or keep and explain | TODO |
-| M11-C04 | Final QA: accessibility (keyboard-only pass, focus order, labels, contrast audit of panels), performance (256²/512² timings), saving (all slots, autosave, old formats), browsers (Chromium/Firefox/WebKit e2e smoke), deployment (live site check) | READY |
+| M11-C04 | Final QA: WCAG contrast test (Play button fixed), named buttons/focus/Escape e2e, two-column tool rail on short screens, v1–v11 saves load, slot round trip, frame-rate independence (bit-identical at 60/20/uneven fps), build version in Help, Help text brought up to date | DONE |
 | M10-C06 | Lessons still to add: headlands & bays (emergent), coastal slumping, subduction / plate boundaries, glacier retreat | TODO |
 | M11-C06 | Tsunami as a travelling long wave (sea cells in the solver, wave speed √(gh), run-up) instead of a level surge | TODO |
 | M11-C05 | Slow test: climate 'seasons advance' takes ~36 s for a quarter year at the 10 s max step (60 s timeout; fails under heavy CPU load) | TODO |
@@ -31,7 +31,7 @@
 | M07-C01 | Kinematic plates: map, motions, boundary uplift/rift/trench, overlay, profile strip | DONE |
 | M06-C05 | Biome presets (temperate, alpine, rain shadow, tundra) + what-if compare | DONE |
 | M06-C04 | Vegetation: suitability, growth/dieback, erosion shield, trees | DONE |
-| M06-C03b | Guided U-shaped valley / corrie / arête cross-section lab (plan-view SIA deepens V centres) | TODO |
+| M06-C03b | Guided U-shaped valley / corrie / arête cross-sections | DONE (as M10-C04 guided glacial lessons) |
 | M06-C03 | Glaciers: mass balance, implicit SIA flow, abrasion, debris + moraines, meltwater | DONE |
 | M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | TODO |
 | M06-C02 | Snowpack (SWE) below 0 °C, degree-day melt, snow cover rendering | DONE |
@@ -61,7 +61,7 @@
 | M02-C02 | Local-inertial pipe solver; downhill/bowl/saddle/still-lake tests (spill + outlets covered) | DONE |
 | M02-C01 | Water field, rainfall, sources/losses, clock, ledger, format v2 | DONE |
 | M01-C07 | Real M4 Safari/Chrome frame-rate check (needs user device); code-split three | PARTIAL |
-| M03 … | Erosion/sediment (+ pre-erosion to soften needle peaks) | TODO |
+| M03 … | Erosion/sediment | DONE (M03); pre-erosion of needle peaks → M01-C08 |
 | M01-C06 | Presets, reproducibility, save/reload, polished UI | DONE |
 | M01-C05 | Smooth/flatten/material paint + undo/redo | DONE |
 | M01-C04 | Raise/lower + dirty-region mesh updates | DONE |

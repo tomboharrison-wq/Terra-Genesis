@@ -1608,3 +1608,10 @@ table.summary td:last-child {
 .hazards-panel .budget {
   margin-bottom: 10px;
 }
+.help-sim {
+  padding-left: 18px;
+  line-height: 1.5;
+}
+.help-sim li {
+  margin-bottom: 4px;
+}

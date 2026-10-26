@@ -1,19 +1,39 @@
 # Terra Genesis — start here
 
-## Run it on your Mac
-1. Install Node.js 22 LTS from https://nodejs.org
-2. Unzip this folder, open Terminal inside it, then run:
+A browser landscape-evolution sandbox: sculpt a world, then let rain, rivers, waves, ice, plates, volcanoes and
+hazards reshape it with real (simplified, stated) physics. Includes a UK KS3 / GCSE (Edexcel A) Education Mode.
 
-   ```
-   npm install
-   npm run dev
-   ```
-3. Open http://localhost:5173 in Chrome or Safari.
+Live site: https://terra-genesis.netlify.app — open **? → Help**; the version line at the bottom names the build
+(commit · build time). It should match the latest commit on GitHub `main`.
+
+## Use it
+- **Tools (left):** Terrain brushes · Water (rain, drain, springs, climate) · Coast · Earth (plates, quakes,
+  volcanoes) · Measure (pins, cross-sections) · Events (landslides, Hazards = storms / sea surges / droughts,
+  Meteor). Every tool has a key — see Help.
+- **Time bar (bottom):** Play / pause / step, speed, water display, and the **map overlay** menu (elevation, slope,
+  flow, geology, flood extent, drought, …) with legend; point at the map to read values.
+- **Top bar:** New world (presets), Save / Load (in this browser), **Checkpoints** (exact snapshots + "what changed"),
+  **Lessons** (Education Mode), **Challenges** (scored goals), **Export** (project file, view image, map image,
+  16-bit heightmap, float32 elevation + JSON), Import.
+
+## For teachers
+- **Lessons** → pick one of 11 lessons in 5 modules (rivers, coasts, volcanoes, glaciation, tectonics), KS3 or GCSE
+  wording. Panel buttons: Bigger text, High contrast, Hide panel (map only), and **Copy link to this stage** — the
+  link opens the lesson straight at that stage for the class.
+- Lessons marked **Guided model** are drawn from stated rules (teaching models); the others run the real simulation.
+
+## Run it on your computer
+1. Install Node.js 22 LTS from https://nodejs.org
+2. In this folder: `npm install`, then `npm run dev`, and open http://localhost:5173 in Chrome or Safari.
 
 ## Put it online (Netlify)
-- Easiest: unzip `terra-genesis-netlify-dist.zip` and drag the folder onto https://app.netlify.com/drop
-- Or push this folder to GitHub and connect it in Netlify. `netlify.toml` already sets the build (`npm run build`, publish `dist`).
+Pushing to GitHub `main` deploys automatically (`netlify.toml`: build `npm run build`, publish `dist`). Or drag a built
+`dist` folder onto https://app.netlify.com/drop.
+
+## Checks
+`npm test` (unit, ~256) · `npm run typecheck` · `npm run build` · with `npm run preview` running: `npm run e2e`
+(headless browser, ~55 checks, screenshots in tests/screenshots) and `npm run gpu-check` (GPU vs CPU solver).
 
 ## Continue building with an AI
-Give it this folder (full git history is included in `.git`) plus the resume prompt from `docs/MASTER_SPEC.md` section A9.
-It should read `AGENTS.md`, `docs/PROJECT_STATE.md` and `docs/NEXT_TASK.md` first. Next task: M02-C01 (water).
+Read `AGENTS.md`, then `docs/PROJECT_STATE.md` and `docs/NEXT_TASK.md`. All planned milestones (M01–M11) are done;
+`docs/BACKLOG.md` lists optional improvements, and `docs/MASTER_SPEC.md` (via `docs/SPEC_INDEX.md`) is the full brief.

@@ -1,12 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { TOOLS } from '../src/app/tools';
 
 /** WCAG 2 contrast from the real stylesheet: tokens and rule colours (spec M accessibility). */
-async function stylesheet() {
-  // Vitest strips CSS imports, so read the file (no @types/node in this project).
-  const fs = (await import(/* @vite-ignore */ 'node:' + 'fs')) as { readFileSync(p: string, enc: string): string };
-  return fs.readFileSync('src/app/styles.css', 'utf8');
-}
+// Vitest strips CSS imports (even ?raw), so read the file.
+const stylesheet = () => readFileSync('src/app/styles.css', 'utf8');
 
 type RGBA = [number, number, number, number];
 function parseColour(v: string, vars: Record<string, string>): RGBA {
@@ -31,7 +29,7 @@ const ratio = (a: RGBA, b: RGBA) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.mi
 
 describe('M11-C04 accessibility', () => {
   it('text and button colours meet WCAG AA (4.5:1) on their backgrounds', async () => {
-    const css = await stylesheet();
+    const css = stylesheet();
     const vars: Record<string, string> = {};
     for (const m of css.matchAll(/(--[\w-]+):\s*([^;]+);/g)) vars[m[1]] ??= m[2];
     /** First declaration of `prop` in the rule whose selector is exactly `sel`. */

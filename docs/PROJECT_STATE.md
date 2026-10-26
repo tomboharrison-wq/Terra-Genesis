@@ -1,8 +1,8 @@
 # Project state
-Updated: 2026-10-25, session 1 (cont.)
+Updated: 2026-10-26, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M11 — Disasters, exports, final QA (M10 Education Mode complete)
-Current chunk: M11-C04 — final QA (see NEXT_TASK)
+Current milestone: none — all planned milestones M01–M11 complete; optional backlog only
+Current chunk: M04-C06 (optional; see NEXT_TASK)
 Status: READY
 
 Verified working:
@@ -28,6 +28,7 @@ Verified working:
   (raised sea head in both solvers, surgeIn ledger), per-step peak depth (GPU max pass), 'flood' overlay, event log.
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
   C03 ExportDialog + app/exportImages.ts + persistence/exports.ts (own PNG encoder, 16-bit heightmap, raw).
+  C04 QA: contrast/a11y/save-version/frame-rate tests, slot round trip e2e, version in Help (vite define).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
@@ -37,7 +38,7 @@ Known failures / gaps:
 - No isostasy (mountains unlimited). Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
-Relevant paths: scripts/screenshot.mjs (e2e), src/app/styles.css, src/persistence/
-Last checks: typecheck · npm test 255 · build · gpu-check 12/12 · e2e 52/52 — all PASS
+Relevant paths: src/terrain/settle.ts, src/sim/sediment/, src/challenges/challenges.ts
+Last checks: typecheck · npm test 256 · build · gpu-check 12/12 PASS · final e2e (55 checks) running
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md

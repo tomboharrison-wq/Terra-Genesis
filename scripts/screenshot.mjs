@@ -1087,7 +1087,9 @@ check(
 );
 
 // --- Accessibility (M11-C04): every button has an accessible name; Tab reaches controls with a visible focus ring; Escape closes dialogs ---
-const unnamed = await page.$$eval('button', (bs) => bs.filter((b) => !(b.textContent?.trim() || b.getAttribute('aria-label') || b.title)).map((b) => b.outerHTML.slice(0, 80)));
+const unnamed = await page.$$eval('button', (bs) =>
+  bs.filter((b) => !(b.textContent?.trim() || b.getAttribute('aria-label') || b.title)).map((b) => b.outerHTML.slice(0, 80)),
+);
 await page.keyboard.press('1');
 await page.locator('.topbar button').first().focus();
 const tabbed = [];
@@ -1111,6 +1113,47 @@ check(
   unnamed.length === 0 && tabbed.every((t) => ['BUTTON', 'INPUT', 'SELECT', 'A'].includes(t.tag) && t.ring) && dialogGone,
   `unnamed ${unnamed.length}${unnamed.length ? ' e.g. ' + unnamed[0] : ''} · tab ${tabbed.map((t) => t.tag + (t.ring ? '✓' : '✗')).join(' ')} · escape ${dialogGone}`,
 );
+
+// --- Saving (M11-C04): Ctrl+S to the world's slot, change the world, load the slot back: exact restore ---
+await page.keyboard.press('1');
+await page.mouse.click(700, 120); // focus the page (not an input) for the shortcut
+await page.keyboard.press('Control+s');
+await page.waitForTimeout(2500);
+const saved = await page.evaluate(() => ({
+  sum: window.__terraGenesis.checksum(),
+  name: window.__terraGenesis.engine.world.meta.name,
+  t: window.__terraGenesis.engine.world.simTimeSeconds,
+}));
+const changedSum = await page.evaluate(() => {
+  const e = window.__terraGenesis.engine;
+  e.impact({
+    xM: e.world.width * e.world.cellSizeM * 0.4,
+    yM: e.world.height * e.world.cellSizeM * 0.6,
+    diameterM: 40,
+    speedMS: 20000,
+    densityKgM3: 3000,
+    angleDeg: 60,
+  });
+  return window.__terraGenesis.checksum();
+});
+await page.click('.topbar button:has-text("Load")');
+await page.waitForSelector('.slots li');
+await page.locator('.slots li', { hasText: saved.name }).filter({ hasNotText: 'Autosave' }).first().locator('.slot-main').click();
+await page.waitForTimeout(2500);
+const loaded = await page.evaluate(() => ({ sum: window.__terraGenesis.checksum(), t: window.__terraGenesis.engine.world.simTimeSeconds }));
+check(
+  'saving: a slot saved with Ctrl+S loads back exactly after the world was changed',
+  changedSum !== saved.sum && loaded.sum === saved.sum && loaded.t === saved.t,
+  `saved ${saved.sum.toFixed(1)} · changed ${changedSum.toFixed(1)} · loaded ${loaded.sum.toFixed(1)} · t ${loaded.t}`,
+);
+
+// --- Version (M11-C04): Help shows the build commit so the live site can be checked against the repository ---
+await page.click('.topbar [aria-label="Help"]');
+await page.waitForTimeout(400);
+const ver = await page.evaluate(() => window.__terraGenesis.version);
+const helpVer = (await page.textContent('.dialog .version').catch(() => '')) ?? '';
+await page.keyboard.press('Escape');
+check('Help shows the build version (commit and build time)', /^[0-9a-f]{7}|unknown/.test(ver) && helpVer.includes(ver), `${ver}`);
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

@@ -360,6 +360,7 @@ export { syncHistory };
 /** Read-only debug/testing handle (used by scripts/screenshot.mjs browser checks). */
 (globalThis as unknown as { __terraGenesis: unknown }).__terraGenesis = {
   engine,
+  version: __APP_VERSION__,
   ui: () => useUi.getState(),
   gpuSelfTest: (seconds?: number) => runGpuSelfTest(undefined, seconds),
   info: () => {

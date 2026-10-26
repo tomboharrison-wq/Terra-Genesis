@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { LESSONS } from '../src/education/lessons';
 import type { LessonModule } from '../src/education/types';
@@ -52,9 +53,7 @@ describe('M10-C05 curriculum validation (spec G5)', () => {
   });
 
   it('projection legibility: lesson text sizes and contrast', async () => {
-    // Vitest strips CSS imports (even ?raw), so read the stylesheet from disk (no @types/node here).
-    const fs = (await import(/* @vite-ignore */ 'node:' + 'fs')) as { readFileSync(p: string, enc: string): string };
-    const css = fs.readFileSync('src/app/styles.css', 'utf8');
+    const css = readFileSync('src/app/styles.css', 'utf8'); // Vitest strips CSS imports, even ?raw
     const px = (selector: string) =>
       Number(css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*font-size:\\s*(\\d+)px`))?.[1] ?? 0);
     expect(px('.lesson-panel')).toBeGreaterThanOrEqual(18);

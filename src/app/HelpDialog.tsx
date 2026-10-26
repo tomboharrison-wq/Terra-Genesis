@@ -5,7 +5,7 @@ import { TOOLS } from './tools';
 export function HelpDialog() {
   const close = () => useUi.getState().set({ dialog: null });
   return (
-    <Dialog title="Controls" onClose={close}>
+    <Dialog title="Help" onClose={close}>
       <div className="help-cols">
         <section>
           <h3>Camera</h3>
@@ -13,7 +13,9 @@ export function HelpDialog() {
             <li>Navigate tool: drag to orbit</li>
             <li>Right-drag or Shift-drag: pan</li>
             <li>Scroll / pinch: zoom to cursor</li>
-            <li>With a brush: hold <kbd>Space</kbd> or <kbd>⌥ Option</kbd> and drag to orbit</li>
+            <li>
+              With a brush: hold <kbd>Space</kbd> or <kbd>⌥ Option</kbd> and drag to orbit
+            </li>
             <li>
               <kbd>F</kbd> fit · <kbd>T</kbd> top-down · <kbd>O</kbd> oblique · arrows/<kbd>WASD</kbd> pan
             </li>
@@ -39,14 +41,34 @@ export function HelpDialog() {
           </ul>
         </section>
       </div>
-      <h3>What is simulated so far</h3>
-      <p className="small">
-        Terrain is a heightfield of <b>bedrock</b> plus <b>loose sediment</b> with a bedrock <b>lithology</b> per cell. Brushes change those
-        fields directly. <b>Surface water</b> is simulated: rain, springs, infiltration and evaporation add or remove real volume, and a
-        shallow-water solver moves it downhill by water-surface slope with bed friction, so it ponds, fills lakes, spills over saddles and
-        drains to the sea or open map edges. The water budget panel shows that volume is conserved. Cells below sea level are treated as sea.
-        Erosion and deposition are the next milestone and are not simulated yet.
+      <h3>What is simulated</h3>
+      <ul className="small help-sim">
+        <li>
+          <b>Ground</b>: bedrock in up to four rock layers plus loose sediment, per cell. Brushes, earthquakes, volcanoes and meteors change these fields; the
+          surface is always bedrock + sediment.
+        </li>
+        <li>
+          <b>Water</b>: rain, springs, infiltration and evaporation add or remove real volume; a shallow-water solver (on the GPU where available) routes it to
+          lakes, rivers and the sea, and the water budget shows it is conserved.
+        </li>
+        <li>
+          <b>Erosion and deposition</b>: flowing water picks up, carries and drops sediment; weak rock wears faster; slopes creep, weather and fail. Long-term
+          change is sped up by the erosion speed-up you set.
+        </li>
+        <li>
+          <b>Coasts, climate, snow, glaciers, plants, plates, lava and ash</b> run on their own clocks with stated time compression.
+        </li>
+        <li>
+          <b>Hazards</b>: storms, droughts and sea surges run through the water model; the sea surge is a level rise, not a travelling wave.
+        </li>
+        <li>
+          <b>Guided models</b> (labs and some lessons, always badged) are teaching models drawn from rules, not the map simulation.
+        </li>
+      </ul>
+      <p className="hint small">
+        Known limits: one sediment size; no isostasy; inland ground below sea level counts as sea; no travelling waves; glaciers are plan-view.
       </p>
+      <p className="hint small version">Version {__APP_VERSION__}</p>
     </Dialog>
   );
 }
