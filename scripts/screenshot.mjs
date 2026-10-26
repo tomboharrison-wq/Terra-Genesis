@@ -1182,15 +1182,18 @@ check(
   `${nItems} formations · clock ${yearA} → ${yearB} · ${(corrieCaption ?? '').match(/Step \d of \d/)?.[0]} · def ${def.length} chars · exam ${examSteps}`,
 );
 // --- Simulator time-lapse ---
-await page.click('.timebar button.lapse');
-await page.waitForTimeout(800);
+await page.evaluate(() => document.querySelector('.timebar button.lapse').click());
+await page.waitForTimeout(3000);
+const tResp = Date.now();
+await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null))));
+const lapseFrameMs = Date.now() - tResp; // how long the page takes to paint a frame while in time-lapse (headless, software GPU)
 const lapseOn = await page.evaluate(() => ({
   speed: window.__terraGenesis.engine.clock.speed,
   k: window.__terraGenesis.engine.world.erosion.speedup,
   ice: window.__terraGenesis.engine.world.glacier.yearsPerSimHour,
   on: window.__terraGenesis.ui().timeLapse,
 }));
-await page.click('.timebar button.lapse');
+await page.evaluate(() => document.querySelector('.timebar button.lapse').click());
 await page.waitForTimeout(400);
 const lapseOff = await page.evaluate(() => ({ speed: window.__terraGenesis.engine.clock.speed, on: window.__terraGenesis.ui().timeLapse }));
 await page.evaluate(() => window.__terraGenesis.engine.setPlaying(false));

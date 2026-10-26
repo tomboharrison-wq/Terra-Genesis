@@ -107,6 +107,18 @@ describe('SimClock', () => {
     expect(done).toBeGreaterThan(0);
     expect(clock.lastSteps).toBeLessThan(10);
   });
+  it('slow real frames shrink the per-frame step cap (slow GPU stays responsive); quick frames grow it back', () => {
+    const { w, s } = world();
+    const sim = new WaterSim(w, s);
+    const clock = new SimClock(1e9);
+    clock.playing = true;
+    clock.speed = 1e6;
+    for (let k = 0; k < 12; k++) clock.tick(sim, 0.5, () => 0); // 2 fps
+    expect(clock.stepCap).toBe(1);
+    expect(clock.lastSteps).toBeLessThanOrEqual(1);
+    for (let k = 0; k < 40; k++) clock.tick(sim, 1 / 60, () => 0);
+    expect(clock.stepCap).toBe(clock.maxStepsPerFrame);
+  });
 });
 
 describe('format v2 water + v1 migration', () => {
