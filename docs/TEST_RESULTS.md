@@ -1,5 +1,8 @@
 # Test results (latest first)
 
+## 2026-10-26 M11-C04 final
+- npm test 256 PASS (+ frame-rate independence: bit-identical at 60 / 20 / uneven fps). gpu-check 12/12. e2e 54/54 PASS: + slot saved with Ctrl+S loads back exactly after a change; Help shows the build version. Caught on the way: a duplicate variable in the new e2e step (script did not start); the spit lesson needed > 60 s to reach 30 years at headless frame rates (model ≈ 3 s of compute for 30 years) → 35 ms model budget per frame, e2e wait 120 s.
+
 ## 2026-10-25 M11-C04 (QA, part 1)
 - e2e 52/52 PASS on the fix build (rail, meteor panel, stepped pointer): overlay inspector reads the geology over the sea floor.
 - Accessibility: WCAG contrast from styles.css — caught the Play button (light text on Scouts green, 2.41:1) → dark text (≈ 6.8:1); all other pairs ≥ 4.5:1. Tool shortcuts unique. e2e adds: every button named, Tab focus ring, Escape closes dialogs.
