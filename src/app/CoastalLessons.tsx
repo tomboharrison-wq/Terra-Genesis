@@ -83,13 +83,13 @@ export function ShorelineLessonView({ layout, years }: { layout: ShorelineParams
     if (m.day / 365 > years + 1e-6) m.reset(); // going back: re-run from the start
     let raf = 0;
     const tick = () => {
-      // Run as much model time as fits in ~20 ms of this frame, so slow classroom machines keep up.
+      // Run as much model time as fits in ~35 ms of this frame (30 model years ≈ 3 s of compute), so slow machines keep up.
       const t0 = performance.now();
       do {
         const left = years * 365 - m.day;
         if (left <= 0) break;
         m.step(Math.min(left, 60));
-      } while (performance.now() - t0 < 20);
+      } while (performance.now() - t0 < 35);
       draw();
       setShown(m.day / 365);
       if (years * 365 - m.day > 0) raf = requestAnimationFrame(tick);

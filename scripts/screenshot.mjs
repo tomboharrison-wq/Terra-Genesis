@@ -942,7 +942,7 @@ await page.waitForFunction(() => /Now: Stack/.test(document.querySelector('.guid
 const archTxt = await page.textContent('.guided-stage');
 await shot('49-lesson-stack');
 await guidedRun('Longshore drift', 3);
-await page.waitForFunction(() => /30 years/.test(document.querySelector('.guided-stage')?.textContent ?? ''), null, { timeout: 60000 }).catch(() => {});
+await page.waitForFunction(() => /30 years/.test(document.querySelector('.guided-stage')?.textContent ?? ''), null, { timeout: 120000 }).catch(() => {});
 const spitTxt = await page.textContent('.guided-stage');
 await shot('50-lesson-spit');
 await clickLesson('Exit lesson');
