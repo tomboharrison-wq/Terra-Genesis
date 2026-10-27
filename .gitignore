@@ -5,3 +5,5 @@ dist
 tests/screenshots/
 !tests/screenshots/.gitkeep
 exports/
+desktop/out/
+desktop/web/

@@ -32,6 +32,7 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 - `src/state/`    zustand UI store (NO per-cell data)
 - `src/app/`      React shell components + styles
 - `src/utils/`    rng, noise, rect helpers, axis conventions
+- `desktop/`     Mac app (Electron wrapper of dist/; see desktop/README.md)
 - `tests/`        Vitest tests; `scripts/` dev tooling
 
 ## Non-negotiable rules

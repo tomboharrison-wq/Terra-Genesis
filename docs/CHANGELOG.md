@@ -204,3 +204,6 @@
 - "Exam answer" shows the numbered formation steps for an explain question; "Explore in the simulator" opens the matching lesson; "Copy link" gives a link that opens that landform straight away.
 - Five formations are drawn from the tested guided models (waterfall, meanders, oxbow lakes, corries, glacial troughs); the rest are animated textbook diagrams, labelled as simplified and not to scale. Each names a real UK example.
 - Simulator: new **⏩ Time-lapse** button — the fastest speed with erosion, coasts, glaciers and plants sped up ×1000, showing landscape years per second; click again to go back to your own settings.
+
+## Mac desktop app
+- Terra Genesis can now be installed as a Mac app (Apple Silicon or Intel): its own window and Dock icon, works fully offline, saves kept on the Mac. Built from the same web build by `node desktop/build/package-mac.mjs`; install steps in `desktop/build/HOW-TO-INSTALL.txt` (shipped inside each zip).

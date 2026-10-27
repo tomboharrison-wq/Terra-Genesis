@@ -27,7 +27,12 @@ Live site: https://terra-genesis.netlify.app — open **? → Help**; the versio
   link opens the lesson straight at that stage for the class.
 - Lessons marked **Guided model** are drawn from stated rules (teaching models); the others run the real simulation.
 
-## Run it on your computer
+## Mac app (no internet needed)
+Download `Terra-Genesis-mac-apple-silicon.zip` (M1–M4 Macs) or `Terra-Genesis-mac-intel.zip`, unzip, drag
+**Terra Genesis** to Applications. First time only: right-click → Open (or System Settings → Privacy & Security →
+Open Anyway). Full steps: `desktop/build/HOW-TO-INSTALL.txt`; how to build it: `desktop/README.md`.
+
+## Run it on your computer (developer)
 1. Install Node.js 22 LTS from https://nodejs.org
 2. In this folder: `npm install`, then `npm run dev`, and open http://localhost:5173 in Chrome or Safari.
 

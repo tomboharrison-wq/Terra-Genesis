@@ -1,0 +1,49 @@
+TERRA GENESIS FOR MAC — HOW TO INSTALL
+=======================================
+
+1. Double-click the zip you downloaded (if your Mac has not already opened it).
+   You will see "Terra Genesis" (with a mountain icon).
+
+2. Drag "Terra Genesis" into your Applications folder.
+
+3. The first time only: macOS will not open apps from outside the App Store
+   that have not been checked by Apple, so do this once:
+
+   a) Open Applications, RIGHT-click (or Control-click) "Terra Genesis"
+      and choose "Open".
+   b) A warning appears. Click "Open" (or "Open Anyway").
+
+   If there is no "Open" button (newer versions of macOS):
+   a) Double-click the app once and click "Done" or "OK" on the warning.
+   b) Open System Settings → Privacy & Security, scroll down to the
+      message about "Terra Genesis" and click "Open Anyway".
+   c) Enter your Mac password, then click "Open Anyway" again.
+
+   If macOS says the app "is damaged and can't be opened":
+   this is macOS being cautious about a downloaded app, not real damage.
+   Open Terminal (Applications → Utilities → Terminal), paste this line
+   and press Return:
+
+       xattr -cr "/Applications/Terra Genesis.app"
+
+   then open the app again.
+
+4. After the first time, open it like any other app (Launchpad, Dock or
+   Spotlight: press Cmd+Space and type "Terra").
+
+WHAT YOU GET
+- The whole of Terra Genesis in its own window, working fully offline.
+- Saved worlds are kept on this Mac (Save / Load). Export files go to the
+  folder you choose (usually Downloads).
+- Landforms (top bar): every GCSE landform, one click to play.
+- Lessons, Challenges, Checkpoints, Hazards, Meteor, Time-lapse, Export.
+- Full screen for the projector: View → Enter Full Screen (Ctrl+Cmd+F),
+  or the "Present" button in Landforms.
+
+Which download?
+- Apple Silicon Macs (M1, M2, M3, M4 — most Macs from 2021 on):
+  Terra-Genesis-mac-apple-silicon.zip
+- Older Intel Macs: Terra-Genesis-mac-intel.zip
+  (Apple menu → About This Mac shows "Chip: Apple M…" or "Processor: Intel")
+
+The online version is always at https://terra-genesis.netlify.app

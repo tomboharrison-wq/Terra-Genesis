@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-27 Mac desktop app (desktop/)
+- Built at 721bf80: Terra-Genesis-mac-apple-silicon.zip (130 MB) and -intel.zip (135 MB). Info.plist (name, org.terragenesis.app, 1.0.0, education), custom icon in bundle, Mach-O arm64/x64, app.asar web/ identical to dist/, ad-hoc signature present, zip keeps 14 framework symlinks + exec bits.
+- Wrapper smoke test (Linux Electron 44.7.0 under Xvfb, same main.cjs + app:// protocol): app loads, Help version 721bf80, GPU water backend, 256-cell world rendered, no errors. NOT run on a real Mac here (Gatekeeper first-open steps in HOW-TO-INSTALL.txt unverified).
+
 ## 2026-10-26 M12-C01 Landform Show + Time-lapse
 - npm test 262 PASS (+ landforms: spec coverage of all 27 Topic 1 landforms, stage order, KS3 sentence length, process wording, glossary completeness, clock monotonic; time-lapse on/off restores settings; adaptive step cap shrinks on slow frames and recovers). e2e 56/56 PASS (+ Landform Show plays at once, clock advances, glossary, exam steps, Escape; time-lapse one click on, second click restores).
 - Found by testing: time bar readouts changed width so buttons moved while playing (fixed widths); time-lapse queued more GPU work than a slow chip could run — 27–58 s frames headless → adaptive per-frame step cap → ~1 s (idle level in this environment). Every scene reviewed frame by frame from rendered contact sheets; fixed shapes (ribbon lake, arch, hanging valley), snow reappearing after melt, overlapping/off-frame labels.

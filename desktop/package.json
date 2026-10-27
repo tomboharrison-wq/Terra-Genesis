@@ -1,0 +1,12 @@
+{
+  "name": "terra-genesis-desktop",
+  "productName": "Terra Genesis",
+  "version": "1.0.0",
+  "description": "Terra Genesis landscape-evolution sandbox — desktop app",
+  "main": "main.cjs",
+  "private": true,
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "44.7.0"
+  }
+}

@@ -2,6 +2,8 @@
 
 | ID | Outcome | Status |
 |---|---|---|
+| D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
+| D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |
 | M12-C01 | Landform Show: all 27 Edexcel GCSE Topic 1 landforms (1.4a/b, 1.8a/b/c, 1.12a/b/c) as 17 animated formations — stages with KS3/GCSE text, on-screen process annotations, time-lapse clock (0.25–16×), process glossary, exam steps, teacher links ?landform=; simulator Time-lapse button | DONE |
 | M12-C02 | Landform Show: teacher feedback round (accuracy review by a geography teacher, extra stages where needed, printable stage sheets) | TODO |
 | M04-C06 | Worlds are settled dry at generation, so the first heavy rain makes weak scarps fail en masse (plateau: 80 M m³ in an hour). Decide: settle to wet stability, or a gentle first-rain warm-up, or keep and explain | TODO |
