@@ -74,3 +74,11 @@
 | M01-C01 | WorldState contract, rng/noise, axes | DONE |
 | M00-C02 | App shell + Three scene | DONE |
 | M00-C01 | Tooling + continuity files | DONE |
+
+- M12-C07 [DONE IN CODE, RUNTIME CHECK PENDING] Make shallow water visible in projector view; verify on classroom hardware.
+
+- M12-C08 [DONE IN CODE, RUNTIME CHECK PENDING] Explain low frame rate in the status bar and point teachers to Quality.
+
+- M12-C09 [DONE IN CODE, RUNTIME CHECK PENDING] Clarify illustrative Landform Show timing and harden desktop URL/asset handling.
+
+- M12-C10 [DONE IN CODE, RUNTIME CHECK PENDING] Make CPU water fallback visibly explain its slower performance.
