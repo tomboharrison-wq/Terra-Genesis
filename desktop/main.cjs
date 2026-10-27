@@ -23,7 +23,9 @@ function createWindow() {
   win.loadURL('app://terra/index.html');
   // Links to the web (e.g. nodejs.org in Help) open in the normal browser.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/.test(url)) void shell.openExternal(url);
+    // Teacher links leave the app only over encrypted HTTPS; never hand HTTP,
+    // file, data, or javascript URLs to the system browser.
+    if (url.startsWith('https://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
   // Smoke test hook (used when building): save a screenshot after loading, then quit.
@@ -46,7 +48,11 @@ app.whenReady().then(() => {
     if (p === '/' || p === '') p = '/index.html';
     const file = path.normalize(path.join(root, p));
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file)) return new Response('Not found', { status: 404 });
-    return net.fetch(pathToFileURL(file).toString());
+    const realRoot = fs.realpathSync(root);
+    const realFile = fs.realpathSync(file);
+    const allowed = /\.(html|js|css|json|png|jpe?g|svg|ico|woff2?)$/i.test(realFile);
+    if (!realFile.startsWith(realRoot + path.sep) || !allowed) return new Response('Not found', { status: 404 });
+    return net.fetch(pathToFileURL(realFile).toString());
   });
   createWindow();
   app.on('activate', () => {

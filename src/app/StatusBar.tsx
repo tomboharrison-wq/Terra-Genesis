@@ -87,8 +87,9 @@ export function StatusBar() {
       <div className="perf">
         {lastSaved && <span className="muted">Saved {new Date(lastSaved).toLocaleTimeString()}</span>}
         {stats && (
-          <span title="Frames per second · CPU time to submit render · triangles">
+          <span className={stats.fps < 25 ? 'perf-warning' : undefined} title="Frames per second · CPU time to submit render · triangles">
             {Math.round(stats.fps)} fps · {stats.frameMs.toFixed(1)} ms · {(stats.triangles / 1000).toFixed(0)}k tris
+            {stats.fps < 25 && ' · lower Quality for smoother lessons'}
           </span>
         )}
       </div>

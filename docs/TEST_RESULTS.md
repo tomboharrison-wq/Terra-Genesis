@@ -178,3 +178,35 @@
 
 ## 2026-10-22 M00-C01
 - npm run typecheck PASS · npm test PASS (1) · npm run build PASS
+
+## 2026-10-27 review-fixes M12-C07
+- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
+- Manual code check: shader thresholds and depth legend agree at 1 mm; runtime projector verification remains required.
+
+## 2026-10-27 review-fixes M12-C08
+- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
+- Manual code check: warning is conditional on measured FPS below 25 and points to the existing Quality control.
+
+## 2026-10-27 review-fixes M12-C09
+- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
+- Manual code check: Landform Show wording now says approximate/teaching timescale; Electron rejects non-HTTPS external links and validates packaged asset paths/extensions.
+
+## 2026-10-27 review-fixes M12-C10
+- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
+- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
+- Manual code check: CPU fallback wording is explicit in the visible time bar.
+
+## 2026-10-27 review-fixes verification
+- `npm ci`: PASS (Node 22.14.0 temporary runtime; npm reported 4 audit vulnerabilities: 1 moderate, 1 high, 2 critical).
+- `npm run typecheck`: PASS.
+- `npm test`: PASS — 47 files, 262 tests.
+- `npm run build`: PASS — Vite production build completed; bundle-size warning remains (main JS ~1.24 MB minified).
+- `npm run e2e`: BLOCKED — Chromium executable missing at `/opt/pw-browsers/chromium`.
+- `npm run gpu-check`: BLOCKED — Chromium executable missing at `/opt/pw-browsers/chromium`.

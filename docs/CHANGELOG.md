@@ -207,3 +207,13 @@
 
 ## Mac desktop app
 - Terra Genesis can now be installed as a Mac app (Apple Silicon or Intel): its own window and Dock icon, works fully offline, saves kept on the Mac. Built from the same web build by `node desktop/build/package-mac.mjs`; install steps in `desktop/build/HOW-TO-INSTALL.txt` (shipped inside each zip).
+
+- 2026-10-27: M12-C07 (review-fixes): made shallow simulated water visible from projector distance by lowering the display threshold to 1 mm, increasing minimum water opacity, and updating the depth legend. This changes display only; solver state and SI units are unchanged.
+
+- 2026-10-27: M12-C08 (review-fixes): show a clear low-frame-rate warning in the status bar with a direct suggestion to lower render quality for projector lessons.
+
+- 2026-10-27: M12-C09 (review-fixes): clarified that Landform Show clocks are approximate teaching timescales; hardened the Mac wrapper to open only HTTPS links and serve only approved packaged asset types after real-path validation.
+
+- 2026-10-27: M12-C10 (review-fixes): made the CPU water fallback visibly say “CPU · slower” in the time bar so teachers know why simulation speed may drop.
+
+- 2026-10-27: Verification rerun on `codex/review-fixes`: npm install, typecheck, 262 unit tests, and production build pass. E2E and GPU checks remain blocked because the configured Chromium executable is unavailable.

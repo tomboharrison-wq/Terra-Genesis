@@ -218,6 +218,9 @@ input[type='range'] {
   padding: 4px 6px;
   color: var(--text);
 }
+.perf-warning {
+  color: var(--accent-warm, #f0bd75);
+}
 
 /* Tool rail */
 .toolrail {

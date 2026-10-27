@@ -156,9 +156,9 @@ export function LandformShow() {
         <div className="lf-under">
           <Caption f={f} stageIdx={stageIdx} level={level} />
           <div className="lf-clock" aria-live="off">
-            <b>Year {fmtYears(yearsAt(f.id, t))}</b>
+            <b>Approx. year {fmtYears(yearsAt(f.id, t))}</b>
             <span>
-              time-lapse {speed}× · ≈ {fmtYears(yearsAt(f.id, 1))} years in {Math.round(f.durationS / speed)} s
+              teaching time-lapse {speed}× · ≈ {fmtYears(yearsAt(f.id, 1))} in {Math.round(f.durationS / speed)} s
             </span>
             <small>{TIMESCALES[f.id]?.note}</small>
           </div>
