@@ -110,7 +110,7 @@ export function TimeBar() {
             : 'Water solver running on the CPU (no WebGL2 float render targets) — slower'
         }
       >
-        {sim.backend.toUpperCase()}
+        {sim.backend === 'cpu' ? 'CPU · slower' : 'GPU'}
       </span>
       <span className="sep" />
       <div className="seg">
@@ -124,7 +124,7 @@ export function TimeBar() {
       {view === 'depth' && (
         <div className="legend" aria-label="Water depth legend">
           <i className="ramp depth" />
-          <span>1 cm</span>
+          <span>1 mm</span>
           <span>30 cm</span>
           <span>10 m</span>
         </div>
