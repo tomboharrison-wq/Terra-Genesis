@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useUi } from '../state/uiStore';
-import { engine, importWorldFile, renameWorld, saveToSlot } from './runtime';
+import { engine, importWorldFile, renameWorld, saveToSlot, setClassroom } from './runtime';
 import { Icon } from './icons';
 import type { Quality } from '../renderer/TerrainScene';
 
@@ -11,6 +11,7 @@ export function TopBar() {
   const undoLabel = useUi((s) => s.undoLabel);
   const redoLabel = useUi((s) => s.redoLabel);
   const quality = useUi((s) => s.quality);
+  const classroom = useUi((s) => s.classroom);
   const set = useUi((s) => s.set);
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
@@ -102,6 +103,14 @@ export function TopBar() {
           <Icon name="redo" />
         </button>
         <span className="sep" />
+        <button
+          className={classroom ? 'active-toggle classroom' : 'classroom'}
+          onClick={() => setClassroom(!classroom)}
+          aria-pressed={classroom}
+          title="Classroom mode: Performance quality and new worlds at 128² (about 8× faster water) for school laptops and projectors"
+        >
+          Classroom
+        </button>
         <label className="quality" title="Render quality (recreates the renderer)">
           <span>Quality</span>
           <select value={quality} onChange={(e) => set({ quality: e.target.value as Quality })}>

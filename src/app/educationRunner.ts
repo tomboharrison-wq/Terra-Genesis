@@ -3,7 +3,8 @@ import { lessonById } from '../education/lessons';
 import type { LessonLabel, StageContext } from '../education/types';
 import { makeCheckpoint, type Checkpoint } from '../engine/checkpoints';
 import { cloneWorld } from '../engine/world';
-import { engine, getScene, newWorld, onWorldReplaced, syncSim } from './runtime';
+import { engine, getScene, newWorld, onWorldReplaced, replaceWorld, syncSim } from './runtime';
+import { runGeoYears, setGeoMode } from './geoRunner';
 
 /**
  * Lesson player (spec G3/G4). Each stage's world state is kept (privately, not in the user's
@@ -16,17 +17,20 @@ let switching = false;
 const ctx = (): StageContext => ({
   engine,
   setLabels: (l) => useUi.getState().set({ lessonLabels: l }),
+  geo: (years) => runGeoYears(years),
 });
 
 export function startLesson(id: string): void {
   const lesson = lessonById(id);
   if (!lesson) return;
-  if (lesson.setup) {
+  if (lesson.setup || lesson.build) {
     switching = true;
-    newWorld(lesson.setup);
+    if (lesson.build) replaceWorld(lesson.build());
+    else if (lesson.setup) newWorld(lesson.setup);
     switching = false;
   }
   engine.setPlaying(false);
+  setGeoMode(!!lesson.geological);
   stageStates = [];
   useUi.getState().set({
     dialog: null,
@@ -61,6 +65,7 @@ export function goToStage(k: number): void {
     return;
   }
   const finish = () => {
+    if (lesson.geological && !engine.geoRivers) engine.showGeoRivers(); // rivers and lakes of this stage's landscape
     const labels: LessonLabel[] = stage.labels ? stage.labels(ctx()) : [];
     useUi.getState().set({
       education: {
@@ -88,8 +93,8 @@ export function goToStage(k: number): void {
   // First visit: come from the saved end of the previous stage, run this stage's change, save.
   if (k > 0 && stageStates[k - 1]) restore(stageStates[k - 1]);
   useUi.getState().set({ education: { ...ed, busy: true } });
-  setTimeout(() => {
-    stage.enter?.(ctx());
+  setTimeout(async () => {
+    await stage.enter?.(ctx());
     stageStates[k] = makeCheckpoint(engine.world, k, stage.title);
     stageStates.length = k + 1; // later stages must be re-run from here
     finish();

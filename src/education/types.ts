@@ -1,6 +1,7 @@
 import type { GenerateOptions } from '../terrain/generate';
 import type { Engine } from '../engine/engine';
 import type { OverlayId } from '../renderer/overlays';
+import type { WorldState } from '../engine/world';
 
 /**
  * Lesson contract (spec G3). A lesson is either
@@ -20,6 +21,8 @@ export interface LessonLabel {
 
 export interface StageContext {
   engine: Engine;
+  /** Run geological time (in the lesson player: in a worker, showing the change as it happens). */
+  geo(years: number): void | Promise<void>;
   /** Labels for this stage (computed from the current world). */
   setLabels(labels: LessonLabel[]): void;
 }
@@ -31,7 +34,7 @@ export interface LessonStage {
   /** GCSE explanation (Edexcel Geography A terminology). */
   gcse: string;
   /** Changes the world for this stage (runs physics). Entering a stage again restores its saved state instead. */
-  enter?(ctx: StageContext): void;
+  enter?(ctx: StageContext): void | Promise<void>;
   /** Labels attached to real locations in the current world. */
   labels?(ctx: StageContext): LessonLabel[];
   camera?: 'oblique' | 'top';
@@ -52,6 +55,10 @@ export interface Lesson {
   objective: string;
   /** Emergent lessons: the world to generate. */
   setup?: GenerateOptions;
+  /** Emergent lessons: or a purpose-built world (deterministic). */
+  build?: () => WorldState;
+  /** Stages run geological time (sim/geology); the time bar opens in geological time. */
+  geological?: boolean;
   /** Guided lessons: which guided model is shown instead of the 3D world. */
   guided?: 'waterfall' | 'meander' | 'arch' | 'spit' | 'bar' | 'trough' | 'ridge' | 'folds';
   stages: LessonStage[];

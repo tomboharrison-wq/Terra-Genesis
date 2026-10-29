@@ -1,5 +1,5 @@
 import { createWorld, type BoundaryMode, type WorldState } from '../../engine/world';
-import { LandscapeEvolution, addGeoStats, emptyGeoStats, type GeoParams } from './landscapeEvolution';
+import { LandscapeEvolution, type GeoParams } from './landscapeEvolution';
 
 /** A request to run geological time on a copy of the world's terrain (posted by app/geoRunner). */
 export interface GeoJob {
@@ -36,13 +36,7 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
   w.materialId.set(j.material);
   w.strataBoundsM.set(j.strataBounds);
   w.strataMaterial.set(j.strataMaterial);
-  const stats = emptyGeoStats();
-  let left = j.years;
-  while (left > 1e-9) {
-    const dt = Math.min(left, j.maxStepYears);
-    addGeoStats(stats, geo!.step(dt, j.params));
-    left -= dt;
-  }
+  const stats = geo!.run(j.years, j.params, j.maxStepYears);
   geo!.route(); // drainage and lakes of the landscape as it is now (for drawing rivers and lakes)
   const out = {
     id: j.id,

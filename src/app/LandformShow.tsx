@@ -221,6 +221,17 @@ export function LandformShow() {
               Explore in the simulator
             </button>
           )}
+          {f.modelLesson && (
+            <button
+              onClick={() => {
+                close();
+                startLesson(f.modelLesson!);
+              }}
+              title="Watch this landform form over geological time in the landscape model (real simulated erosion, labels measured on the landscape)"
+            >
+              Watch it form (landscape model)
+            </button>
+          )}
         </div>
       </main>
       {exam && (

@@ -34,6 +34,8 @@ export interface Formation {
   examSteps: string[];
   /** Education Mode lesson that explores the same landform in the simulator, if any. */
   lesson?: string;
+  /** A geological-time lesson where the landform forms in the landscape evolution model. */
+  modelLesson?: string;
 }
 
 export const TOPICS: { id: LandformTopic; title: string; spec: string }[] = [
@@ -394,6 +396,7 @@ export const FORMATIONS: Formation[] = [
       'It winds around the areas of resistant rock.',
       'Spurs of land project alternately from each side and interlock.',
     ],
+    lesson: 'v-valley-spurs',
   },
   {
     id: 'waterfalls-gorges',
@@ -451,6 +454,7 @@ export const FORMATIONS: Formation[] = [
       'Repeated collapse makes the waterfall retreat upstream, leaving a steep-sided gorge.',
     ],
     lesson: 'waterfall',
+    modelLesson: 'waterfall-gorge-model',
   },
   {
     id: 'meanders-cliffs-bars',
@@ -980,7 +984,7 @@ export const TIMESCALES: Record<string, { clock: [number, number][]; note: strin
       [0.95, 300],
       [1, 300],
     ],
-    note: 'model rates; Niagara Falls has retreated about 1 m a year',
+    note: 'model rates; Niagara Falls retreated about 1 m a year before water was diverted for power (now far less)',
   },
   'meanders-cliffs-bars': {
     clock: [

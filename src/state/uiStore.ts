@@ -318,6 +318,8 @@ interface UiState {
   timeLapse: boolean;
   /** Geological time (app/geoRunner): mode on, running, speed, achieved rate, years, recorded frames. */
   geo: GeoInfo;
+  /** Classroom mode: Performance quality and new worlds at 128² (app/runtime.setClassroom). */
+  classroom: boolean;
   landformSeek: number | null;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: {
@@ -405,6 +407,13 @@ export const useUi = create<UiState>((set) => ({
   meteor: { kind: 'stony', diameterM: 30, speedKmS: 17, angleDeg: 45 },
   landformId: null,
   timeLapse: false,
+  classroom: (() => {
+    try {
+      return localStorage.getItem('tg-classroom') === '1';
+    } catch {
+      return false;
+    }
+  })(),
   geo: { mode: false, playing: false, yearsPerSec: 10000, achieved: 0, years: 0, frames: [], viewing: null, busy: false },
   landformSeek: null,
   radiusM: 300,

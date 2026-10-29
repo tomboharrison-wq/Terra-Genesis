@@ -212,13 +212,7 @@ export class Engine {
   /** Run `years` of geological time on this thread (tests, fallback without Web Workers). */
   geoStep(years: number): GeoStepStats {
     this.beginGeologic();
-    const tot = emptyGeoStats();
-    let left = years;
-    while (left > 1e-9) {
-      const dt = Math.min(left, GEO_MAX_STEP_YEARS);
-      addGeoStats(tot, this.geo.step(dt, this.geoParams));
-      left -= dt;
-    }
+    const tot = this.geo.run(years, this.geoParams, GEO_MAX_STEP_YEARS);
     this.geo.route();
     this.afterGeologic(tot, Float32Array.from(this.geo.area), Float32Array.from(this.geo.lake));
     return tot;
@@ -231,6 +225,13 @@ export class Engine {
     w.looseSedimentThicknessM.set(r.soil);
     w.materialId.set(r.material);
     this.afterGeologic(r.stats, r.area, r.lake);
+  }
+
+  /** Draw rivers and lakes from the current terrain's drainage (geological time display). */
+  showGeoRivers(): void {
+    this.geo.route();
+    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake) };
+    this.markRenderDirtyAll();
   }
 
   /** Put the terrain back to a recorded geological frame (record and replay). */

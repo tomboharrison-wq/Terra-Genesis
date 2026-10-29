@@ -1,10 +1,12 @@
 import { useUi } from '../state/uiStore';
+import { setClassroom } from './runtime';
 
 const f1 = (v: number) => v.toFixed(1);
 
 export function StatusBar() {
   const hover = useUi((s) => s.hover);
   const stats = useUi((s) => s.stats);
+  const classroom = useUi((s) => s.classroom);
   const lastSaved = useUi((s) => s.lastSavedIso);
   return (
     <footer className="statusbar">
@@ -89,8 +91,12 @@ export function StatusBar() {
         {stats && (
           <span className={stats.fps < 25 ? 'perf-warning' : undefined} title="Frames per second · CPU time to submit render · triangles">
             {Math.round(stats.fps)} fps · {stats.frameMs.toFixed(1)} ms · {(stats.triangles / 1000).toFixed(0)}k tris
-            {stats.fps < 25 && ' · lower Quality for smoother lessons'}
           </span>
+        )}
+        {stats && stats.fps < 25 && !classroom && (
+          <button className="perf-fix" onClick={() => setClassroom(true)} title="Performance quality now, and new worlds at 128² (about 8× faster water)">
+            Slow? Turn on Classroom mode
+          </button>
         )}
       </div>
     </footer>

@@ -26,6 +26,7 @@ describe('Landform Show (Edexcel GCSE Geography A, Topic 1 landforms)', () => {
       expect(f.examSteps.length, f.id).toBeGreaterThanOrEqual(4);
       expect(f.durationS).toBeGreaterThanOrEqual(20);
       expect(typeof SCENES[f.id], `scene for ${f.id}`).toBe('function');
+      if (f.modelLesson) expect(LESSONS.some((l) => l.id === f.modelLesson && l.geological)).toBe(true);
       if (f.lesson)
         expect(
           LESSONS.some((l) => l.id === f.lesson),

@@ -217,3 +217,11 @@
 - 2026-10-27: M12-C10 (review-fixes): made the CPU water fallback visibly say “CPU · slower” in the time bar so teachers know why simulation speed may drop.
 
 - 2026-10-27: Verification rerun on `codex/review-fixes`: npm install, typecheck, 262 unit tests, and production build pass. E2E and GPU checks remain blocked because the configured Chromium executable is unavailable.
+
+## M13 — Geological time, landscape lessons, classroom mode (2026-10-29)
+- **Geological time** (time bar: Water time / Geological time): 1,000, 10,000 or 100,000 years per second. Rivers cut down into the rock (harder rock more slowly), soil forms from rock and creeps downhill, over-steep valley sides collapse, sediment settles in lakes and the sea, and the land can be uplifted. Runs in the background so the view stays smooth; shows the years per second actually achieved.
+- Rivers and lakes are drawn from where water would drain. **Replay**: drag back to any recorded moment — the landscape really returns to it, and Play carries on from there.
+- Settings: uplift (mm/yr), rock strength, soil creep, and the volumes eroded, weathered, deposited and carried off the map.
+- New lessons using it: **V-shaped valleys and interlocking spurs** (the river cuts down 100+ m; valley depth, side slope, floor width and spurs measured on the landscape) and **Waterfall and gorge: watch it retreat** (a waterfall forms on a hard dolerite band, retreats about 2.5 km upstream in 200,000 years and leaves a gorge 100+ m deep). Landforms → "Watch it form (landscape model)".
+- **Classroom** button: Performance quality and new worlds at 128² (about 8× faster water); a "Slow? Turn on Classroom mode" button appears when the frame rate drops.
+- Fixed: Codex's lower water display threshold made every rain-wetted slope look flooded — reverted.

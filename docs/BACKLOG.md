@@ -2,6 +2,13 @@
 
 | ID | Outcome | Status |
 |---|---|---|
+| M13-C01 | Geological time: landscape evolution model (stream power, threshold hillslopes, soil, creep, lakes/sea deposition, uplift) in a Web Worker; record & replay; settings + ledger | DONE |
+| M13-C02 | Geological lessons: V-shaped valley + interlocking spurs; waterfall + gorge retreat (measured labels); Landforms "Watch it form" | DONE |
+| M13-C03 | Classroom mode (Performance quality, 128² new worlds, low-fps prompt) | DONE |
+| M13-C04 | Geological time: floodplain aggradation (transport-limited, e.g. Yuan et al. 2019 ξ-q) so lowlands, deltas above sea level and alluvial fans form | TODO |
+| M13-C05 | Map-scale meander migration (Howard & Knutson 1984 centreline model) carving the floodplain; cut-offs → oxbow lakes | TODO |
+| M13-C06 | Glaciers in geological time (corries, troughs over 10⁴–10⁵ yr) and coastal retreat in geological time (headlands & bays) | TODO |
+| M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
 | D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |
 | M12-C01 | Landform Show: all 27 Edexcel GCSE Topic 1 landforms (1.4a/b, 1.8a/b/c, 1.12a/b/c) as 17 animated formations — stages with KS3/GCSE text, on-screen process annotations, time-lapse clock (0.25–16×), process glossary, exam steps, teacher links ?landform=; simulator Time-lapse button | DONE |

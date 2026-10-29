@@ -444,3 +444,19 @@ onWorldReplaced(() => {
   lapseSaved = null;
   useUi.getState().set({ timeLapse: false });
 });
+
+/** World size for new worlds in classroom mode: 4× fewer cells and twice the water step → ~8× faster water. */
+export const CLASSROOM_SIZE = 128;
+let qualityBefore: string | null = null;
+
+/** Classroom mode: Performance quality (no shadows, 1× pixels) and smaller new worlds; remembered in this browser. */
+export function setClassroom(on: boolean): void {
+  const s = useUi.getState();
+  if (on && !s.classroom) qualityBefore = s.quality;
+  s.set({ classroom: on, quality: on ? 'performance' : ((qualityBefore as typeof s.quality | null) ?? 'balanced') });
+  try {
+    localStorage.setItem('tg-classroom', on ? '1' : '0');
+  } catch {
+    /* private window: not remembered */
+  }
+}

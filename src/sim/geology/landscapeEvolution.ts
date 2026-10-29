@@ -15,7 +15,8 @@ import { MATERIALS } from '../../terrain/materials';
  *   2014), so water crosses lakes and spills over saddles; drainage area A accumulates downstream.
  * - Sediment: everything eroded is routed downstream and deposited where flow stops — in closed
  *   hollows (up to their spill level: lake infill) and in the sea (up to 1 m below sea level, then
- *   onward to deeper water: deltas). Sediment reaching an open map edge leaves the map. Channels do
+ *   onward to deeper water: deltas). Sediment reaching an open map edge, or the sea at any map edge
+ *   (the sea continues beyond the map), leaves the map. Channels do
  *   not deposit on the way (no floodplain aggradation in this model — stated in the UI).
  * - Hillslopes: soil production from bare rock P = P0·erodibility·exp(−h/h0) (Heimsath et al. 1997)
  *   and linear soil creep q = −D·∇z, limited to the soil present (bare rock cliffs do not creep).
@@ -145,6 +146,7 @@ export class LandscapeEvolution {
 
   /** Recompute drainage (filled surface, receivers, order, area) from the current terrain. */
   route(): void {
+    this.routed = true;
     const { w, n, z, filled, lake, receiver, order, done, area, dist } = this;
     const W = w.width;
     const H = w.height;
@@ -245,6 +247,39 @@ export class LandscapeEvolution {
       const r = receiver[i];
       if (r >= 0) area[r] += area[i];
     }
+  }
+
+  private routed = false;
+
+  /**
+   * Longest accurate step (years): a knickpoint travels at c = K·A^m (n = 1), and the implicit
+   * scheme stays stable for any step but smears a waterfall out when it would move more than
+   * `courant` cells in one step. Uses the drainage of the last step.
+   */
+  accurateYears(p: GeoParams, courant = 2): number {
+    if (!this.routed) this.route();
+    const w = this.w;
+    let cMax = 0;
+    for (let i = 0; i < this.n; i++) {
+      if (this.receiver[i] < 0) continue;
+      const k = p.kRef * (w.looseSedimentThicknessM[i] >= p.soilCoverM ? p.soilFactor : MATERIALS[w.materialId[i]].erodibility);
+      const c = (k * Math.pow(this.area[i], p.m)) / this.dist[i];
+      if (c > cMax) cMax = c;
+    }
+    return cMax > 0 ? courant / cMax : Infinity;
+  }
+
+  /** Run `years` in steps no longer than maxStepYears or the accurate step; returns the summed volumes. */
+  run(years: number, p: GeoParams, maxStepYears: number): GeoStepStats {
+    const tot = emptyGeoStats();
+    let left = years;
+    while (left > 1e-9) {
+      const dt = Math.min(left, maxStepYears, Math.max(10, this.accurateYears(p)));
+      addGeoStats(tot, this.step(dt, p));
+      left -= dt;
+    }
+    tot.years = years; // exact (the sum of steps carries round-off)
+    return tot;
   }
 
   /** Advance the landscape by `years` (one implicit step). */
@@ -416,9 +451,14 @@ export class LandscapeEvolution {
         v -= d;
         if (v <= 0) return;
       }
-      // Onward to the deepest lower neighbour; leave the map at an open edge.
+      // The sea continues beyond the map edge: sediment reaching it there is carried offshore, off the map.
       const x = i % W;
       const y = (i / W) | 0;
+      if (x === 0 || y === 0 || x === W - 1 || y === H - 1) {
+        st.exported += v;
+        return;
+      }
+      // Onward to the deepest lower neighbour; leave the map at an open edge.
       let next = -1;
       let low = bed[i] + soil[i];
       for (let d = 0; d < 8; d++) {

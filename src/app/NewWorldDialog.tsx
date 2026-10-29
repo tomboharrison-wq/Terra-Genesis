@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Dialog } from './Dialog';
 import { PRESETS, presetById, type GenerateOptions, type PresetId } from '../terrain/generate';
 import { randomSeed } from '../utils/rng';
-import { newWorld } from './runtime';
+import { CLASSROOM_SIZE, newWorld } from './runtime';
 import { useUi } from '../state/uiStore';
 import { Icon } from './icons';
 
@@ -17,7 +17,7 @@ export function NewWorldDialog() {
   const close = () => useUi.getState().set({ dialog: null });
   const [presetId, setPresetId] = useState<PresetId>('river-basin');
   const [seed, setSeed] = useState(() => randomSeed());
-  const [size, setSize] = useState(256);
+  const [size, setSize] = useState(() => (useUi.getState().classroom ? CLASSROOM_SIZE : 256));
   const [d, setD] = useState(() => ({ ...presetById('river-basin').defaults }));
   const [name, setName] = useState('');
   const [rain, setRain] = useState(() => presetById('river-basin').defaults.rainMmH ?? 0);

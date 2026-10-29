@@ -46,7 +46,7 @@ describe('M10-C04 glacial, tectonic and volcanic lessons', () => {
     const l = lessonById('volcano-types')!;
     const e = new Engine(generateWorld({ ...l.setup!, size: 80 }));
     let labels: LessonLabel[] = [];
-    const ctx = { engine: e, setLabels: (x: LessonLabel[]) => (labels = x) };
+    const ctx = { engine: e, setLabels: (x: LessonLabel[]) => (labels = x), geo: (y: number) => void e.geoStep(y) };
     for (const st of l.stages) {
       st.enter?.(ctx);
       labels = st.labels ? st.labels(ctx) : [];

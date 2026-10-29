@@ -71,7 +71,7 @@ describe('M10-C01 education: features found in the simulated landscape', () => {
         expect(s.gcse.length).toBeGreaterThan(30);
       }
       expect(l.exam?.model.length).toBeGreaterThan(50);
-      expect(l.kind === 'guided' ? l.guided !== undefined && l.stages.every((s) => s.t !== undefined) : l.setup !== undefined).toBe(true);
+      expect(l.kind === 'guided' ? l.guided !== undefined && l.stages.every((s) => s.t !== undefined) : l.setup !== undefined || l.build !== undefined).toBe(true);
       expect(l.misconception).toBeDefined();
     }
   });

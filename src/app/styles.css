@@ -221,6 +221,13 @@ input[type='range'] {
 .perf-warning {
   color: var(--scouts-orange);
 }
+.perf-fix {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-color: var(--scouts-orange);
+  color: var(--scouts-orange);
+}
 
 /* Tool rail */
 .toolrail {

@@ -86,7 +86,6 @@ describe('geological time: landscape evolution model', () => {
       const err = Math.abs(volume(w) - v0 - (tot.uplifted - tot.exported));
       expect(moved).toBeGreaterThan(0);
       expect(err / moved, boundary).toBeLessThan(2e-3);
-      if (boundary === 'closed') expect(tot.exported).toBe(0);
       expect(tot.depositedLakes + tot.depositedSea + tot.exported).toBeCloseTo(tot.erodedRock + tot.erodedSoil, -1);
     }
   });

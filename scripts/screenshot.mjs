@@ -1203,6 +1203,61 @@ check(
   JSON.stringify({ lapseOn, lapseOff }),
 );
 
+// --- Geological time (M13): landscape evolution in a worker, replay restores exactly ---
+const geoSum = () => page.evaluate(() => { let t = 0; for (const v of window.__terraGenesis.engine.surface) t += v; return t; });
+await page.getByRole('button', { name: 'Geological time' }).click();
+await page.waitForTimeout(500);
+const g0 = await geoSum();
+await page.selectOption('select[aria-label="Geological speed"]', '10000');
+await page.click('.timebar .play');
+await page.waitForFunction(() => window.__terraGenesis.engine.geologicYears >= 30000, null, { timeout: 90000 });
+await page.click('.timebar .play');
+await page.waitForTimeout(1500);
+const geoRun = await page.evaluate(() => ({ years: window.__terraGenesis.engine.geologicYears, frames: window.__terraGenesis.ui().geo.frames.length, rivers: !!window.__terraGenesis.engine.geoRivers }));
+const g1 = await geoSum();
+await shot('80-geological-time');
+await page.evaluate(() => {
+  const el = document.querySelector('input[aria-label="Replay recorded geological time"]');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '0');
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await page.waitForTimeout(800);
+const g2 = await geoSum();
+check(
+  'geological time: thousands of years run in a worker, rivers drawn from drainage, replay to the start restores the land exactly',
+  geoRun.years >= 30000 && geoRun.frames >= 2 && geoRun.rivers && Math.abs(g1 - g0) > 1000 && Math.abs(g2 - g0) < 1e-3,
+  JSON.stringify({ ...geoRun, changed: +(g1 - g0).toFixed(0), afterReplay: +(g2 - g0).toFixed(4) }),
+);
+await page.getByRole('button', { name: 'Water time' }).click();
+
+// --- Geological-time lesson: waterfall retreats and leaves a gorge (labels measured on the model) ---
+await page.evaluate(() => window.__terraGenesis.ui().set({ dialog: 'lessons' }));
+await page.click('.challenge-list li:has-text("watch it retreat") button:has-text("Start")');
+await page.waitForFunction(() => window.__terraGenesis.ui().education && !window.__terraGenesis.ui().education.busy, null, { timeout: 60000 });
+for (let k = 0; k < 3; k++) {
+  await clickLesson('Next');
+  await page.waitForTimeout(300);
+  await page.waitForFunction(() => !window.__terraGenesis.ui().education.busy, null, { timeout: 180000 });
+}
+await page.waitForTimeout(1200);
+const wfLabels = await page.evaluate(() => window.__terraGenesis.ui().lessonLabels.map((l) => l.text));
+await shot('81-lesson-waterfall-gorge');
+check(
+  'geological lesson: the waterfall retreats upstream of where it began and a gorge is measured',
+  wfLabels.some((t) => /upstream of where it began/.test(t)) && wfLabels.some((t) => /^Gorge: \d+ m deep/.test(t)),
+  wfLabels.join(' | '),
+);
+await clickLesson('Exit');
+
+// --- Classroom mode: one switch sets Performance quality; new worlds default to 128² ---
+await page.click('.topbar button.classroom');
+await page.waitForTimeout(400);
+const cls = await page.evaluate(() => ({ on: window.__terraGenesis.ui().classroom, q: window.__terraGenesis.ui().quality }));
+await page.click('.topbar button.classroom');
+await page.waitForTimeout(400);
+const clsOff = await page.evaluate(() => ({ on: window.__terraGenesis.ui().classroom, q: window.__terraGenesis.ui().quality }));
+check('classroom mode: Performance quality on, previous quality back when off', cls.on && cls.q === 'performance' && !clsOff.on && clsOff.q !== 'performance', JSON.stringify({ cls, clsOff }));
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

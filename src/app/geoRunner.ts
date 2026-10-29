@@ -29,7 +29,7 @@ export interface GeoFrame {
 
 let worker: Worker | null = null;
 let jobId = 0;
-let inFlight: { id: number; rev: number; t0: number; years: number; world: object } | null = null;
+let inFlight: { id: number; rev: number; t0: number; years: number; world: object; done?: () => void } | null = null;
 let timer: ReturnType<typeof setTimeout> | null = null;
 let achieved = 0;
 let lastFrameYears = -Infinity;
@@ -91,14 +91,14 @@ function chunkYears() {
   return ui().geo.yearsPerSec * 0.25;
 }
 
-function send(years: number) {
+function send(years: number, done?: () => void) {
   const w = engine.world;
-  const maxStep = Math.min(GEO_MAX_STEP_YEARS, Math.max(50, ui().geo.yearsPerSec / 20));
   const wk = getWorker();
   if (!wk) {
     const t0 = performance.now();
     engine.geoStep(years);
     afterChunk(years, t0);
+    done?.();
     return;
   }
   const job: GeoJob = {
@@ -114,10 +114,10 @@ function send(years: number) {
     strataBounds: w.strataBoundsM.slice(),
     strataMaterial: w.strataMaterial.slice(),
     years,
-    maxStepYears: maxStep,
+    maxStepYears: GEO_MAX_STEP_YEARS, // and never longer than the accurate step (LandscapeEvolution.run)
     params: { ...engine.geoParams },
   };
-  inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w };
+  inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w, done };
   setGeo({ busy: true });
   wk.postMessage(job, [job.bed.buffer, job.soil.buffer, job.material.buffer, job.strataBounds.buffer, job.strataMaterial.buffer]);
 }
@@ -132,7 +132,32 @@ function onResult(r: GeoResult & { id: number }) {
   if (!stale) {
     engine.applyGeologic(r);
     afterChunk(job.years, job.t0);
+    job.done?.();
+  } else if (job.done) {
+    if (job.world === engine.world) send(job.years, job.done); // a scripted run: redo this chunk from the edited terrain
+    else job.done();
   } else if (ui().geo.playing) schedule(0);
+}
+
+/**
+ * Run exactly `years` of geological time (lesson stages): in ~10 chunks so the landscape is seen
+ * changing, resolving when all of it is applied.
+ */
+export function runGeoYears(years: number): Promise<void> {
+  if (ui().geo.playing) stopGeo();
+  engine.beginGeologic();
+  if (frames.length === 0) record(true);
+  const chunk = Math.max(5000, years / 10);
+  return new Promise((resolve) => {
+    let left = years;
+    const next = () => {
+      if (left <= 1e-9) return resolve();
+      const y = Math.min(left, chunk);
+      left -= y;
+      send(y, next);
+    };
+    next();
+  });
 }
 
 function afterChunk(years: number, t0: number) {

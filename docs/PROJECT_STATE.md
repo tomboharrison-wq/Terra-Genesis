@@ -1,7 +1,7 @@
 # Project state
-Updated: 2026-10-27, session 1 (cont.)
+Updated: 2026-10-29, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: none — all planned milestones M01–M11 complete; optional backlog only
+Current milestone: M13 geological time (C01–C03 done); optional backlog
 Current chunk: M04-C06 (optional; see NEXT_TASK)
 Status: READY
 
@@ -27,19 +27,20 @@ Verified working:
 - M11-C01 floods (src/sim/events/hazards.ts, engine hazard section, HazardsPanel, tool H): storm, sea surge
   (raised sea head in both solvers, surgeIn ledger), per-step peak depth (GPU max pass), 'flood' overlay, event log.
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
-  C03 ExportDialog + app/exportImages.ts + persistence/exports.ts (own PNG encoder, 16-bit heightmap, raw).
-  C04 QA: contrast/a11y/save-version/frame-rate tests, slot round trip e2e, version in Help (vite define).
+  C03 exports (app/exportImages.ts, persistence/exports.ts) · C04 QA tests, version in Help.
 - M12 Landform Show (src/education/landforms, src/app/landforms/*Scenes.tsx, LandformShow.tsx; ?landform=id) + Time-lapse.
-- Mac app: desktop/ (Electron wrapper of dist/ via app://; package-mac.mjs → desktop/out zips, ad-hoc signed).
+- M13 geological time: sim/geology (landscapeEvolution, geoWorker), app/geoRunner + GeoControls (replay), lessons
+  riverGeologic (education/geoFeatures, scenarioWorlds); classroom mode (runtime.setClassroom).
+- Mac app: desktop/ (Electron wrapper of dist/ via app://; package-mac.mjs → desktop/out zips).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
 - Water depth is float32: a closed basin lake over simulated years drifts ~% in the ledger (backlog M02-C07).
 - Real GPU speed unmeasured; Firefox/WebKit and the Mac app on a real Mac untested. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
-- No depth refraction; bays develop slowly at default rates; drift total is a summed transfer figure.
+- No depth refraction; bays develop slowly. Geological time: no floodplains/glaciers/waves (M13-C04..C06).
 - No isostasy (mountains unlimited). Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
-Last checks: typecheck · npm test 262 · build · gpu-check 12/12 · e2e 56/56 — all PASS
+Last checks: typecheck · npm test 273 · build PASS · e2e: see TEST_RESULTS
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md
