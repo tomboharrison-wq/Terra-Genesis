@@ -1,0 +1,57 @@
+import { createWorld, type BoundaryMode, type WorldState } from '../../engine/world';
+import { LandscapeEvolution, addGeoStats, emptyGeoStats, type GeoParams } from './landscapeEvolution';
+
+/** A request to run geological time on a copy of the world's terrain (posted by app/geoRunner). */
+export interface GeoJob {
+  id: number;
+  width: number;
+  height: number;
+  cellSizeM: number;
+  seaLevelM: number;
+  boundary: BoundaryMode;
+  bed: Float32Array;
+  soil: Float32Array;
+  material: Uint8Array;
+  strataBounds: Float32Array;
+  strataMaterial: Uint8Array;
+  years: number;
+  maxStepYears: number;
+  params: GeoParams;
+}
+
+let w: WorldState | null = null;
+let geo: LandscapeEvolution | null = null;
+
+self.onmessage = (e: MessageEvent<GeoJob>) => {
+  const j = e.data;
+  if (!w || w.width !== j.width || w.height !== j.height) {
+    w = createWorld({ width: j.width, height: j.height, cellSizeM: j.cellSizeM, seed: 0 });
+    geo = new LandscapeEvolution(w);
+  }
+  w.cellSizeM = j.cellSizeM;
+  w.seaLevelM = j.seaLevelM;
+  w.water.boundary = j.boundary;
+  w.bedrockElevationM.set(j.bed);
+  w.looseSedimentThicknessM.set(j.soil);
+  w.materialId.set(j.material);
+  w.strataBoundsM.set(j.strataBounds);
+  w.strataMaterial.set(j.strataMaterial);
+  const stats = emptyGeoStats();
+  let left = j.years;
+  while (left > 1e-9) {
+    const dt = Math.min(left, j.maxStepYears);
+    addGeoStats(stats, geo!.step(dt, j.params));
+    left -= dt;
+  }
+  geo!.route(); // drainage and lakes of the landscape as it is now (for drawing rivers and lakes)
+  const out = {
+    id: j.id,
+    bed: w.bedrockElevationM.slice(),
+    soil: w.looseSedimentThicknessM.slice(),
+    material: w.materialId.slice(),
+    area: Float32Array.from(geo!.area),
+    lake: Float32Array.from(geo!.lake),
+    stats,
+  };
+  (self as unknown as { postMessage(m: unknown, transfer: Transferable[]): void }).postMessage(out, [out.bed.buffer, out.soil.buffer, out.material.buffer, out.area.buffer, out.lake.buffer]);
+};

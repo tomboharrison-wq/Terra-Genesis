@@ -706,6 +706,64 @@ input[type='range'] {
 .timebar .achieved.slow {
   color: var(--scouts-orange);
 }
+.timebar .time-mode .geo.active {
+  background: var(--scouts-orange);
+  border-color: var(--scouts-orange);
+  color: #0b1912;
+}
+.timebar .geo-clock {
+  min-width: 150px;
+}
+.timebar .replay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.timebar .replay input {
+  width: 160px;
+}
+.geo-settings {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  padding: 12px 14px;
+  background: var(--panel-solid);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  text-align: left;
+  z-index: 6;
+}
+.geo-settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.geo-settings small,
+.geo-settings .small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.geo-ledger {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.geo-ledger dt {
+  color: var(--muted);
+}
+.geo-ledger dd {
+  margin: 0;
+  text-align: right;
+}
 .badge {
   font-size: 10px;
   font-weight: 800;

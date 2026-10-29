@@ -49,6 +49,19 @@ export interface MeasurePin {
 export const MAX_PINS = 6;
 export const isWaterTool = (t: ToolId): t is WaterToolId => t === 'water-add' || t === 'water-drain' || t === 'spring';
 
+export interface GeoInfo {
+  mode: boolean;
+  playing: boolean;
+  yearsPerSec: number;
+  achieved: number;
+  years: number;
+  /** Years of each recorded frame (record and replay). */
+  frames: number[];
+  /** Frame index being shown, or null for the latest state. */
+  viewing: number | null;
+  busy: boolean;
+}
+
 export interface SimInfo {
   playing: boolean;
   speed: number;
@@ -303,6 +316,8 @@ interface UiState {
   landformId: string | null;
   /** Simulator time-lapse: fastest speed and maximum landscape acceleration (runtime.setTimeLapse). */
   timeLapse: boolean;
+  /** Geological time (app/geoRunner): mode on, running, speed, achieved rate, years, recorded frames. */
+  geo: GeoInfo;
   landformSeek: number | null;
   /** Summary of the last earthquake (for the panel). */
   lastQuake: {
@@ -390,6 +405,7 @@ export const useUi = create<UiState>((set) => ({
   meteor: { kind: 'stony', diameterM: 30, speedKmS: 17, angleDeg: 45 },
   landformId: null,
   timeLapse: false,
+  geo: { mode: false, playing: false, yearsPerSec: 10000, achieved: 0, years: 0, frames: [], viewing: null, busy: false },
   landformSeek: null,
   radiusM: 300,
   hardness: 0.3,

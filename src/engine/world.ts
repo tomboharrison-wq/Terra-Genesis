@@ -82,6 +82,8 @@ export interface WorldMeta {
   /** Total vertical relief requested at generation (m). Informational. */
   reliefM: number;
   createdAtIso: string;
+  /** Years of geological time run on this world (sim/geology); absent = none. */
+  geologicYears?: number;
 }
 
 /**

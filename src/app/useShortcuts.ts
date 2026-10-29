@@ -3,6 +3,7 @@ import { useUi } from '../state/uiStore';
 import { engine, getScene, saveToSlot, syncSim } from './runtime';
 import { TOOLS } from './tools';
 import { isTyping } from './Viewport';
+import { playGeo, stopGeo } from './geoRunner';
 
 const PAN: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0],
@@ -54,8 +55,11 @@ export function useShortcuts() {
         case 'O':
           return s?.oblique();
         case 'p':
-        case 'P':
+        case 'P': {
+          const geo = useUi.getState().geo;
+          if (geo.mode) return geo.playing ? stopGeo() : playGeo();
           return engine.setPlaying(!engine.clock.playing);
+        }
         case '.':
           if (!engine.clock.playing) {
             engine.advance(Math.min(engine.clock.speed, 3600));

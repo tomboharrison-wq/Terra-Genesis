@@ -3,6 +3,7 @@ import { engine, setTimeLapse, syncSim } from './runtime';
 import { Icon } from './icons';
 import type { WaterView } from '../renderer/waterLayer';
 import { OVERLAYS, overlayById, type Legend, type OverlayDef } from '../renderer/overlays';
+import { GeoBar, TimeModeSwitch } from './GeoControls';
 
 export const SPEEDS = [
   { v: 60, label: '1 min / s' },
@@ -47,10 +48,21 @@ export function TimeBar() {
   const lapse = useUi((s) => s.timeLapse);
   const view = useUi((s) => s.waterView);
   const set = useUi((s) => s.set);
+  const geoMode = useUi((s) => s.geo.mode);
   if (!sim) return null;
   const slow = sim.playing && sim.achievedSpeed < sim.speed * 0.8;
+  if (geoMode)
+    return (
+      <div className="timebar geo-mode" role="toolbar" aria-label="Simulation time">
+        <TimeModeSwitch />
+        <GeoBar />
+        <span className="sep" />
+        <OverlayMenu />
+      </div>
+    );
   return (
     <div className="timebar" role="toolbar" aria-label="Simulation time">
+      <TimeModeSwitch />
       <button
         className={`play ${sim.playing ? 'on' : ''}`}
         onClick={() => engine.setPlaying(!sim.playing)}

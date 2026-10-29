@@ -58,6 +58,12 @@ const TEMP_WARM = new Color(0xc8402a);
 const RAIN_LO = new Color(0xb4c6d3);
 const RAIN_HI = new Color(0x0a3a6b);
 const SNOW = new Color(0xf2f4f7);
+/** Geological time: rivers and lakes drawn from the drainage (water time draws real water instead). */
+const GEO_RIVER = new Color(0x2f6fb3);
+const GEO_LAKE = new Color(0x3d7fc0);
+const GEO_LAKE_DEEP = new Color(0x1d4f8a);
+/** A channel starts where this much ground drains through a cell (m²; channel heads are typically 0.01–0.1 km²). */
+export const GEO_CHANNEL_AREA_M2 = 5e4;
 const ICE = new Color(0xcfe2ee);
 const GRASS = new Color(0x7f9a4a);
 const CMP_MORE = new Color(0x25b755);
@@ -668,6 +674,23 @@ export class TerrainScene {
           this.col[o] += (SNOW.r - this.col[o]) * a;
           this.col[o + 1] += (SNOW.g - this.col[o + 1]) * a;
           this.col[o + 2] += (SNOW.b - this.col[o + 2]) * a;
+        }
+        const gr = this.engine.geoRivers;
+        if (gr && this.terrainOverlay === 'none' && ground[i] >= sea) {
+          const lakeD = gr.lake[i] - ground[i];
+          if (lakeD > 0.05) {
+            tmp.copy(GEO_LAKE).lerp(GEO_LAKE_DEEP, Math.min(1, lakeD / 30));
+            this.col[o] = tmp.r;
+            this.col[o + 1] = tmp.g;
+            this.col[o + 2] = tmp.b;
+          } else if (gr.area[i] >= GEO_CHANNEL_AREA_M2) {
+            // Bigger rivers (more ground upstream) are drawn stronger: log scale over 3 decades.
+            const t = Math.min(1, Math.log10(gr.area[i] / GEO_CHANNEL_AREA_M2) / 3);
+            const a = 0.45 + 0.55 * t;
+            this.col[o] += (GEO_RIVER.r - this.col[o]) * a;
+            this.col[o + 1] += (GEO_RIVER.g - this.col[o + 1]) * a;
+            this.col[o + 2] += (GEO_RIVER.b - this.col[o + 2]) * a;
+          }
         }
         const gen = this.overlayData ? overlayById(this.terrainOverlay)?.colour : undefined;
         if (gen) {

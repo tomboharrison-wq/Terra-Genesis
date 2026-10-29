@@ -24,6 +24,20 @@ import type { EruptionStyle } from '../sim/lava/tephra';
 import { droughtSummary, floodSummary, surgeHeight, type DroughtSummary, type FloodSummary, type HazardEvent, type HazardKind } from '../sim/events/hazards';
 import { impact, type ImpactOptions, type ImpactResult } from '../sim/events/meteor';
 import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
+import { LandscapeEvolution, addGeoStats, defaultGeoParams, emptyGeoStats, type GeoParams, type GeoStepStats } from '../sim/geology/landscapeEvolution';
+
+/** Result of geological time computed elsewhere (a Web Worker) for applyGeologic. */
+export interface GeoResult {
+  bed: Float32Array;
+  soil: Float32Array;
+  material: Uint8Array;
+  area: Float32Array;
+  lake: Float32Array;
+  stats: GeoStepStats;
+}
+
+/** Longest single geological step (years): longer requests are split. */
+export const GEO_MAX_STEP_YEARS = 5000;
 
 export type { VolcanoType } from '../sim/lava/build';
 
@@ -89,6 +103,15 @@ export class Engine {
   gpu: GpuWater | null = null;
   private gpuContext: WebGL2RenderingContext | null = null;
   readonly clock = new SimClock(10);
+  /** Geological time (sim/geology): long-timescale landscape evolution, run instead of water time. */
+  geo!: LandscapeEvolution;
+  geoParams: GeoParams = defaultGeoParams();
+  /** Volumes moved in geological time since this world was loaded. */
+  geoTotals: GeoStepStats = emptyGeoStats();
+  /** Drainage area (m²) and lake level (m) from the last geological step — rivers and lakes are drawn from these. Null while water time runs. */
+  geoRivers: { area: Float32Array; lake: Float32Array } | null = null;
+  /** Increments on terrain edits by tools / undo (a geological result computed from older terrain is then discarded). */
+  editRevision = 0;
   /** Increments whenever water state on the CPU mirror or GPU changes (renderer polls it). */
   waterRevision = 0;
   private groundDirty = false;
@@ -117,6 +140,9 @@ export class Engine {
     this.lava = new LavaSim(world, this.surface);
     this.lava.airC = this.climate.temperatureC;
     this.lava.sea = this.water.sea;
+    this.geo = new LandscapeEvolution(world);
+    this.geoTotals = emptyGeoStats();
+    this.geoRivers = null;
     this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
     this.seasonDay = Math.floor(world.climate.seasonPhase * 365);
@@ -144,6 +170,96 @@ export class Engine {
     this.groundDirty = false;
     if (this.gpuContext) this.attachGpu(this.gpuContext);
     this.waterRevision++;
+  }
+
+  // ---------- geological time ----------
+
+  /** Years of geological time this world has been through (kept in world.meta, saved with it). */
+  get geologicYears(): number {
+    return this.world.meta.geologicYears ?? 0;
+  }
+
+  setGeoParams(p: Partial<GeoParams>): void {
+    Object.assign(this.geoParams, p);
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  /**
+   * Leave water time: pause the water solver, let suspended sediment settle (ledgered as deposited)
+   * and remove surface water (ledgered as a tool removal) — geological time has no hydraulic water;
+   * rivers and lakes are drawn from the drainage instead.
+   */
+  beginGeologic(): void {
+    if (this.clock.playing) this.setPlaying(false);
+    this.syncWater();
+    const w = this.world;
+    let settled = 0;
+    for (let i = 0; i < w.sedimentSuspendedM.length; i++) {
+      const v = w.sedimentSuspendedM[i];
+      if (v > 0) {
+        w.looseSedimentThicknessM[i] += v;
+        settled += v;
+      }
+    }
+    w.sedimentSuspendedM.fill(0);
+    this.sediment.ledger.deposited += settled * w.cellSizeM * w.cellSizeM;
+    if (this.water.surfaceVolume() > 0) this.clearWater();
+    computeSurface(w, this.surface);
+    this.groundDirty = true;
+    if (this.gpu) this.gpu.uploadWater();
+  }
+
+  /** Run `years` of geological time on this thread (tests, fallback without Web Workers). */
+  geoStep(years: number): GeoStepStats {
+    this.beginGeologic();
+    const tot = emptyGeoStats();
+    let left = years;
+    while (left > 1e-9) {
+      const dt = Math.min(left, GEO_MAX_STEP_YEARS);
+      addGeoStats(tot, this.geo.step(dt, this.geoParams));
+      left -= dt;
+    }
+    this.geo.route();
+    this.afterGeologic(tot, Float32Array.from(this.geo.area), Float32Array.from(this.geo.lake));
+    return tot;
+  }
+
+  /** Apply geological time computed in a worker from this world's terrain (see geoRunner). */
+  applyGeologic(r: GeoResult): void {
+    const w = this.world;
+    w.bedrockElevationM.set(r.bed);
+    w.looseSedimentThicknessM.set(r.soil);
+    w.materialId.set(r.material);
+    this.afterGeologic(r.stats, r.area, r.lake);
+  }
+
+  /** Put the terrain back to a recorded geological frame (record and replay). */
+  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array }): void {
+    this.beginGeologic();
+    const w = this.world;
+    w.bedrockElevationM.set(f.bed);
+    w.looseSedimentThicknessM.set(f.soil);
+    w.materialId.set(f.material);
+    w.meta.geologicYears = f.years;
+    this.geo.route();
+    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake) };
+    computeSurface(w, this.surface);
+    this.groundDirty = true;
+    this.water.refreshSea();
+    this.vegetationRevision++;
+    this.markRenderDirtyAll();
+  }
+
+  private afterGeologic(st: GeoStepStats, area: Float32Array, lake: Float32Array) {
+    const w = this.world;
+    w.meta.geologicYears = (w.meta.geologicYears ?? 0) + st.years;
+    addGeoStats(this.geoTotals, st);
+    this.geoRivers = { area, lake };
+    computeSurface(w, this.surface);
+    this.groundDirty = true;
+    this.water.refreshSea();
+    this.vegetationRevision++;
+    this.markRenderDirtyAll();
   }
 
   // ---------- water backend ----------
@@ -550,6 +666,10 @@ export class Engine {
   }
 
   setPlaying(playing: boolean): void {
+    if (playing && this.geoRivers) {
+      this.geoRivers = null; // water time again: real water replaces the drainage-derived rivers
+      this.markRenderDirtyAll();
+    }
     this.clock.playing = playing;
     if (!playing) this.syncWater();
     this.emit({ type: 'sim-state-changed' });
@@ -1015,6 +1135,7 @@ export class Engine {
   }
 
   markDirty(rect: CellRect): void {
+    this.editRevision++;
     this.climateDirty = true;
     this.dirty = unionRect(this.dirty, rect);
     this.groundDirty = true;
