@@ -75,7 +75,7 @@
 | M00-C02 | App shell + Three scene | DONE |
 | M00-C01 | Tooling + continuity files | DONE |
 
-- M12-C07 [DONE IN CODE, RUNTIME CHECK PENDING] Make shallow water visible in projector view; verify on classroom hardware.
+- M12-C07 REVERTED: 1 mm water display threshold hazed the whole map (TEST_RESULTS 2026-10-29). Faint water on a real Mac still to be diagnosed on that machine.
 
 - M12-C08 [DONE IN CODE, RUNTIME CHECK PENDING] Explain low frame rate in the status bar and point teachers to Quality.
 

@@ -219,21 +219,21 @@ void main() {
   float d = vDepth;
   float speed = length(vVel);
   if (uMode == 1) {
-    if (d < 0.001) discard;
-    // log depth 1 mm … 10 m; shallow water stays visible in projector view.
-    float t = clamp(log(d / 0.001) / log(1e4), 0.0, 1.0);
+    if (d < 0.005) discard;
+    // log depth 1 cm … 10 m
+    float t = clamp(log(d / 0.01) / log(1e3), 0.0, 1.0);
     gl_FragColor = vec4(ramp(t, vec3(0.80, 0.93, 1.0), vec3(0.20, 0.55, 0.95), vec3(0.04, 0.12, 0.45)), 0.85);
     #include <colorspace_fragment>
     return;
   }
   if (uMode == 2) {
-    if (d < 0.001) discard;
+    if (d < 0.005) discard;
     float t = clamp(speed / 3.0, 0.0, 1.0);
     gl_FragColor = vec4(ramp(t, vec3(1.0, 0.95, 0.55), vec3(1.0, 0.57, 0.16), vec3(0.78, 0.10, 0.10)), 0.85);
     #include <colorspace_fragment>
     return;
   }
-  if (d < 0.001) discard;
+  if (d < 0.01) discard;
   vec3 n = normalize(vNormal2);
   // Flow streaks advected by the simulated velocity (world x east, y north → three x, -z).
   vec2 flow = vec2(vVel.x, -vVel.y);
@@ -264,8 +264,7 @@ void main() {
   float froude = speed / sqrt(9.81 * max(d, 0.01));
   float foam = smoothstep(0.8, 1.8, froude) * smoothstep(0.45, 0.85, streak) * smoothstep(0.5, 1.5, speed) * smoothstep(0.05, 0.3, d);
   col = mix(col, vec3(0.93, 0.96, 0.97), foam * 0.8);
-  // Keep thin sheets visible from the back of a classroom while retaining depth cues.
-  float alpha = mix(0.24, 0.92, smoothstep(0.001, 1.0, d));
+  float alpha = mix(0.12, 0.92, smoothstep(0.01, 1.0, d));
   alpha = max(alpha, foam * 0.9);
   float fogF = smoothstep(uFogNear, uFogFar, length(cameraPosition - vWorld));
   col = mix(col, uFogColor, fogF);

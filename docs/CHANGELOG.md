@@ -208,7 +208,7 @@
 ## Mac desktop app
 - Terra Genesis can now be installed as a Mac app (Apple Silicon or Intel): its own window and Dock icon, works fully offline, saves kept on the Mac. Built from the same web build by `node desktop/build/package-mac.mjs`; install steps in `desktop/build/HOW-TO-INSTALL.txt` (shipped inside each zip).
 
-- 2026-10-27: M12-C07 (review-fixes): made shallow simulated water visible from projector distance by lowering the display threshold to 1 mm, increasing minimum water opacity, and updating the depth legend. This changes display only; solver state and SI units are unchanged.
+- 2026-10-27: M12-C07 (review-fixes): lowered the water display threshold to 1 mm — reverted 2026-10-29: it tinted every rain-wetted slope and hid the rivers (see TEST_RESULTS).
 
 - 2026-10-27: M12-C08 (review-fixes): show a clear low-frame-rate warning in the status bar with a direct suggestion to lower render quality for projector lessons.
 

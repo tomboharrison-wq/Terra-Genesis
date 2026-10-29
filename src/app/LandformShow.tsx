@@ -158,7 +158,7 @@ export function LandformShow() {
           <div className="lf-clock" aria-live="off">
             <b>Approx. year {fmtYears(yearsAt(f.id, t))}</b>
             <span>
-              teaching time-lapse {speed}× · ≈ {fmtYears(yearsAt(f.id, 1))} in {Math.round(f.durationS / speed)} s
+              teaching time-lapse {speed}× · ≈ {fmtYears(yearsAt(f.id, 1))} years in {Math.round(f.durationS / speed)} s
             </span>
             <small>{TIMESCALES[f.id]?.note}</small>
           </div>

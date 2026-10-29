@@ -219,7 +219,7 @@ input[type='range'] {
   color: var(--text);
 }
 .perf-warning {
-  color: var(--accent-warm, #f0bd75);
+  color: var(--scouts-orange);
 }
 
 /* Tool rail */

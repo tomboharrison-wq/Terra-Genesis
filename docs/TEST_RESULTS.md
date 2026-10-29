@@ -1,5 +1,10 @@
 # Test results (latest first)
 
+## 2026-10-29 Codex review-fixes (merged d89f12a) re-verified + water display reverted
+- Codex's own run: npm ci, typecheck, 262 tests, build PASS; e2e and gpu-check not run there (no Chromium).
+- Re-run here on d89f12a: e2e 56/56 PASS, gpu-check 12/12 PASS. `npm audit` (4: vite dev server, vitest/tinypool, launch-editor) affects dev tooling only, mostly Windows; nothing in the shipped bundle.
+- Side-by-side render, same world + same rain (15 min, 3 h): the 1 mm display threshold + 0.24 minimum opacity tinted every rain-wetted slope (mm-thick sheet flow), hazing the whole map and hiding rivers; depth map turned almost entirely pale blue. Reverted to the 1 cm / 5 mm thresholds. Restored "years" in the Landform Show clock; low-fps warning uses Scouts orange.
+
 ## 2026-10-27 Mac desktop app (desktop/)
 - Built at 721bf80: Terra-Genesis-mac-apple-silicon.zip (130 MB) and -intel.zip (135 MB). Info.plist (name, org.terragenesis.app, 1.0.0, education), custom icon in bundle, Mach-O arm64/x64, app.asar web/ identical to dist/, ad-hoc signature present, zip keeps 14 framework symlinks + exec bits.
 - Wrapper smoke test (Linux Electron 44.7.0 under Xvfb, same main.cjs + app:// protocol): app loads, Help version 721bf80, GPU water backend, 256-cell world rendered, no errors. NOT run on a real Mac here (Gatekeeper first-open steps in HOW-TO-INSTALL.txt unverified).
@@ -178,35 +183,3 @@
 
 ## 2026-10-22 M00-C01
 - npm run typecheck PASS · npm test PASS (1) · npm run build PASS
-
-## 2026-10-27 review-fixes M12-C07
-- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
-- Manual code check: shader thresholds and depth legend agree at 1 mm; runtime projector verification remains required.
-
-## 2026-10-27 review-fixes M12-C08
-- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
-- Manual code check: warning is conditional on measured FPS below 25 and points to the existing Quality control.
-
-## 2026-10-27 review-fixes M12-C09
-- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
-- Manual code check: Landform Show wording now says approximate/teaching timescale; Electron rejects non-HTTPS external links and validates packaged asset paths/extensions.
-
-## 2026-10-27 review-fixes M12-C10
-- `npm run typecheck`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm test`: NOT RUN — Node/npm unavailable in the review environment.
-- `npm run build`: NOT RUN — Node/npm unavailable in the review environment.
-- Manual code check: CPU fallback wording is explicit in the visible time bar.
-
-## 2026-10-27 review-fixes verification
-- `npm ci`: PASS (Node 22.14.0 temporary runtime; npm reported 4 audit vulnerabilities: 1 moderate, 1 high, 2 critical).
-- `npm run typecheck`: PASS.
-- `npm test`: PASS — 47 files, 262 tests.
-- `npm run build`: PASS — Vite production build completed; bundle-size warning remains (main JS ~1.24 MB minified).
-- `npm run e2e`: BLOCKED — Chromium executable missing at `/opt/pw-browsers/chromium`.
-- `npm run gpu-check`: BLOCKED — Chromium executable missing at `/opt/pw-browsers/chromium`.

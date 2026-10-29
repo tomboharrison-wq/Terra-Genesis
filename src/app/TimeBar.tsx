@@ -124,7 +124,7 @@ export function TimeBar() {
       {view === 'depth' && (
         <div className="legend" aria-label="Water depth legend">
           <i className="ramp depth" />
-          <span>1 mm</span>
+          <span>1 cm</span>
           <span>30 cm</span>
           <span>10 m</span>
         </div>
