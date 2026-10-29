@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-29 M13 geological time + lessons (088edbe)
+- npm test 277 PASS (+ landscape model: analytic stream-power steady state within 2 %, granite ≈ 10× mudstone relief, stability at 1 Myr steps, volume conservation, lake infill below spill, creep/cliff limits, critical slope angles; meanders: bends grow and move downstream, neck cut-offs, carve volume conservation; lessons: waterfall retreats > 1 km and a gorge > 40 m deep is measured, V-valley deepens with alternating spurs, meanders → oxbow lake → levees > 0.3 m and floodplain build-up). e2e 60/60 PASS (+ geological time in a worker with exact replay; waterfall lesson; classroom mode; meander lesson by teacher link to the oxbow stage). gpu-check 12/12.
+- Found by testing: 5,000-yr steps smeared a 60 m waterfall away (now ≤ 2 cells of knickpoint travel per step); sediment piling on one cell of a full sea fed back into bank erosion (now goes offshore); an oxbow reaching a coast with its bed below sea level drained to the sea (lesson floodplain raised); levees could not keep up with 1.5 m/yr migration (0.6 m/yr). The "Play advances" e2e check failed once (48 s of 60) while heavy tests ran alongside — it now waits up to 30 s for a simulated minute.
+
 ## 2026-10-29 Codex review-fixes (merged d89f12a) re-verified + water display reverted
 - Codex's own run: npm ci, typecheck, 262 tests, build PASS; e2e and gpu-check not run there (no Chromium).
 - Re-run here on d89f12a: e2e 56/56 PASS, gpu-check 12/12 PASS. `npm audit` (4: vite dev server, vitest/tinypool, launch-editor) affects dev tooling only, mostly Windows; nothing in the shipped bundle.

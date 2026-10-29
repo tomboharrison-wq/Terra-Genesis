@@ -41,6 +41,6 @@ Known failures / gaps:
 - No isostasy (mountains unlimited). Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
-Last checks: typecheck · npm test 277 · build PASS · e2e: see TEST_RESULTS
+Last checks: typecheck · npm test 277 · build · gpu-check 12/12 · e2e 60/60 — all PASS
 Uncommitted changes: none
 Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md
