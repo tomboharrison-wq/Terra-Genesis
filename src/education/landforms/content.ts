@@ -505,6 +505,7 @@ export const FORMATIONS: Formation[] = [
       'Continued erosion and deposition make the meander grow and migrate; the channel cross-section is asymmetric.',
     ],
     lesson: 'meander',
+    modelLesson: 'meanders-floodplain-model',
   },
   {
     id: 'oxbow-lakes',
@@ -555,6 +556,7 @@ export const FORMATIONS: Formation[] = [
       'The cut-off loop becomes an oxbow lake, which may dry out to a meander scar.',
     ],
     lesson: 'meander',
+    modelLesson: 'meanders-floodplain-model',
   },
   {
     id: 'floodplains-levees',
@@ -604,6 +606,7 @@ export const FORMATIONS: Formation[] = [
       'The coarsest sediment is deposited first, next to the channel; finer silt is carried further.',
       'Repeated floods build natural levees beside the river and a flat flood plain of alluvium.',
     ],
+    modelLesson: 'meanders-floodplain-model',
   },
   // ---------------------------------------------------------------- glaciated uplands (1.12)
   {

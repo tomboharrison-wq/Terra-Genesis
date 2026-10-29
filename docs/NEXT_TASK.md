@@ -1,8 +1,9 @@
 # One next executable task
-M13-C01..C03 done (geological time, geological lessons, classroom mode). Optional next, from docs/BACKLOG.md:
-M13-C04 — floodplain aggradation in geological time (transport-limited deposition, e.g. Yuan et al. 2019 ξ-q
-model) so lowland floodplains, deltas above sea level and alluvial fans form. Read only:
-src/sim/geology/landscapeEvolution.ts, tests/geology.test.ts. Keep the analytic steady-state and conservation tests
-passing; add a test that a river leaving uplands onto a lowland builds a fan / floodplain above its initial surface.
-Then M13-C05 (map-scale meander migration). Real-Mac performance check still outstanding (needs the user's Mac).
+M13-C01..C05 done (geological time; V-valley, waterfall, meanders/oxbow/floodplain lessons; classroom mode).
+Suggested next: M13-C06 — glaciers in geological time (corries, arêtes, U-shaped troughs over 10⁴–10⁵ years with
+measured labels), then coasts in geological time (headlands & bays from alternating rock bands, wave-cut
+platforms). Read only: src/sim/glacier/glacierSim.ts, src/sim/geology/run.ts, src/education/lessons/riverGeologic.ts
+(lesson pattern), tests/geo-lessons.test.ts. Keep the existing glacier tests passing; drive the glacier model on the
+geological clock instead of water time; add a lesson + tests like the river ones.
+Real-Mac performance check still outstanding (needs the user's Mac).
 Done when: tests/typecheck/build/e2e pass, committed + pushed.

@@ -1,6 +1,7 @@
 import type { WorldState } from '../engine/world';
 import { MATERIALS } from '../terrain/materials';
 import { LandscapeEvolution } from '../sim/geology/landscapeEvolution';
+import type { MeanderState } from '../sim/geology/meander';
 
 /**
  * River landforms found in the simulated landscape (for geological-time lessons). Everything is
@@ -239,4 +240,98 @@ export function findSpurs(w: WorldState, p: RiverPath, from: number, to: number,
     if (topCell >= 0 && rise >= minRiseM && !spurs.some((s) => Math.abs(s.k - k) < 3)) spurs.push({ cell: topCell, k, side: o > 0 ? 1 : -1, heightM: rise });
   }
   return spurs;
+}
+
+// ---------------- lowland river (meanders) ----------------
+
+export interface Bend {
+  /** Centreline node at the bend apex. */
+  k: number;
+  /** Dimensionless curvature W/Rc there. */
+  curvature: number;
+  /** Outer bank (river cliff) and inner bank (slip-off slope) points (m). */
+  outer: { xM: number; yM: number };
+  inner: { xM: number; yM: number };
+}
+
+/** Meander bends: apexes of the centreline (local maxima of |curvature| above 0.25, i.e. Rc < 4 widths). */
+export function meanderBends(m: MeanderState): Bend[] {
+  const N = m.xs.length;
+  const W = m.params.widthM;
+  const C = new Float64Array(N);
+  for (let k = 3; k < N - 3; k++) {
+    const t1 = Math.atan2(m.ys[k] - m.ys[k - 3], m.xs[k] - m.xs[k - 3]);
+    const t2 = Math.atan2(m.ys[k + 3] - m.ys[k], m.xs[k + 3] - m.xs[k]);
+    let d = t2 - t1;
+    if (d > Math.PI) d -= 2 * Math.PI;
+    if (d < -Math.PI) d += 2 * Math.PI;
+    const ds = Math.hypot(m.xs[k + 3] - m.xs[k - 3], m.ys[k + 3] - m.ys[k - 3]) / 2 || 1;
+    C[k] = (d / ds) * W;
+  }
+  const out: Bend[] = [];
+  for (let k = 4; k < N - 4; k++) {
+    const c = C[k];
+    if (Math.abs(c) < 0.25 || Math.abs(c) < Math.abs(C[k - 1]) || Math.abs(c) < Math.abs(C[k + 1])) continue;
+    if (out.length && k - out[out.length - 1].k < 6) continue;
+    const tx = m.xs[k + 1] - m.xs[k - 1];
+    const ty = m.ys[k + 1] - m.ys[k - 1];
+    const L = Math.hypot(tx, ty) || 1;
+    const nx = -ty / L;
+    const ny = tx / L; // left normal; c > 0 turns left, so the outside of the bend is on the right
+    const s = Math.sign(c);
+    const d = W * 0.5 + 30;
+    out.push({
+      k,
+      curvature: c,
+      outer: { xM: m.xs[k] - nx * s * d, yM: m.ys[k] - ny * s * d },
+      inner: { xM: m.xs[k] + nx * s * (d + 20), yM: m.ys[k] + ny * s * (d + 20) },
+    });
+  }
+  return out;
+}
+
+const cellAt = (w: WorldState, xM: number, yM: number) => {
+  const x = Math.max(0, Math.min(w.width - 1, Math.round(xM / w.cellSizeM)));
+  const y = Math.max(0, Math.min(w.height - 1, Math.round(yM / w.cellSizeM)));
+  return y * w.width + x;
+};
+export const heightAt = (w: WorldState, xM: number, yM: number) => surf(w, cellAt(w, xM, yM));
+
+/** Bank height above the channel bed (m) at a bank point next to node k. */
+export function bankHeight(w: WorldState, m: MeanderState, k: number, bank: { xM: number; yM: number }): number {
+  return heightAt(w, bank.xM, bank.yM) - heightAt(w, m.xs[k], m.ys[k]);
+}
+
+/**
+ * Levees: the ground beside the channel compared with the floodplain `awayM` further out, on straight
+ * reaches between bends (in bends the inner bank is a low point bar instead), both banks; the median (m).
+ */
+export function leveeHeight(w: WorldState, m: MeanderState, awayM = 700): { heightM: number; at: { xM: number; yM: number } } {
+  const W = m.params.widthM;
+  const mask = new Set(m.mask);
+  const hs: { h: number; at: { xM: number; yM: number } }[] = [];
+  for (let k = 6; k < m.xs.length - 6; k += 3) {
+    const t1 = Math.atan2(m.ys[k] - m.ys[k - 4], m.xs[k] - m.xs[k - 4]);
+    const t2 = Math.atan2(m.ys[k + 4] - m.ys[k], m.xs[k + 4] - m.xs[k]);
+    let dth = Math.abs(t2 - t1);
+    if (dth > Math.PI) dth = 2 * Math.PI - dth;
+    if (dth > 0.15) continue; // a bend
+    const tx = m.xs[k + 1] - m.xs[k - 1];
+    const ty = m.ys[k + 1] - m.ys[k - 1];
+    const L = Math.hypot(tx, ty) || 1;
+    for (const sg of [1, -1]) {
+      const nx = (-ty / L) * sg;
+      const ny = (tx / L) * sg;
+      const near = { xM: m.xs[k] + nx * (W * 0.5 + 25), yM: m.ys[k] + ny * (W * 0.5 + 25) };
+      const far = { xM: m.xs[k] + nx * awayM, yM: m.ys[k] + ny * awayM };
+      if (mask.has(cellAt(w, far.xM, far.yM)) || mask.has(cellAt(w, near.xM, near.yM))) continue;
+      const h = heightAt(w, near.xM, near.yM) - heightAt(w, far.xM, far.yM);
+      if (Math.abs(h) > 8) continue; // a valley side, not floodplain
+      hs.push({ h, at: near });
+    }
+  }
+  if (!hs.length) return { heightM: 0, at: { xM: m.xs[0], yM: m.ys[0] } };
+  hs.sort((p, q) => p.h - q.h);
+  const med = hs[Math.floor(hs.length / 2)];
+  return { heightM: med.h, at: med.at };
 }

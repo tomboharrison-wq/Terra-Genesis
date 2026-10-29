@@ -5,8 +5,10 @@
 | M13-C01 | Geological time: landscape evolution model (stream power, threshold hillslopes, soil, creep, lakes/sea deposition, uplift) in a Web Worker; record & replay; settings + ledger | DONE |
 | M13-C02 | Geological lessons: V-shaped valley + interlocking spurs; waterfall + gorge retreat (measured labels); Landforms "Watch it form" | DONE |
 | M13-C03 | Classroom mode (Performance quality, 128² new worlds, low-fps prompt) | DONE |
-| M13-C04 | Geological time: floodplain aggradation (transport-limited, e.g. Yuan et al. 2019 ξ-q) so lowlands, deltas above sea level and alluvial fans form | TODO |
-| M13-C05 | Map-scale meander migration (Howard & Knutson 1984 centreline model) carving the floodplain; cut-offs → oxbow lakes | TODO |
+| M13-C04 | Floodplain building: overbank deposition with the meandering river (levees, aggradation, backswamps) | DONE (lesson world) |
+| M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | TODO |
+| M13-C05 | Meander migration (Howard & Knutson 1984) carved into the terrain; cut-offs → oxbow lakes; lesson with measured labels | DONE |
+| M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
 | M13-C06 | Glaciers in geological time (corries, troughs over 10⁴–10⁵ yr) and coastal retreat in geological time (headlands & bays) | TODO |
 | M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |

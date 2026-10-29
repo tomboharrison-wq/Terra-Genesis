@@ -67,9 +67,29 @@ export interface GeoStepStats {
   uplifted: number;
   /** Rock and soil moved down over-steep slopes by landslides / rockfall. */
   failed: number;
+  /** Sediment brought onto the map by a river from beyond it (meandering lowland river). */
+  supplied: number;
+  /** Meandering river: bank erosion, point bars and flood (overbank) deposits. */
+  bankEroded: number;
+  pointBars: number;
+  overbank: number;
 }
 
-export const emptyGeoStats = (): GeoStepStats => ({ years: 0, erodedRock: 0, erodedSoil: 0, weathered: 0, depositedLakes: 0, depositedSea: 0, exported: 0, uplifted: 0, failed: 0 });
+export const emptyGeoStats = (): GeoStepStats => ({
+  years: 0,
+  erodedRock: 0,
+  erodedSoil: 0,
+  weathered: 0,
+  depositedLakes: 0,
+  depositedSea: 0,
+  exported: 0,
+  uplifted: 0,
+  failed: 0,
+  supplied: 0,
+  bankEroded: 0,
+  pointBars: 0,
+  overbank: 0,
+});
 
 export function addGeoStats(a: GeoStepStats, b: GeoStepStats): void {
   for (const k of Object.keys(a) as (keyof GeoStepStats)[]) a[k] += b[k];
@@ -111,6 +131,8 @@ export class LandscapeEvolution {
   private readonly done: Uint8Array;
   private readonly qs: Float64Array;
   private readonly flux: Float64Array;
+  /** Cells whose channel another model controls (the meandering river): no stream-power incision there. */
+  fixed: Uint8Array | null = null;
   /** tan(critical slope) per material id. */
   private readonly tanCrit = MATERIALS.map((m) => Math.tan((criticalSlopeDeg(m.erodibility, m.cliffDeg) * Math.PI) / 180));
 
@@ -317,7 +339,7 @@ export class LandscapeEvolution {
       }
       // Rivers cut down to the water level they flow into (sea level, a lake surface), never below.
       const zr = lake[r] > z[r] ? Math.max(zNew[r], lake[r]) : zNew[r];
-      if (z[i] <= zr || lake[i] > z[i]) {
+      if (z[i] <= zr || lake[i] > z[i] || this.fixed?.[i]) {
         zNew[i] = z[i]; // hollow or flat below its outlet: no incision (deposition below)
         continue;
       }
@@ -348,7 +370,7 @@ export class LandscapeEvolution {
       const zi = bed[i] + soil[i];
       if (this.isSea(i)) {
         qs[i] = 0;
-        this.depositOffshore(i, v, st);
+        this.depositAtSea(i, v, st);
         continue;
       }
       const room = lake[i] > z[i] ? (lake[i] - zi) * A : 0; // a hollow: fill up to the spill level
@@ -432,7 +454,7 @@ export class LandscapeEvolution {
   }
 
   /** Sediment arriving at sea cell i settles to SEA_FILL_DEPTH_M below sea level, the rest moves to deeper water. */
-  private depositOffshore(start: number, v: number, st: GeoStepStats): void {
+  depositAtSea(start: number, v: number, st: GeoStepStats): void {
     const w = this.w;
     const W = w.width;
     const H = w.height;
@@ -482,9 +504,9 @@ export class LandscapeEvolution {
       if (next < 0) break;
       i = next;
     }
-    // A closed sea pit: the rest settles here.
-    soil[i] += v / A;
-    st.depositedSea += v;
+    // The nearby sea is full to 1 m below sea level: the rest is carried offshore, off the map
+    // (piling it on one cell would build an island the river then cuts away again).
+    st.exported += v;
   }
 
   /** Linear soil creep q = −D∇z between 4-neighbours, explicit with sub-steps, never moving more soil than a cell has. */

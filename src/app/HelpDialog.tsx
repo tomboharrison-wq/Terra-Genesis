@@ -58,7 +58,8 @@ export function HelpDialog() {
         <li>
           <b>Geological time</b> (time bar → Geological time): thousands to millions of years. A separate long-timescale landscape model — rivers cut down by
           stream power, soil forms and creeps, over-steep slopes fail, sediment fills lakes and the sea, optional uplift — run in the background; rivers and
-          lakes are drawn from the drainage. Replay goes back to any recorded moment. No floodplains, glaciers, waves, lava or plants in geological time.
+          lakes are drawn from the drainage. Replay goes back to any recorded moment. The lowland-river lesson adds a meandering river (bank erosion and
+          point bars, neck cut-offs → oxbow lakes, flood deposits → levees and floodplain). No glaciers, waves, lava or plants in geological time.
         </li>
         <li>
           <b>Coasts, climate, snow, glaciers, plants, plates, lava and ash</b> run on their own clocks with stated time compression.

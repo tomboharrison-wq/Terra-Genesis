@@ -25,6 +25,8 @@ import { droughtSummary, floodSummary, surgeHeight, type DroughtSummary, type Fl
 import { impact, type ImpactOptions, type ImpactResult } from '../sim/events/meteor';
 import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
 import { LandscapeEvolution, addGeoStats, defaultGeoParams, emptyGeoStats, type GeoParams, type GeoStepStats } from '../sim/geology/landscapeEvolution';
+import { carve, cloneMeander, type MeanderState } from '../sim/geology/meander';
+import { runGeologic } from '../sim/geology/run';
 
 /** Result of geological time computed elsewhere (a Web Worker) for applyGeologic. */
 export interface GeoResult {
@@ -34,6 +36,7 @@ export interface GeoResult {
   area: Float32Array;
   lake: Float32Array;
   stats: GeoStepStats;
+  meander: MeanderState | null;
 }
 
 /** Longest single geological step (years): longer requests are split. */
@@ -109,7 +112,15 @@ export class Engine {
   /** Volumes moved in geological time since this world was loaded. */
   geoTotals: GeoStepStats = emptyGeoStats();
   /** Drainage area (m²) and lake level (m) from the last geological step — rivers and lakes are drawn from these. Null while water time runs. */
-  geoRivers: { area: Float32Array; lake: Float32Array } | null = null;
+  geoRivers: { area: Float32Array; lake: Float32Array; channel: Uint8Array | null } | null = null;
+  /** The meandering lowland river (geological time), if this world has one (kept in world.meta, saved). */
+  get geoMeander(): MeanderState | null {
+    return this.world.meta.meander ?? null;
+  }
+  set geoMeander(m: MeanderState | null) {
+    if (m) this.world.meta.meander = m;
+    else delete this.world.meta.meander;
+  }
   /** Increments on terrain edits by tools / undo (a geological result computed from older terrain is then discarded). */
   editRevision = 0;
   /** Increments whenever water state on the CPU mirror or GPU changes (renderer polls it). */
@@ -212,7 +223,7 @@ export class Engine {
   /** Run `years` of geological time on this thread (tests, fallback without Web Workers). */
   geoStep(years: number): GeoStepStats {
     this.beginGeologic();
-    const tot = this.geo.run(years, this.geoParams, GEO_MAX_STEP_YEARS);
+    const tot = runGeologic(this.geo, years, this.geoParams, GEO_MAX_STEP_YEARS, this.geoMeander);
     this.geo.route();
     this.afterGeologic(tot, Float32Array.from(this.geo.area), Float32Array.from(this.geo.lake));
     return tot;
@@ -224,26 +235,46 @@ export class Engine {
     w.bedrockElevationM.set(r.bed);
     w.looseSedimentThicknessM.set(r.soil);
     w.materialId.set(r.material);
+    if (r.meander) this.geoMeander = r.meander;
     this.afterGeologic(r.stats, r.area, r.lake);
+  }
+
+  /** Give this world a meandering lowland river (geological time), carved into the terrain at once. */
+  setMeander(m: MeanderState | null): void {
+    this.beginGeologic();
+    this.geoMeander = m;
+    if (m) carve(this.world, m, 0);
+    computeSurface(this.world, this.surface);
+    this.groundDirty = true;
+    this.showGeoRivers();
+    this.emit({ type: 'water-params-changed' });
+  }
+
+  private channelMask(): Uint8Array | null {
+    if (!this.geoMeander) return null;
+    const c = new Uint8Array(this.world.width * this.world.height);
+    for (const i of this.geoMeander.mask) c[i] = 1;
+    return c;
   }
 
   /** Draw rivers and lakes from the current terrain's drainage (geological time display). */
   showGeoRivers(): void {
     this.geo.route();
-    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake) };
+    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake), channel: this.channelMask() };
     this.markRenderDirtyAll();
   }
 
   /** Put the terrain back to a recorded geological frame (record and replay). */
-  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array }): void {
+  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null }): void {
     this.beginGeologic();
     const w = this.world;
     w.bedrockElevationM.set(f.bed);
     w.looseSedimentThicknessM.set(f.soil);
     w.materialId.set(f.material);
     w.meta.geologicYears = f.years;
+    this.geoMeander = f.meander ? cloneMeander(f.meander) : null;
     this.geo.route();
-    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake) };
+    this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake), channel: this.channelMask() };
     computeSurface(w, this.surface);
     this.groundDirty = true;
     this.water.refreshSea();
@@ -255,7 +286,7 @@ export class Engine {
     const w = this.world;
     w.meta.geologicYears = (w.meta.geologicYears ?? 0) + st.years;
     addGeoStats(this.geoTotals, st);
-    this.geoRivers = { area, lake };
+    this.geoRivers = { area, lake, channel: this.channelMask() };
     computeSurface(w, this.surface);
     this.groundDirty = true;
     this.water.refreshSea();

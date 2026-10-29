@@ -5,10 +5,10 @@ import { barLagoon, caveArchStack, spit } from './coastal';
 import { volcanoTypes } from './volcanoes';
 import { corrieArete, glacialTrough } from './glacial';
 import { foldMountains } from './tectonics';
-import { vValleySpurs, waterfallGorgeModel } from './riverGeologic';
+import { meandersFloodplain, vValleySpurs, waterfallGorgeModel } from './riverGeologic';
 
 /** All lessons, in teaching order within each module. */
-export const LESSONS: Lesson[] = [drainageBasin, vValleySpurs, waterfall, waterfallGorgeModel, meander, caveArchStack, spit, barLagoon, volcanoTypes, glacialTrough, corrieArete, foldMountains];
+export const LESSONS: Lesson[] = [drainageBasin, vValleySpurs, waterfall, waterfallGorgeModel, meander, meandersFloodplain, caveArchStack, spit, barLagoon, volcanoTypes, glacialTrough, corrieArete, foldMountains];
 
 export function lessonById(id: string): Lesson | undefined {
   return LESSONS.find((l) => l.id === id);

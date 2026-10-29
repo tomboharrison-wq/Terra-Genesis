@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Engine } from '../src/engine/engine';
-import { vValleySpurs, waterfallGorgeModel } from '../src/education/lessons/riverGeologic';
+import { meandersFloodplain, vValleySpurs, waterfallGorgeModel } from '../src/education/lessons/riverGeologic';
 import type { Lesson, LessonLabel } from '../src/education/types';
 import { mainRiver, findWaterfall } from '../src/education/geoFeatures';
 
@@ -69,4 +69,25 @@ describe('geological-time lessons: landforms that really form in the model', () 
       }
     }
   });
+});
+
+describe('geological-time lesson: lowland river', () => {
+  it('meanders form, a neck is cut off into an oxbow lake, floods build levees and the floodplain', async () => {
+    const lesson = meandersFloodplain;
+    const engine = new Engine(lesson.build!());
+    const labels: LessonLabel[][] = [];
+    for (const st of lesson.stages) {
+      const ctx = { engine, setLabels: () => {}, geo: (y: number) => void engine.geoStep(y) };
+      await st.enter?.(ctx);
+      labels.push(st.labels ? st.labels(ctx) : []);
+    }
+    const sin = (ls: LessonLabel[]) => num(/River: ([\d.]+)× longer/, ls);
+    expect(sin(labels[0])).toBeLessThan(1.1);
+    expect(sin(labels[1])).toBeGreaterThan(1.2);
+    expect(labels[1].some((l) => /^River cliff: outer bank [\d.]+ m high/.test(l.text))).toBe(true);
+    expect(labels[1].some((l) => l.text.startsWith('Slip-off slope'))).toBe(true);
+    expect(labels[2].some((l) => /^Oxbow lake: cut off [\d,]+ years ago, [\d.]+ m deep/.test(l.text))).toBe(true);
+    expect(num(/Levees: river banks ([\d.]+) m higher/, labels[3])).toBeGreaterThan(0.3);
+    expect(num(/built the floodplain up ([\d.]+) m/, labels[3])).toBeGreaterThan(0.2);
+  }, 120000);
 });

@@ -84,6 +84,8 @@ export interface WorldMeta {
   createdAtIso: string;
   /** Years of geological time run on this world (sim/geology); absent = none. */
   geologicYears?: number;
+  /** A meandering lowland river (sim/geology/meander.ts MeanderState; plain data, saved with the world). */
+  meander?: import('../sim/geology/meander').MeanderState;
 }
 
 /**
@@ -314,7 +316,7 @@ export function cloneWorld(w: WorldState): WorldState {
     vegetation: { ...w.vegetation },
     tectonics: { ...w.tectonics, plates: w.tectonics.plates.map((q) => ({ ...q })) },
     lava: { ...w.lava, vents: w.lava.vents.map((v) => ({ ...v })) },
-    meta: { ...w.meta },
+    meta: structuredClone(w.meta),
   };
 }
 

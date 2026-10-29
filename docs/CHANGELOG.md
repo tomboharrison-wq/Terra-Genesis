@@ -225,3 +225,9 @@
 - New lessons using it: **V-shaped valleys and interlocking spurs** (the river cuts down 100+ m; valley depth, side slope, floor width and spurs measured on the landscape) and **Waterfall and gorge: watch it retreat** (a waterfall forms on a hard dolerite band, retreats about 2.5 km upstream in 200,000 years and leaves a gorge 100+ m deep). Landforms → "Watch it form (landscape model)".
 - **Classroom** button: Performance quality and new worlds at 128² (about 8× faster water); a "Slow? Turn on Classroom mode" button appears when the frame rate drops.
 - Fixed: Codex's lower water display threshold made every rain-wetted slope look flooded — reverted.
+
+## M13-C04/C05 — Lowland rivers: meanders, oxbow lakes, floodplains and levees (2026-10-29)
+- New lesson **Meanders, oxbow lakes, floodplains and levees (geological time)**: a 50 m-wide river on a 2.5 km floodplain. Over about 15,000 simulated years its bends grow and move downstream (river cliffs on the outer banks, slip-off slopes / point bars on the inner banks), a neck is cut through and the old loop is left as an oxbow lake, and floods build levees, raise the floodplain and leave backswamps. Every label is measured on the landscape (sinuosity, bank height, oxbow age and depth, levee height, floodplain build-up).
+- Landforms → meanders, oxbow lakes and floodplains & levees now have "Watch it form (landscape model)".
+- Geological time draws shallow hollows as wet ground and only deeper ones as lakes.
+- Fixed in the landscape model: sediment reaching a full sea now goes offshore instead of piling up on one cell.

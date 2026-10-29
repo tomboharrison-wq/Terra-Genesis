@@ -73,3 +73,52 @@ export function buildUplandWorld(seed = 11): WorldState {
   refreshAllExposed(w);
   return w;
 }
+
+/**
+ * Lowland world: a floodplain 4.8 km long and ~2.4 km wide of thick alluvium (8 m of loose sediment
+ * over mudstone), gradient 1 : 1,250 down to the sea on the west, between low sandstone hills. A large
+ * river enters at the east edge (its catchment lies beyond the map). Returns the world and an initial,
+ * gently winding centreline (meanders grow from such irregularities).
+ */
+export function buildLowlandWorld(seed = 21): { world: WorldState; xs: number[]; ys: number[]; zIn: number; zOut: number } {
+  const W = 240;
+  const H = 160;
+  const cs = 20;
+  const w = createWorld({ width: W, height: H, cellSizeM: cs, seed, meta: { name: 'Lesson: meanders, oxbow lakes, floodplain and levees', presetId: 'scenario-lowland', reliefM: 80 } });
+  w.seaLevelM = 0;
+  w.water.boundary = 'closed';
+  const n = new Noise2D(seed);
+  const sea = 12;
+  const zOut = 4; // the channel bed (3 m down) stays above sea level until the mouth
+  const zIn = zOut + (W - 1 - sea) * cs * 0.0008;
+  const fp = (x: number) => zOut + Math.max(0, x - sea) * cs * 0.0008;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const dy = Math.abs(y - H / 2) / (H / 2); // 0 at the valley axis, 1 at the map edge
+      const hills = 60 * Math.max(0, (dy - 0.75) / 0.25) ** 1.5 * (0.8 + 0.4 * n.fbm(x * 0.03, y * 0.03, 3));
+      const ground = fp(x) + 0.3 * n.fbm(x * 0.08, y * 0.08, 3) + hills;
+      const z = x < sea ? -15 + (x / sea) * 10 : ground;
+      const alluvium = x < sea ? 0 : dy < 0.78 ? 8 : 0.3;
+      w.bedrockElevationM[i] = z - alluvium;
+      w.looseSedimentThicknessM[i] = alluvium;
+      const ob = i * STRATA_BOUNDS;
+      const om = i * STRATA_LAYERS;
+      w.strataBoundsM[ob] = fp(x) - 4;
+      w.strataBoundsM[ob + 1] = -1e9;
+      w.strataBoundsM[ob + 2] = -1e9;
+      w.strataMaterial[om] = SANDSTONE;
+      w.strataMaterial[om + 1] = MUDSTONE;
+      w.strataMaterial[om + 2] = MUDSTONE;
+      w.strataMaterial[om + 3] = MUDSTONE;
+    }
+  refreshAllExposed(w);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  const y0 = (H / 2) * cs;
+  for (let x = (W - 1) * cs; x >= sea * cs; x -= 20) {
+    xs.push(x);
+    ys.push(y0 + 25 * Math.sin((x * 2 * Math.PI) / 700) + 20 * n.fbm(x * 0.003, 3.3, 2)); // gently winding (amplitude ~ half a channel width)
+  }
+  return { world: w, xs, ys, zIn, zOut };
+}

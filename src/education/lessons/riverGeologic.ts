@@ -1,6 +1,7 @@
 import type { Lesson, LessonLabel, StageContext } from '../types';
-import { buildUplandWorld, buildWaterfallWorld } from '../scenarioWorlds';
-import { cellXY, crossSection, findSpurs, findWaterfall, mainRiver, type RiverPath } from '../geoFeatures';
+import { buildLowlandWorld, buildUplandWorld, buildWaterfallWorld } from '../scenarioWorlds';
+import { bankHeight, cellXY, crossSection, findSpurs, findWaterfall, leveeHeight, mainRiver, meanderBends, type RiverPath } from '../geoFeatures';
+import { channelDistance, createMeander, floodplainZ, sinuosity } from '../../sim/geology/meander';
 import { computeSurface, type WorldState } from '../../engine/world';
 
 /**
@@ -10,6 +11,7 @@ import { computeSurface, type WorldState } from '../../engine/world';
 
 const fmtKm = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 10) * 10} m`);
 const at = (w: WorldState, i: number) => cellXY(w, i);
+const surfAt = (w: WorldState, i: number) => w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
 
 function initialSurface(build: () => WorldState): Float32Array {
   const w = build();
@@ -228,5 +230,183 @@ export const vValleySpurs: Lesson = {
   misconception: {
     wrong: 'Valleys are V-shaped because the river is as wide as the valley.',
     right: 'The river only cuts the bottom of the V. The sides are shaped by weathering and mass movement bringing material down to the river, which carries it away.',
+  },
+};
+
+// ---------------- meanders, oxbow lakes, floodplain and levees ----------------
+
+let lowland: ReturnType<typeof buildLowlandWorld> | null = null;
+const lowlandStart = () => (lowland ??= buildLowlandWorld());
+
+function lowlandLabels(ctx: StageContext, show: { bends?: boolean; oxbow?: boolean; levee?: boolean }): LessonLabel[] {
+  const w = ctx.engine.world;
+  const m = ctx.engine.geoMeander;
+  if (!m) return [];
+  const out: LessonLabel[] = [];
+  const mid = Math.floor(m.xs.length * 0.5);
+  const sin = sinuosity(m);
+  out.push({ text: `River: ${sin.toFixed(1)}× longer than its valley${sin > 1.5 ? ' (meandering)' : ''}`, xM: m.xs[mid], yM: m.ys[mid] });
+  // Floodplain width across the valley at the middle of the map (thick alluvium below flood level).
+  const W = w.width;
+  const xMid = Math.floor(W / 2);
+  let cells = 0;
+  for (let y = 0; y < w.height; y++) {
+    const i = y * W + xMid;
+    if (w.looseSedimentThicknessM[i] >= 3 && surfAt(w, i) < floodplainZ(m, xMid * w.cellSizeM, y * w.cellSizeM) + m.params.floodHeightM + 1) cells++;
+  }
+  const fpLabelY = (w.height * 0.27) * w.cellSizeM;
+  out.push({ text: `Floodplain: ${fmtKm(cells * w.cellSizeM)} wide, flat land built of river sediment`, xM: xMid * w.cellSizeM, yM: fpLabelY });
+  if (show.bends) {
+    const bends = meanderBends(m).filter((b) => b.k > m.xs.length * 0.15 && b.k < m.xs.length * 0.85);
+    const b = bends.sort((p, q) => Math.abs(q.curvature) - Math.abs(p.curvature))[0];
+    if (b) {
+      out.push({ text: `River cliff: outer bank ${bankHeight(w, m, b.k, b.outer).toFixed(1)} m high — erosion`, ...b.outer });
+      out.push({ text: 'Slip-off slope (point bar): gentle inner bank — deposition', ...b.inner });
+    }
+  }
+  if (show.oxbow) {
+    const lake = ctx.engine.geoRivers?.lake;
+    for (let q = m.oxbows.length - 1; q >= 0; q--) {
+      const o = m.oxbows[q];
+      const k = Math.floor(o.xs.length / 2);
+      const i = Math.round(o.ys[k] / w.cellSizeM) * W + Math.round(o.xs[k] / w.cellSizeM);
+      const water = lake ? lake[i] - surfAt(w, i) : 0;
+      const ago = Math.round((m.years - o.year) / 10) * 10;
+      const depth = floodplainZ(m, o.xs[k], o.ys[k]) - surfAt(w, i);
+      if (water <= 0.3 && depth > 1 && q > 0) continue; // rejoined by the river: look at an older loop
+      out.push({
+        text:
+          water > 0.3
+            ? `Oxbow lake: cut off ${ago.toLocaleString()} years ago, ${water.toFixed(1)} m deep`
+            : depth > 1
+              ? `Abandoned meander, cut off ${ago.toLocaleString()} years ago (joined to the river again)`
+              : `Meander scar: an old oxbow lake filled in with flood mud (cut off ${ago.toLocaleString()} years ago)`,
+        xM: o.xs[k],
+        yM: o.ys[k],
+      });
+      break;
+    }
+    if (!m.oxbows.length) out.push({ text: 'No cut-off yet: watch the narrowest neck', xM: m.xs[mid], yM: m.ys[mid] });
+  }
+  if (show.levee) {
+    const lv = leveeHeight(w, m, 700);
+    out.push({ text: `Levees: river banks ${lv.heightM.toFixed(1)} m higher than the floodplain 700 m away (typical straight reach)`, ...lv.at });
+    // Floodplain built up by floods since Year 0, away from the channel and old loops.
+    const s0 = lowlandStart().world.looseSedimentThicknessM;
+    const dist = channelDistance(w, m.xs, m.ys, 60);
+    let sum = 0;
+    let n = 0;
+    for (let i = 0; i < dist.length; i++) if (dist[i] > 150 && dist[i] < 600 && s0[i] >= 3) {
+      sum += w.looseSedimentThicknessM[i] - s0[i];
+      n++;
+    }
+    if (n) out.push({ text: `Floods have built the floodplain up ${(sum / n).toFixed(2)} m since Year 0`, xM: xMid * w.cellSizeM, yM: w.height * 0.73 * w.cellSizeM });
+    // Backswamp: the largest stretch of water behind the levees that is not an old meander loop.
+    const lake = ctx.engine.geoRivers?.lake;
+    if (lake) {
+      const near = new Uint8Array(dist.length);
+      for (const o of m.oxbows) {
+        const od = channelDistance(w, o.xs, o.ys, 60, false);
+        for (let i = 0; i < od.length; i++) if (od[i] <= 60) near[i] = 1;
+      }
+      const seen = new Uint8Array(dist.length);
+      let best = { cells: 0, deep: -1, depth: 0 };
+      for (let i0 = 0; i0 < dist.length; i0++) {
+        if (seen[i0] || near[i0] || dist[i0] < 60 || lake[i0] - surfAt(w, i0) <= 0.5) continue;
+        const stack = [i0];
+        seen[i0] = 1;
+        let cells = 0;
+        let deep = i0;
+        while (stack.length) {
+          const i = stack.pop()!;
+          cells++;
+          if (lake[i] - surfAt(w, i) > lake[deep] - surfAt(w, deep)) deep = i;
+          const x = i % W;
+          const y = (i / W) | 0;
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const xn = x + dx;
+            const yn = y + dy;
+            if (xn < 0 || yn < 0 || xn >= W || yn >= w.height) continue;
+            const j = yn * W + xn;
+            if (!seen[j] && !near[j] && dist[j] >= 60 && lake[j] - surfAt(w, j) > 0.5) {
+              seen[j] = 1;
+              stack.push(j);
+            }
+          }
+        }
+        if (cells > best.cells) best = { cells, deep, depth: lake[deep] - surfAt(w, deep) };
+      }
+      if (best.cells * w.cellSizeM ** 2 > 2e4)
+        out.push({ text: `Backswamp: low, wet ground behind the levees, flooded up to ${best.depth.toFixed(1)} m`, ...at(w, best.deep) });
+    }
+  }
+  return out;
+}
+
+export const meandersFloodplain: Lesson = {
+  id: 'meanders-floodplain-model',
+  module: 'rivers',
+  title: 'Meanders, oxbow lakes, floodplains and levees (geological time)',
+  kind: 'emergent',
+  geological: true,
+  objective:
+    'Explain how lateral erosion and deposition make meanders migrate, how a neck cut-off leaves an oxbow lake, and how floods build a floodplain and levees — watched over about 15,000 years of a simulated lowland river.',
+  build: () => buildLowlandWorld().world, // a fresh copy; the river centreline is added in stage 1
+  stages: [
+    {
+      title: 'A lowland river on its floodplain',
+      ks3: 'Near the sea the land is low and flat. A big river winds gently across a wide, flat floodplain made of mud, sand and gravel that the river has dropped. Low hills form the valley sides.',
+      gcse: 'The lower course: a gentle gradient (1 : 1,250), a large discharge from the whole basin upstream, and a channel 50 m wide and 3 m deep cut into thick alluvium. Energy now goes into lateral erosion and transport rather than vertical erosion. The river’s course is measured each stage: length along the channel ÷ length of the valley (sinuosity).',
+      enter: (ctx) => {
+        const s = lowlandStart();
+        ctx.engine.setMeander(createMeander(s.xs, s.ys, s.zIn, s.zOut));
+      },
+      camera: 'top',
+      overlay: 'none',
+      labels: (ctx) => lowlandLabels(ctx, {}),
+    },
+    {
+      title: 'Meanders grow: erosion outside, deposition inside',
+      ks3: 'Water flows fastest on the outside of each bend, wearing away the bank into a steep river cliff. On the inside the water is slow and drops sand and gravel, building a gentle slip-off slope. The bends grow bigger and move downstream. (6,000 years.)',
+      gcse: 'In a bend, the thalweg (fastest flow) swings to the outer bank and helicoidal flow carries sediment from the outer bank to the inner bank. Lateral erosion by hydraulic action and abrasion undercuts the outer bank (river cliff); deposition on the inner bank forms a point bar (slip-off slope). The model moves each bend by bank erosion that depends on its curvature and on the bends upstream (Howard & Knutson 1984), so bends grow and migrate downstream.',
+      enter: (ctx) => ctx.geo(6000),
+      camera: 'top',
+      overlay: 'none',
+      predict: 'The outsides of two bends are getting closer. What could happen next?',
+      labels: (ctx) => lowlandLabels(ctx, { bends: true }),
+    },
+    {
+      title: 'The neck is cut through: an oxbow lake',
+      ks3: 'Two bends erode towards each other until only a narrow neck of land is left. In a flood the river cuts straight through the neck, taking the shorter route. Deposition seals off the old bend, which is left as a curved lake: an oxbow lake. (The model runs until a neck is cut through.)',
+      gcse: 'Continued lateral erosion on the outer banks narrows the meander neck. During high discharge the river breaches the neck (a neck cut-off) and follows the steeper, shorter course; deposition seals the ends of the abandoned meander, forming an oxbow lake. In the model a cut-off happens when two parts of the channel come within 1.5 channel widths; the abandoned loop stays lower than the floodplain, so it holds water.',
+      enter: async (ctx) => {
+        // Run on until a neck is cut through (at most 8,000 years), then 200 years more.
+        const c0 = ctx.engine.geoMeander?.cutoffs ?? 0;
+        for (let t = 0; t < 8000 && (ctx.engine.geoMeander?.cutoffs ?? 0) === c0; t += 1000) await ctx.geo(1000);
+        await ctx.geo(200);
+      },
+      camera: 'top',
+      overlay: 'none',
+      labels: (ctx) => lowlandLabels(ctx, { bends: true, oxbow: true }),
+    },
+    {
+      title: 'Floods build the floodplain and levees',
+      ks3: 'When the river floods, water spreads over the floodplain and slows down. The heaviest sediment drops first, right next to the river, building raised banks called levees. Finer mud settles further away, slowly raising the whole floodplain. Old oxbow lakes slowly fill with mud. (5,000 more years.)',
+      gcse: 'In flood, water leaves the channel, loses velocity and deposits its load: coarse sediment close to the channel builds levees, finer silt and clay settles across the floodplain, so it aggrades over time; low ground behind the levees stays wet (backswamps). Lateral migration of meanders also reworks the floodplain, leaving point-bar deposits and meander scars. In the model flood deposits thin out away from the channel (exponential decay, as measured on real floodplains) up to the flood level.',
+      enter: (ctx) => ctx.geo(5000),
+      camera: 'oblique',
+      overlay: 'none',
+      labels: (ctx) => lowlandLabels(ctx, { oxbow: true, levee: true }),
+    },
+  ],
+  exam: {
+    question: 'Explain the formation of an oxbow lake. (4 marks)',
+    marks: 4,
+    model:
+      'Lateral erosion by hydraulic action and abrasion is greatest on the outside of a meander, where velocity is highest, while deposition occurs on the inside (1). Erosion on the outer banks of two bends narrows the neck of the meander (1). During a flood the river cuts through the neck, taking the shortest route (1). Deposition seals off the old meander, leaving it as an oxbow lake, which may later fill in to become a meander scar (1).',
+  },
+  misconception: {
+    wrong: 'Meanders stay in the same place.',
+    right: 'Meanders migrate across and down the floodplain as the outer banks erode and the inner banks build out — that is how cut-offs and oxbow lakes happen, and why old meander scars are found all over floodplains.',
   },
 };

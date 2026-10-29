@@ -24,8 +24,9 @@ Live site: https://terra-genesis.netlify.app — open **? → Help**; the versio
 - In the simulator, **⏩ Time-lapse** (time bar) runs everything as fast as possible with landscape processes ×1000.
 - **Geological time** (time bar switch): 1,000–100,000 years per second of river erosion, soil creep, slope failure and
   uplift (a long-timescale landscape model); rivers and lakes are drawn from the drainage; drag **Replay** to go back to
-  any moment. Lessons **V-shaped valleys and interlocking spurs** and **Waterfall and gorge: watch it retreat** run it
-  stage by stage with labels measured on the landscape (also from Landforms → "Watch it form").
+  any moment. Lessons **V-shaped valleys and interlocking spurs**, **Waterfall and gorge: watch it retreat** and
+  **Meanders, oxbow lakes, floodplains and levees** run it stage by stage with labels measured on the landscape (also
+  from Landforms → "Watch it form").
 - **Classroom** (top bar): Performance quality and new worlds at 128² (≈ 8× faster water) for school laptops.
 - **Lessons** → pick one of 11 lessons in 5 modules (rivers, coasts, volcanoes, glaciation, tectonics), KS3 or GCSE
   wording. Panel buttons: Bigger text, High contrast, Hide panel (map only), and **Copy link to this stage** — the

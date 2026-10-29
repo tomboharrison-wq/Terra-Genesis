@@ -107,6 +107,8 @@ check('GPU water backend active', (await page.textContent('.timebar .badge')) ==
 await page.selectOption('.timebar select', '3600');
 await page.click('.timebar .play');
 await page.waitForTimeout(4000);
+// Headless frames can take ~1 s under load: wait (up to 30 s) for a minute of simulated time.
+await page.waitForFunction(() => window.__terraGenesis.engine.world.simTimeSeconds > 60, null, { timeout: 30000 }).catch(() => {});
 await eng(() => window.__terraGenesis.engine.setPlaying(false));
 await page.waitForTimeout(1000);
 const w1 = await eng(() => {
@@ -1257,6 +1259,18 @@ await page.click('.topbar button.classroom');
 await page.waitForTimeout(400);
 const clsOff = await page.evaluate(() => ({ on: window.__terraGenesis.ui().classroom, q: window.__terraGenesis.ui().quality }));
 check('classroom mode: Performance quality on, previous quality back when off', cls.on && cls.q === 'performance' && !clsOff.on && clsOff.q !== 'performance', JSON.stringify({ cls, clsOff }));
+
+// --- Geological lesson (teacher link to stage 3): meanders cut off into an oxbow lake ---
+await page.goto(base + '?lesson=meanders-floodplain-model&stage=3');
+await page.waitForFunction(() => window.__terraGenesis.ui().education?.stage === 2 && !window.__terraGenesis.ui().education.busy, null, { timeout: 300000 });
+await page.waitForTimeout(1500);
+const oxLabels = await page.evaluate(() => window.__terraGenesis.ui().lessonLabels.map((l) => l.text));
+await shot('82-lesson-oxbow-lake');
+check(
+  'geological lesson: the meandering river is cut off into an oxbow lake (teacher link to stage 3)',
+  oxLabels.some((t) => /^Oxbow lake: cut off [\d,]+ years ago/.test(t)) && oxLabels.some((t) => /\(meandering\)/.test(t)),
+  oxLabels.join(' | '),
+);
 
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));

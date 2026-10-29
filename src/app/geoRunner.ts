@@ -1,5 +1,6 @@
 import { GEO_MAX_STEP_YEARS, type GeoResult } from '../engine/engine';
 import type { GeoJob } from '../sim/geology/geoWorker';
+import { cloneMeander, type MeanderState } from '../sim/geology/meander';
 import { useUi } from '../state/uiStore';
 import { engine, onWorldReplaced, syncSim } from './runtime';
 
@@ -25,6 +26,7 @@ export interface GeoFrame {
   bed: Float32Array;
   soil: Float32Array;
   material: Uint8Array;
+  meander: MeanderState | null;
 }
 
 let worker: Worker | null = null;
@@ -62,7 +64,13 @@ function record(force = false) {
   const every = ui().geo.yearsPerSec; // about one frame per real second of running
   if (!force && y - lastFrameYears < every * 0.999) return;
   const w = engine.world;
-  frames.push({ years: y, bed: w.bedrockElevationM.slice(), soil: w.looseSedimentThicknessM.slice(), material: w.materialId.slice() });
+  frames.push({
+    years: y,
+    bed: w.bedrockElevationM.slice(),
+    soil: w.looseSedimentThicknessM.slice(),
+    material: w.materialId.slice(),
+    meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
+  });
   lastFrameYears = y;
   if (frames.length > MAX_FRAMES) {
     // Keep the whole span at half the resolution: drop every other frame (first and last stay).
@@ -116,6 +124,7 @@ function send(years: number, done?: () => void) {
     years,
     maxStepYears: GEO_MAX_STEP_YEARS, // and never longer than the accurate step (LandscapeEvolution.run)
     params: { ...engine.geoParams },
+    meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
   };
   inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w, done };
   setGeo({ busy: true });

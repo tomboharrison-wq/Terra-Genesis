@@ -62,6 +62,9 @@ const SNOW = new Color(0xf2f4f7);
 const GEO_RIVER = new Color(0x2f6fb3);
 const GEO_LAKE = new Color(0x3d7fc0);
 const GEO_LAKE_DEEP = new Color(0x1d4f8a);
+const GEO_WET = new Color(0x4f6b4a);
+/** Hollows shallower than this are drawn as wet ground, deeper ones as lakes (m). */
+export const GEO_LAKE_MIN_M = 0.5;
 /** A channel starts where this much ground drains through a cell (m²; channel heads are typically 0.01–0.1 km²). */
 export const GEO_CHANNEL_AREA_M2 = 5e4;
 const ICE = new Color(0xcfe2ee);
@@ -678,11 +681,22 @@ export class TerrainScene {
         const gr = this.engine.geoRivers;
         if (gr && this.terrainOverlay === 'none' && ground[i] >= sea) {
           const lakeD = gr.lake[i] - ground[i];
-          if (lakeD > 0.05) {
+          if (gr.channel?.[i]) {
+            // The meandering river's channel (geological time).
+            this.col[o] = GEO_RIVER.r;
+            this.col[o + 1] = GEO_RIVER.g;
+            this.col[o + 2] = GEO_RIVER.b;
+          } else if (lakeD > GEO_LAKE_MIN_M) {
             tmp.copy(GEO_LAKE).lerp(GEO_LAKE_DEEP, Math.min(1, lakeD / 30));
             this.col[o] = tmp.r;
             this.col[o + 1] = tmp.g;
             this.col[o + 2] = tmp.b;
+          } else if (lakeD > 0.05) {
+            // A shallow hollow: wet ground, not open water (the model fills every hollow; in a humid
+            // climate shallow ones are marsh or wet meadow, drained by small streams and evaporation).
+            this.col[o] += (GEO_WET.r - this.col[o]) * 0.45;
+            this.col[o + 1] += (GEO_WET.g - this.col[o + 1]) * 0.45;
+            this.col[o + 2] += (GEO_WET.b - this.col[o + 2]) * 0.45;
           } else if (gr.area[i] >= GEO_CHANNEL_AREA_M2) {
             // Bigger rivers (more ground upstream) are drawn stronger: log scale over 3 decades.
             const t = Math.min(1, Math.log10(gr.area[i] / GEO_CHANNEL_AREA_M2) / 3);

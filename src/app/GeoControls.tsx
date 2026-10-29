@@ -137,11 +137,21 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         </dd>
         <dt>Carried off the map</dt>
         <dd>{fmtVol(t.exported)}</dd>
+        {t.supplied > 0 && (
+          <>
+            <dt>Meanders: bank erosion / point bars</dt>
+            <dd>
+              {fmtVol(t.bankEroded)} / {fmtVol(t.pointBars)}
+            </dd>
+            <dt>Flood deposits on the floodplain</dt>
+            <dd>{fmtVol(t.overbank)}</dd>
+          </>
+        )}
       </dl>
       <p className="muted small">
         Model: rivers cut down by stream power (E = K·A<sup>½</sup>·S, Braun &amp; Willett 2013), soil forms from rock and creeps downhill, sediment settles
-        in lakes and the sea. Rivers and lakes are drawn from where water would drain. Not included in geological time: floodplains, glaciers, waves, lava,
-        plants. Switch to Water time to rain on the landscape you have made.
+        in lakes and the sea. Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
+        meanders lesson. Not included in geological time: glaciers, waves, lava, plants. Switch to Water time to rain on the landscape you have made.
       </p>
     </div>
   );
