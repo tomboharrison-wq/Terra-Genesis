@@ -1,6 +1,7 @@
 import { LandscapeEvolution, addGeoStats, emptyGeoStats, type GeoParams, type GeoStepStats } from './landscapeEvolution';
 import { carve, migrate, type MeanderState } from './meander';
 import type { GlacierSim } from '../glacier/glacierSim';
+import type { CoastSim } from '../coast/coastSim';
 import type { ClimateField } from '../climate/climate';
 import { YEAR_S } from '../climate/climate';
 import { computeSurface } from '../../engine/world';
@@ -15,6 +16,24 @@ export interface GlacialGeo {
   /** Ground eroded by the ice so far (m per cell), accumulated across runs. */
   eroded: Float32Array;
 }
+
+/** Coasts in geological time: the engine's (or the worker's) coast model and surface cache. */
+export interface CoastalGeo {
+  sim: CoastSim;
+  surface: Float32Array;
+}
+
+/**
+ * Coast model rate in geological time: × this on its water-time cliffK (6e-11 m/s per W/m), so cliffs
+ * of clay retreat ~0.3 m/yr and of chalk ~0.15 m/yr under 2 m, 8 s waves — the range measured on the
+ * Dorset and Yorkshire coasts (fast Holderness clay reaches ~1–2 m/yr).
+ */
+export const COAST_GEO_RATE = 0.05;
+/** Coast sub-step (years): a cell's worth of cliff is never worn back in a single step. */
+export const COAST_STEP_YEARS = 10;
+const COAST_LANDSCAPE_STEP = 50;
+/** Share of eroded cliff material coarse enough to stay as beach and nearshore sediment. */
+export const COARSE_FRACTION = 0.2;
 
 /** Geological step while glaciers are active (years), and the ice-time spell run per step. */
 export const GLACIAL_STEP_YEARS = 2000;
@@ -35,8 +54,17 @@ const MEANDER_LANDSCAPE_STEP = 100;
  * (it moves in short sub-steps and is carved into the terrain every few decades; its channel cells
  * are left to it, not to stream-power incision). Used by the engine and the Web Worker alike.
  */
-export function runGeologic(geo: LandscapeEvolution, years: number, p: GeoParams, maxStepYears: number, meander: MeanderState | null, glacial: GlacialGeo | null = null): GeoStepStats {
+export function runGeologic(
+  geo: LandscapeEvolution,
+  years: number,
+  p: GeoParams,
+  maxStepYears: number,
+  meander: MeanderState | null,
+  glacial: GlacialGeo | null = null,
+  coastal: CoastalGeo | null = null,
+): GeoStepStats {
   if (glacial && glacial.sim.params.enabled && geo.w.climate.enabled) return runGlacial(geo, years, p, maxStepYears, glacial);
+  if (coastal && geo.w.coast.wavesOn) return runCoastal(geo, years, p, maxStepYears, coastal);
   if (!meander) return geo.run(years, p, maxStepYears);
   const w = geo.w;
   const tot = emptyGeoStats();
@@ -160,6 +188,39 @@ function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
   g.sim.moraine = null;
   g.sim.erosionRecord = null;
   computeSurface(w, g.surface);
+  tot.years = years;
+  return tot;
+}
+
+/**
+ * Geological time on a coast: the landscape model (rivers, weathering, cliff-top collapse — over-steep
+ * cliffs fail down to sea level) every few decades, and the coast model (wave attack down to a
+ * wave-cut platform, foreshore attenuation, longshore drift) in short sub-steps at its geological rate.
+ * Only the coarse share of eroded cliff stays as beach / nearshore sediment; the fines are carried
+ * offshore (off the map).
+ */
+function runCoastal(geo: LandscapeEvolution, years: number, p: GeoParams, maxStepYears: number, c: CoastalGeo): GeoStepStats {
+  const w = geo.w;
+  const tot = emptyGeoStats();
+  const L = c.sim.ledger;
+  c.sim.coarseFraction = COARSE_FRACTION;
+  let left = years;
+  while (left > 1e-9) {
+    const dt = Math.min(left, COAST_LANDSCAPE_STEP, maxStepYears);
+    addGeoStats(tot, geo.run(dt, p, dt));
+    computeSurface(w, c.surface);
+    const e0 = L.cliffEroded;
+    const f0 = L.exportedFines;
+    for (let t = 0; t < dt - 1e-9; ) {
+      const d = Math.min(COAST_STEP_YEARS, dt - t);
+      c.sim.run(d * YEAR_S, COAST_GEO_RATE);
+      t += d;
+    }
+    tot.coastEroded += L.cliffEroded - e0;
+    tot.exported += L.exportedFines - f0;
+    left -= dt;
+  }
+  c.sim.coarseFraction = 1;
   tot.years = years;
   return tot;
 }

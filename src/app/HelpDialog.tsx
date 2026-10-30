@@ -60,7 +60,8 @@ export function HelpDialog() {
           stream power, soil forms and creeps, over-steep slopes fail, sediment fills lakes and the sea, optional uplift — run in the background; rivers and
           lakes are drawn from the drainage. Replay goes back to any recorded moment. The lowland-river lesson adds a meandering river (bank erosion and
           point bars, neck cut-offs → oxbow lakes, flood deposits → levees and floodplain). With climate and glaciers on, glaciers grow, erode and
-          melt in geological time too (glaciated-upland lesson; map overlay "Glacial erosion"). No waves, lava or plants in geological time.
+          melt in geological time too (glaciated-upland lesson; map overlay "Glacial erosion"); with waves on, cliffs retreat at measured rates and
+          leave wave-cut platforms (headlands-and-bays lesson). No lava or plants in geological time.
         </li>
         <li>
           <b>Coasts, climate, snow, glaciers, plants, plates, lava and ash</b> run on their own clocks with stated time compression.

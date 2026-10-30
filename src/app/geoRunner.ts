@@ -131,6 +131,7 @@ function send(years: number, done?: () => void) {
     meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
     climate: { ...w.climate },
     glacier: { ...w.glacier },
+    coast: { ...w.coast },
     ice: w.iceThicknessM.slice(),
     debris: w.iceDebrisM.slice(),
     moraine: engine.moraineField().slice(),

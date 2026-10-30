@@ -261,7 +261,8 @@ export class Engine {
   geoStep(years: number): GeoStepStats {
     this.beginGeologic();
     const glacial = this.glacialGeo();
-    const tot = runGeologic(this.geo, years, this.geoParams, GEO_MAX_STEP_YEARS, this.geoMeander, glacial);
+    const coastal = this.world.coast.wavesOn ? { sim: this.coast, surface: this.surface } : null;
+    const tot = runGeologic(this.geo, years, this.geoParams, GEO_MAX_STEP_YEARS, this.geoMeander, glacial, coastal);
     if (glacial) {
       this.saveMetaField('moraineM', glacial.moraine);
       this.saveMetaField('glacialErosionM', glacial.eroded);

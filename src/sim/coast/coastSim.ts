@@ -55,6 +55,8 @@ export interface CoastLedger {
   cliffBedrock: number;
   /** Laid down offshore / on the foreshore (m³). */
   nearshoreDeposited: number;
+  /** Fine sediment carried away offshore, off the map (m³; geological time). */
+  exportedFines: number;
   /** Moved alongshore by drift (m³, summed transfers). */
   drifted: number;
 }
@@ -68,7 +70,13 @@ export function wavePower(H: number, T: number): number {
 }
 
 export class CoastSim {
-  ledger: CoastLedger = { cliffEroded: 0, cliffBedrock: 0, nearshoreDeposited: 0, drifted: 0 };
+  ledger: CoastLedger = { cliffEroded: 0, cliffBedrock: 0, nearshoreDeposited: 0, drifted: 0, exportedFines: 0 };
+  /**
+   * Share of eroded cliff material coarse enough to stay near the shore (pebbles, sand); the rest is
+   * mud and silt carried away in suspension (most of what chalk and clay cliffs yield — e.g. > 80 %
+   * at Holderness). 1 = everything stays (water time); geological time uses 0.2.
+   */
+  coarseFraction = 1;
   /** Wave power reaching each coastal land cell at the last update (W/m), else 0. */
   exposure: Float32Array;
   private erod = new Float32Array(256);
@@ -241,7 +249,9 @@ export class CoastSim {
       z[i] = b[i] + loose[i];
       this.ledger.cliffEroded += removed * A;
       this.ledger.cliffBedrock += fromRock * A;
-      this.layOffshore(x, y, nx, ny, removed, breakDepth);
+      const coarse = removed * this.coarseFraction;
+      this.ledger.exportedFines += (removed - coarse) * A;
+      if (coarse > 0) this.layOffshore(x, y, nx, ny, coarse, breakDepth);
       changed++;
     }
     return changed;
@@ -270,13 +280,20 @@ export class CoastSim {
       z[j] = b[j] + loose[j];
       left -= put;
     }
+    let carried = 0;
+    if (left > 0 && this.coarseFraction < 1) {
+      // Geological time: the nearshore is full, so the rest is carried further offshore (off the map).
+      carried = left;
+      this.ledger.exportedFines += left * w.cellSizeM * w.cellSizeM;
+      left = 0;
+    }
     if (left > 0) {
       // Nowhere below the fill level: leave it in the nearest seaward cell (or back on the cell).
       const j = last >= 0 ? last : y * W + x;
       loose[j] += left;
       z[j] = b[j] + loose[j];
     }
-    this.ledger.nearshoreDeposited += vol * w.cellSizeM * w.cellSizeM;
+    this.ledger.nearshoreDeposited += (vol - carried) * w.cellSizeM * w.cellSizeM;
   }
 
   private landNeighbours(x: number, y: number): number {

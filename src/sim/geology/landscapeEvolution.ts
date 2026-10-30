@@ -77,6 +77,8 @@ export interface GeoStepStats {
   glacialEroded: number;
   /** Glacial debris carried away by meltwater rivers (outwash). */
   outwash: number;
+  /** Cliffs worn back by waves (rock and debris, m³). */
+  coastEroded: number;
 }
 
 export const emptyGeoStats = (): GeoStepStats => ({
@@ -95,6 +97,7 @@ export const emptyGeoStats = (): GeoStepStats => ({
   overbank: 0,
   glacialEroded: 0,
   outwash: 0,
+  coastEroded: 0,
 });
 
 export function addGeoStats(a: GeoStepStats, b: GeoStepStats): void {

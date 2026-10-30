@@ -6,6 +6,8 @@ const SANDSTONE = 1;
 const MUDSTONE = 2;
 const DOLERITE = 5; // volcanic: a hard igneous sill, like the Whin Sill under High Force
 const VOLCANIC_ROCK = 5;
+const CLAY = 3;
+const CHALK = 4; // chalk / limestone (like the Purbeck limestone and chalk of Swanage)
 
 /**
  * Waterfall world: a plateau 4 km long sloping gently west to the sea, ending at a coastal slope.
@@ -157,4 +159,39 @@ function setUniformStrataLocal(w: WorldState) {
   w.strataBoundsM.fill(-1e9);
   for (let i = 0; i < w.materialId.length; i++) w.strataMaterial.fill(w.materialId[i], i * STRATA_LAYERS, (i + 1) * STRATA_LAYERS);
   refreshAllExposed(w);
+}
+
+/**
+ * Discordant coast (like Swanage Bay, Dorset): land on the west, sea on the east, an initially straight
+ * north–south coastline with 20–35 m cliffs. The rock comes in bands at right angles to the coast —
+ * resistant chalk / limestone alternating with soft clay — so waves from the east wear the clay back
+ * faster. Bands: chalk, clay, chalk, clay, chalk (south to north).
+ */
+export function buildDiscordantCoastWorld(seed = 41): WorldState {
+  const W = 150;
+  const H = 130;
+  const cs = 20;
+  const w = createWorld({ width: W, height: H, cellSizeM: cs, seed, meta: { name: 'Lesson: headlands and bays', presetId: 'scenario-coast', reliefM: 60 } });
+  w.seaLevelM = 0;
+  w.water.boundary = 'closed';
+  const n = new Noise2D(seed);
+  const coastX = 0.6 * W;
+  const bands = [CHALK, CLAY, CHALK, CLAY, CHALK];
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const inland = (coastX - x) * cs; // m from the initial coast
+      const shore = coastX + 1.5 * n.fbm(y * 0.05, 1.7, 3); // a slightly irregular line
+      const land = 22 + Math.min(40, Math.max(0, inland) * 0.012) + 3 * n.fbm(x * 0.03, y * 0.03, 4);
+      const seaFloor = -4 - Math.max(0, x - shore) * cs * 0.01; // gently shelving: 1 % gradient
+      w.bedrockElevationM[i] = x < shore ? land : seaFloor;
+      w.looseSedimentThicknessM[i] = x < shore ? 0.4 : 0;
+      w.materialId[i] = bands[Math.min(bands.length - 1, Math.floor((y / H) * bands.length))];
+    }
+  setUniformStrataLocal(w);
+  w.coast.wavesOn = true;
+  w.coast.waveFromDeg = 100;
+  w.coast.waveHeightM = 2;
+  w.coast.wavePeriodS = 8;
+  return w;
 }

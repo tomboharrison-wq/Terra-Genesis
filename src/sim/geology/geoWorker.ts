@@ -1,6 +1,7 @@
 import { computeSurface, createWorld, type BoundaryMode, type WorldState } from '../../engine/world';
 import { ClimateField, type ClimateParams } from '../climate/climate';
 import { GlacierSim, type GlacierParams } from '../glacier/glacierSim';
+import { CoastSim, type CoastParams } from '../coast/coastSim';
 import { LandscapeEvolution, type GeoParams } from './landscapeEvolution';
 import type { MeanderState } from './meander';
 import { runGeologic } from './run';
@@ -26,6 +27,8 @@ export interface GeoJob {
   /** Glaciers (when glacier and climate params are both enabled): ice and the debris it carries. */
   climate: ClimateParams;
   glacier: GlacierParams;
+  /** Coasts (when waves are on). */
+  coast: CoastParams;
   ice: Float32Array;
   debris: Float32Array;
   moraine: Float32Array;
@@ -37,6 +40,7 @@ let geo: LandscapeEvolution | null = null;
 let surface: Float32Array | null = null;
 let climate: ClimateField | null = null;
 let glacier: GlacierSim | null = null;
+let coast: CoastSim | null = null;
 
 self.onmessage = (e: MessageEvent<GeoJob>) => {
   const j = e.data;
@@ -46,6 +50,7 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
     surface = new Float32Array(j.width * j.height);
     climate = new ClimateField(j.width * j.height);
     glacier = new GlacierSim(w, surface, climate);
+    coast = new CoastSim(w, surface);
   }
   w.cellSizeM = j.cellSizeM;
   w.seaLevelM = j.seaLevelM;
@@ -57,12 +62,14 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
   w.strataMaterial.set(j.strataMaterial);
   w.climate = j.climate;
   w.glacier = j.glacier;
+  w.coast = j.coast;
   w.iceThicknessM.set(j.ice);
   w.iceDebrisM.set(j.debris);
   computeSurface(w, surface!);
   climate!.compute(w, surface!);
   const glacial = w.glacier.enabled && w.climate.enabled ? { sim: glacier!, climate: climate!, surface: surface!, moraine: j.moraine, eroded: j.glacialErosion } : null;
-  const stats = runGeologic(geo!, j.years, j.params, j.maxStepYears, j.meander, glacial);
+  const coastal = w.coast.wavesOn ? { sim: coast!, surface: surface! } : null;
+  const stats = runGeologic(geo!, j.years, j.params, j.maxStepYears, j.meander, glacial, coastal);
   geo!.route(); // drainage and lakes of the landscape as it is now (for drawing rivers and lakes)
   const out = {
     id: j.id,

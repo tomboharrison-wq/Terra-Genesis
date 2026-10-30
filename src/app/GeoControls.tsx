@@ -137,6 +137,12 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         </dd>
         <dt>Carried off the map</dt>
         <dd>{fmtVol(t.exported)}</dd>
+        {t.coastEroded > 0 && (
+          <>
+            <dt>Cliffs worn back by waves</dt>
+            <dd>{fmtVol(t.coastEroded)}</dd>
+          </>
+        )}
         {t.glacialEroded > 0 && (
           <>
             <dt>Rock eroded by glaciers / carried off by meltwater</dt>
@@ -159,8 +165,8 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
       <p className="muted small">
         Model: rivers cut down by stream power (E = K·A<sup>½</sup>·S, Braun &amp; Willett 2013), soil forms from rock and creeps downhill, sediment settles
         in lakes and the sea. Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
-        meanders lesson; with climate and glaciers on, glaciers grow, erode and melt (glaciated-upland lesson). Not included in geological time: waves,
-        lava, plants. Switch to Water time to rain on the landscape you have made.
+        meanders lesson; with climate and glaciers on, glaciers grow, erode and melt (glaciated-upland lesson); with waves on, cliffs retreat (headlands-and-bays
+        lesson). Not included in geological time: lava, plants. Switch to Water time to rain on the landscape you have made.
       </p>
     </div>
   );

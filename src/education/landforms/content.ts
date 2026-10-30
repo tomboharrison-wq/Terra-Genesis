@@ -95,6 +95,7 @@ export const FORMATIONS: Formation[] = [
       'The resistant rock is left protruding as headlands.',
       'Wave refraction focuses energy on the headlands (so they now erode) and reduces it in the bays, where beaches are deposited.',
     ],
+    modelLesson: 'headlands-bays-model',
   },
   {
     id: 'cliffs-platforms',
@@ -145,6 +146,7 @@ export const FORMATIONS: Formation[] = [
       'Repeated notching and collapse make the cliff retreat inland.',
       'The old cliff base is left as a gently sloping wave-cut platform, exposed at low tide.',
     ],
+    modelLesson: 'headlands-bays-model',
   },
   {
     id: 'caves-arches-stacks',

@@ -7,9 +7,10 @@ import { corrieArete, glacialTrough } from './glacial';
 import { foldMountains } from './tectonics';
 import { meandersFloodplain, vValleySpurs, waterfallGorgeModel } from './riverGeologic';
 import { glaciatedUpland } from './glacialGeologic';
+import { headlandsBaysModel } from './coastalGeologic';
 
 /** All lessons, in teaching order within each module. */
-export const LESSONS: Lesson[] = [drainageBasin, vValleySpurs, waterfall, waterfallGorgeModel, meander, meandersFloodplain, caveArchStack, spit, barLagoon, volcanoTypes, glacialTrough, corrieArete, glaciatedUpland, foldMountains];
+export const LESSONS: Lesson[] = [drainageBasin, vValleySpurs, waterfall, waterfallGorgeModel, meander, meandersFloodplain, headlandsBaysModel, caveArchStack, spit, barLagoon, volcanoTypes, glacialTrough, corrieArete, glaciatedUpland, foldMountains];
 
 export function lessonById(id: string): Lesson | undefined {
   return LESSONS.find((l) => l.id === id);

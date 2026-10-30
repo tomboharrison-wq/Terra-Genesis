@@ -1284,6 +1284,18 @@ check(
   JSON.stringify(glLabels),
 );
 
+// --- Geological lesson: headlands and bays (teacher link to stage 3) ---
+await page.goto(base + '?lesson=headlands-bays-model&stage=3');
+await page.waitForFunction(() => window.__terraGenesis.ui().education?.stage === 2 && !window.__terraGenesis.ui().education.busy, null, { timeout: 400000 });
+await page.waitForTimeout(1500);
+const coLabels = await page.evaluate(() => window.__terraGenesis.ui().lessonLabels.map((l) => l.text));
+await shot('84-lesson-headlands-bays');
+check(
+  'geological lesson: waves wear soft clay into bays between hard-rock headlands (measured)',
+  coLabels.some((t) => /^Headland: hard rock, worn back \d+ m — it now juts \d+ m/.test(t)) && coLabels.some((t) => /^Bay: soft clay worn back \d+ m/.test(t)),
+  coLabels.join(' | '),
+);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

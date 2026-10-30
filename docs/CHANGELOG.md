@@ -237,3 +237,8 @@
 - New map overlay **Glacial erosion (ground worn away by ice)**: the last stage shows it — red along the old river valleys and around the summits, ridges untouched.
 - Glaciers in geological time work in any world with climate and glaciers on; glaciers show in Replay. Settings show rock eroded by glaciers and carried off by meltwater.
 - Landforms → corries & arêtes, troughs & hanging valleys, moraines: "Watch it form (landscape model)".
+
+## M13-C08 — Coasts in geological time: headlands, bays and wave-cut platforms (2026-10-30)
+- New lesson **Headlands, bays and wave-cut platforms (geological time)**: a straight coast cut across bands of chalk/limestone and clay (like Swanage, Dorset) is worn back by waves for 6,000 years. Measured on the model: how far each band has retreated (clay ~1.2 km, chalk ~0.8 km), how far the headlands jut out (~380 m), cliff height, wave energy reaching the headland vs the bay, sand on the bay shore, and the wave-cut platform left behind.
+- Waves now act in geological time on any world with waves on, at measured cliff-retreat rates; most of the eroded cliff (mud and silt) is carried away offshore, the coarse part stays near the shore.
+- Landforms → headlands & bays and cliffs & wave-cut platforms: "Watch it form (landscape model)".

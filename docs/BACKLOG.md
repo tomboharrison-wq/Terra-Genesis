@@ -11,7 +11,8 @@
 | M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
 | M13-C06 | Glaciers in geological time + glaciated-upland lesson (troughs, corries, pyramidal peak, hanging valleys, moraine, glacial erosion overlay) | DONE |
 | M13-C06b | Glacial cycles (snowline rising and falling, recessional moraines), finer grid / higher-order ice flow for corries and tarns, drumlins & erratics | TODO |
-| M13-C08 | Coasts in geological time: headlands & bays from alternating rock bands, wave-cut platforms, cliff retreat | TODO |
+| M13-C08 | Coasts in geological time + headlands, bays & wave-cut platforms lesson (measured retreat, jut, cliff, sheltering, platform) | DONE |
+| M13-C08b | Coasts: wave refraction over the seabed, platform abrasion / sloping platforms, beaches that build above sea level in bays, caves/arches/stacks at map scale | TODO |
 | M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
 | D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |
