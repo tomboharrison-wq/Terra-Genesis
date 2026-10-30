@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (1b25e62 + drift fix)
+- npm test 281 PASS (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on the built app.
+- Beach-building trial (not committed): bay retreat −25 %, bay sand 0.4 → 0.2 m; reverted (see BACKLOG M13-C08c).
+
 ## 2026-10-30 M13-C08 coasts in geological time (aa52e61)
 - npm test 281 PASS (+ clay retreats ≥ 1.5× chalk with volume conserved (removed = fines carried off + nearshore); headlands-and-bays lesson: headland juts > 150 m, bay retreat > 500 m, headland wave energy > bay, platform > 100 m). e2e 62/62 PASS (+ headlands-and-bays lesson by teacher link to stage 3). gpu-check 12/12.
 - Found by testing: with all eroded cliff laid nearshore the shelf filled above sea level and shielded the cliffs (almost no retreat in 1,000 yr) → only a 20 % coarse share stays; a ledger slip in water time (overflow placed but not counted) fixed before commit.
