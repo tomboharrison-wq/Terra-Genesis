@@ -109,10 +109,13 @@ export class CoastSim {
     return this.run(dt, speedup);
   }
 
-  /** Run coastal processes for exactly dt simulated seconds (tests / step button). */
-  run(dt: number, speedup: number): number {
+  /**
+   * Run coastal processes for exactly dt simulated seconds (tests / step button). `transport` scales
+   * longshore drift and onshore transport separately (default: the same as cliff erosion).
+   */
+  run(dt: number, speedup: number, transport = speedup): number {
     const changed = this.waveAttack(dt, speedup);
-    return changed + this.drift(dt, speedup);
+    return changed + this.drift(dt, transport);
   }
 
   private isSea(i: number) {

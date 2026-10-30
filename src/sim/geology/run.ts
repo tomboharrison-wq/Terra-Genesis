@@ -216,7 +216,7 @@ function runCoastal(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
     const f0 = L.exportedFines;
     for (let t = 0; t < dt - 1e-9; ) {
       const d = Math.min(COAST_STEP_YEARS, dt - t);
-      c.sim.run(d * YEAR_S, COAST_GEO_RATE);
+      c.sim.run(d * YEAR_S, COAST_GEO_RATE, 1); // cliffs at their geological rate, drift and onshore transport at their own (physical) rates
       c.sim.wearPlatform(d, PLATFORM_WEAR_M_YR);
       t += d;
     }
