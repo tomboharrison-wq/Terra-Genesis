@@ -1,5 +1,9 @@
 # Test results (latest first)
 
+## 2026-10-30 M13-C08 coasts in geological time (aa52e61)
+- npm test 281 PASS (+ clay retreats ≥ 1.5× chalk with volume conserved (removed = fines carried off + nearshore); headlands-and-bays lesson: headland juts > 150 m, bay retreat > 500 m, headland wave energy > bay, platform > 100 m). e2e 62/62 PASS (+ headlands-and-bays lesson by teacher link to stage 3). gpu-check 12/12.
+- Found by testing: with all eroded cliff laid nearshore the shelf filled above sea level and shielded the cliffs (almost no retreat in 1,000 yr) → only a 20 % coarse share stays; a ledger slip in water time (overflow placed but not counted) fixed before commit.
+
 ## 2026-10-30 M13-C06 glaciers in geological time (9dc7334)
 - npm test 279 PASS (+ ice builds up, erodes and melts in geological time with rock + sediment + carried debris conserved to < 0.5 %; glaciated-upland lesson labels: V-valley, glacier > 100 m thick, trough deepened > 50 m, hanging valley > 60 m, moraine, corrie, glacial erosion > 50 m). e2e 61/61 PASS (+ glaciated-upland lesson by teacher link to stage 5: ice gone, glacial-erosion overlay, measured). gpu-check 12/12.
 - Found by testing: thick ice made one 10-yr spell cost 7 s at 40 m cells (now 60 m cells, 3-yr spells: ~0.25 s per 2,000-yr step); moraine piles of 200+ m (meltwater share 95 %, moraine recorded separately from outwash basin fill); hollows filled under the ice; slopes failing under ice; plan-view SIA cut V-shaped troughs (sliding coupled over ±4 cells); a change map dominated by river erosion (dedicated glacial-erosion record + overlay); a capped erosion rate flattened a water-time glacier test (cap only in geological time).
