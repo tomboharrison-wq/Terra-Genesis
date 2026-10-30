@@ -14,7 +14,7 @@
 | M13-C06c | Finer grid / higher-order ice flow for corries and tarns; drumlins & erratics | TODO |
 | M13-C08 | Coasts in geological time + headlands, bays & wave-cut platforms lesson (measured retreat, jut, cliff, sheltering, platform) | DONE |
 | M13-C08b | Platform down-wearing (sloping wave-cut platforms) | DONE |
-| M13-C08c | Coasts: wave refraction over the seabed, beaches that build above sea level in bays, caves/arches/stacks at map scale | TODO |
+| M13-C08c | Coasts: wave refraction over the seabed, beaches that build above sea level in bays (needs a cross-shore beach-profile model: tried 2026-10-30 letting swash push sand to a 1 m berm and sparing low sandy cells from wave attack — it shielded cliff feet, cut bay retreat ~25% and thinned bay sand 0.4→0.2 m; swash alone was wiped by waves next step; reverted), caves/arches/stacks at map scale | TODO |
 | M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
 | D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |
