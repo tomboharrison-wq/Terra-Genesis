@@ -1143,7 +1143,8 @@ const changedSum = await page.evaluate(() => {
 await page.click('.topbar button:has-text("Load")');
 await page.waitForSelector('.slots li');
 await page.locator('.slots li', { hasText: saved.name }).filter({ hasNotText: 'Autosave' }).first().locator('.slot-main').click();
-await page.waitForTimeout(2500);
+// Loading decodes and rebuilds the world (several seconds under load): wait for it, then compare exactly.
+await page.waitForFunction((s) => window.__terraGenesis.checksum() === s, saved.sum, { timeout: 20000 }).catch(() => {});
 const loaded = await page.evaluate(() => ({ sum: window.__terraGenesis.checksum(), t: window.__terraGenesis.engine.world.simTimeSeconds }));
 check(
   'saving: a slot saved with Ctrl+S loads back exactly after the world was changed',
