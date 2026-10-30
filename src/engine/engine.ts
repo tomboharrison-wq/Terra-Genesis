@@ -37,6 +37,10 @@ export interface GeoResult {
   lake: Float32Array;
   stats: GeoStepStats;
   meander: MeanderState | null;
+  ice: Float32Array;
+  debris: Float32Array;
+  moraine?: Float32Array;
+  glacialErosion?: Float32Array;
 }
 
 /** Longest single geological step (years): longer requests are split. */
@@ -220,10 +224,48 @@ export class Engine {
     if (this.gpu) this.gpu.uploadWater();
   }
 
+  private glacialBufs: Record<'moraineM' | 'glacialErosionM', Float32Array | null> = { moraineM: null, glacialErosionM: null };
+  /** A per-cell record kept in world.meta (moraine left by the ice, or ground eroded by it), as a working array. */
+  private metaField(key: 'moraineM' | 'glacialErosionM'): Float32Array {
+    const n = this.world.width * this.world.height;
+    let b = this.glacialBufs[key];
+    if (!b || b.length !== n) b = this.glacialBufs[key] = new Float32Array(n);
+    const m = this.world.meta[key];
+    if (m && m.length === n) b.set(m);
+    else b.fill(0);
+    return b;
+  }
+  private saveMetaField(key: 'moraineM' | 'glacialErosionM', f: Float32Array) {
+    let any = false;
+    for (const v of f) if (v > 0) any = true;
+    if (any) this.world.meta[key] = Array.from(f, (v) => Math.round(v * 100) / 100);
+  }
+  /** Moraine left by geological-time glaciers (m per cell). */
+  moraineField(): Float32Array {
+    return this.metaField('moraineM');
+  }
+  /** Ground eroded by geological-time glaciers (m per cell). */
+  glacialErosionField(): Float32Array {
+    return this.metaField('glacialErosionM');
+  }
+
+  /** Glaciers take part in geological time when glaciers and climate are on. */
+  private glacialGeo() {
+    const w = this.world;
+    if (!w.glacier.enabled || !w.climate.enabled) return null;
+    this.glacier.budgetMs = Infinity;
+    return { sim: this.glacier, climate: this.climate, surface: this.surface, moraine: this.moraineField(), eroded: this.glacialErosionField() };
+  }
+
   /** Run `years` of geological time on this thread (tests, fallback without Web Workers). */
   geoStep(years: number): GeoStepStats {
     this.beginGeologic();
-    const tot = runGeologic(this.geo, years, this.geoParams, GEO_MAX_STEP_YEARS, this.geoMeander);
+    const glacial = this.glacialGeo();
+    const tot = runGeologic(this.geo, years, this.geoParams, GEO_MAX_STEP_YEARS, this.geoMeander, glacial);
+    if (glacial) {
+      this.saveMetaField('moraineM', glacial.moraine);
+      this.saveMetaField('glacialErosionM', glacial.eroded);
+    }
     this.geo.route();
     this.afterGeologic(tot, Float32Array.from(this.geo.area), Float32Array.from(this.geo.lake));
     return tot;
@@ -235,6 +277,10 @@ export class Engine {
     w.bedrockElevationM.set(r.bed);
     w.looseSedimentThicknessM.set(r.soil);
     w.materialId.set(r.material);
+    w.iceThicknessM.set(r.ice);
+    w.iceDebrisM.set(r.debris);
+    if (r.moraine) this.saveMetaField('moraineM', r.moraine);
+    if (r.glacialErosion) this.saveMetaField('glacialErosionM', r.glacialErosion);
     if (r.meander) this.geoMeander = r.meander;
     this.afterGeologic(r.stats, r.area, r.lake);
   }
@@ -265,7 +311,7 @@ export class Engine {
   }
 
   /** Put the terrain back to a recorded geological frame (record and replay). */
-  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null }): void {
+  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null; ice?: Float32Array; debris?: Float32Array }): void {
     this.beginGeologic();
     const w = this.world;
     w.bedrockElevationM.set(f.bed);
@@ -273,6 +319,8 @@ export class Engine {
     w.materialId.set(f.material);
     w.meta.geologicYears = f.years;
     this.geoMeander = f.meander ? cloneMeander(f.meander) : null;
+    if (f.ice) w.iceThicknessM.set(f.ice);
+    if (f.debris) w.iceDebrisM.set(f.debris);
     this.geo.route();
     this.geoRivers = { area: Float32Array.from(this.geo.area), lake: Float32Array.from(this.geo.lake), channel: this.channelMask() };
     computeSurface(w, this.surface);

@@ -73,6 +73,10 @@ export interface GeoStepStats {
   bankEroded: number;
   pointBars: number;
   overbank: number;
+  /** Rock eroded by glaciers (abrasion), carried as debris and dropped as moraine. */
+  glacialEroded: number;
+  /** Glacial debris carried away by meltwater rivers (outwash). */
+  outwash: number;
 }
 
 export const emptyGeoStats = (): GeoStepStats => ({
@@ -89,6 +93,8 @@ export const emptyGeoStats = (): GeoStepStats => ({
   bankEroded: 0,
   pointBars: 0,
   overbank: 0,
+  glacialEroded: 0,
+  outwash: 0,
 });
 
 export function addGeoStats(a: GeoStepStats, b: GeoStepStats): void {
@@ -102,6 +108,9 @@ export function addGeoStats(a: GeoStepStats, b: GeoStepStats): void {
 export function criticalSlopeDeg(erodibility: number, cliffDeg: number): number {
   return Math.min(cliffDeg, Math.max(25, Math.min(55, 30 + 25 * (1 - erodibility))));
 }
+
+/** Angle of repose of loose debris (tan 35°). */
+const TAN_REPOSE = Math.tan((35 * Math.PI) / 180);
 
 /** Sediment comes to rest this far below sea level before moving offshore (m). */
 export const SEA_FILL_DEPTH_M = 1;
@@ -131,6 +140,10 @@ export class LandscapeEvolution {
   private readonly done: Uint8Array;
   private readonly qs: Float64Array;
   private readonly flux: Float64Array;
+  /** Cells under a glacier: the ice props up valley sides (no slope failure, creep or weathering there). */
+  ice: Uint8Array | null = null;
+  /** Sediment entering the rivers at each cell in the next step (m³; glacial meltwater outwash), then cleared. */
+  sedimentIn: Float64Array | null = null;
   /** Cells whose channel another model controls (the meandering river): no stream-power incision there. */
   fixed: Uint8Array | null = null;
   /** tan(critical slope) per material id. */
@@ -362,6 +375,11 @@ export class LandscapeEvolution {
     // 2b. Threshold hillslopes: over-steep valley sides fail onto the slope foot.
     if (p.slopeFailure) st.failed = this.fail(4);
 
+    if (this.sedimentIn) {
+      for (let i = 0; i < n; i++) qs[i] += this.sedimentIn[i];
+      this.sedimentIn.fill(0);
+    }
+
     // 3. Route sediment downstream; deposit in hollows (to the lake level) and in the sea.
     for (let q = n - 1; q >= 0; q--) {
       const i = order[q];
@@ -373,7 +391,9 @@ export class LandscapeEvolution {
         this.depositAtSea(i, v, st);
         continue;
       }
-      const room = lake[i] > z[i] ? (lake[i] - zi) * A : 0; // a hollow: fill up to the spill level
+      // A hollow fills up to its spill level — but not under a glacier or in a channel another model
+      // controls (fixed cells): there is no lake there for sediment to settle in.
+      const room = lake[i] > z[i] && !this.fixed?.[i] ? (lake[i] - zi) * A : 0;
       if (room > 0) {
         const d = Math.min(room, v);
         soil[i] += d / A;
@@ -394,7 +414,7 @@ export class LandscapeEvolution {
     // 4. Soil production from rock, then soil creep (flux-limited to the soil present).
     if (p.soilProduction > 0)
       for (let i = 0; i < n; i++) {
-        if (this.isSea(i)) continue;
+        if (this.isSea(i) || this.ice?.[i]) continue; // no weathering under a glacier
         const e = MATERIALS[w.materialId[i]].erodibility;
         const prod = p.soilProduction * e * Math.exp(-soil[i] / p.soilDepthScaleM) * years;
         bed[i] -= prod;
@@ -429,13 +449,15 @@ export class LandscapeEvolution {
         for (let xx = 0; xx < W; xx++) {
           const x = fwd ? xx : W - 1 - xx;
           const i = y * W + x;
-          if (bed[i] + soil[i] <= sea) continue; // slope failure is a land process
-          const tc = this.tanCrit[w.materialId[i]] ?? 1;
+          if (bed[i] + soil[i] <= sea || this.ice?.[i]) continue; // slope failure is a land process, held back by ice
+          // Loose debris (more than 1 m of it) stands at most at its angle of repose, ~35°.
+          const tc = soil[i] > 1 ? Math.min(TAN_REPOSE, this.tanCrit[w.materialId[i]] ?? 1) : (this.tanCrit[w.materialId[i]] ?? 1);
           for (let d = 0; d < 8; d++) {
             const xn = x + DX[d];
             const yn = y + DY[d];
             if (xn < 0 || yn < 0 || xn >= W || yn >= H) continue;
             const j = yn * W + xn;
+            if (this.ice?.[j]) continue; // the ice buttresses the wall
             const dz = bed[i] + soil[i] - Math.max(sea, bed[j] + soil[j]); // a coastal cliff fails only to sea level
             const excess = dz - tc * DD[d] * cs;
             if (excess <= 0.01) continue;
@@ -544,12 +566,14 @@ export class LandscapeEvolution {
   }
 
   private edgeOut(i: number, j: number, k: number, out: Float64Array) {
+    if (this.ice?.[i] || this.ice?.[j]) return;
     const d = k * (this.z[i] - this.z[j]);
     if (d > 0) out[i] += d;
     else out[j] -= d;
   }
 
   private edgeMove(i: number, j: number, k: number, scale: Float64Array) {
+    if (this.ice?.[i] || this.ice?.[j]) return;
     const soil = this.w.looseSedimentThicknessM;
     let d = k * (this.z[i] - this.z[j]);
     if (d > 0) d *= scale[i];

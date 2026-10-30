@@ -9,7 +9,9 @@
 | M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | TODO |
 | M13-C05 | Meander migration (Howard & Knutson 1984) carved into the terrain; cut-offs → oxbow lakes; lesson with measured labels | DONE |
 | M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
-| M13-C06 | Glaciers in geological time (corries, troughs over 10⁴–10⁵ yr) and coastal retreat in geological time (headlands & bays) | TODO |
+| M13-C06 | Glaciers in geological time + glaciated-upland lesson (troughs, corries, pyramidal peak, hanging valleys, moraine, glacial erosion overlay) | DONE |
+| M13-C06b | Glacial cycles (snowline rising and falling, recessional moraines), finer grid / higher-order ice flow for corries and tarns, drumlins & erratics | TODO |
+| M13-C08 | Coasts in geological time: headlands & bays from alternating rock bands, wave-cut platforms, cliff retreat | TODO |
 | M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
 | D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |

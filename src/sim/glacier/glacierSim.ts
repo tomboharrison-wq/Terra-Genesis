@@ -24,7 +24,7 @@ import { YEAR_S } from '../climate/climate';
  *   Map edges: ice leaves where the ground slopes outward (ghost cell continues the slope), booked
  *   as exported with its debris; no ice flows in.
  * Erosion (abrasion): bed lowering = abrasionK · u_b · dt, u_b = f_s/(1+f_s) · |q|/H (sliding speed,
- *   under ice ≥ 10 m thick, capped at 2 km/yr);
+ *   under ice ≥ 10 m thick, capped at 2 km/yr; optionally at most maxErosionMmYr — 10 in geological time);
  *   loose sediment first, then bedrock (exact float32 deltas). Eroded rock is carried in the ice as
  *   debris (moved with the ice fraction transferred) and dropped as loose sediment where ice thins
  *   below DROP_ICE_M — moraines at the snout. Ice and debris ledgers close.
@@ -50,6 +50,29 @@ export interface GlacierParams {
   abrasionK: number;
   /** Cadence (simulated water seconds). */
   intervalS: number;
+  /**
+   * Shade and drifting snow (m of ice per year): added on slopes facing north-east, taken away on
+   * slopes facing south-west, scaled by steepness (full at 17°). In the UK the prevailing wind is
+   * south-westerly and north-east-facing slopes get least sun, so snow lasts there and most corries
+   * face between north and east. 0 = off.
+   */
+  aspectBalance?: number;
+  /**
+   * Erosion law: 'linear' (abrasionK × sliding distance, Hallet 1979) or 'herman' (2.7e-7 × u_b² m/yr
+   * with u_b in m/yr — fitted to measured erosion and sliding of New Zealand glaciers, Herman et al. 2015,
+   * Science 350; it concentrates erosion where ice slides fastest, which is what over-deepens troughs).
+   */
+  erosionLaw?: 'linear' | 'herman';
+  /**
+   * Longitudinal coupling (cells): the shallow-ice approximation lets every cell slide at its own speed,
+   * so thick mid-valley ice races while its margins barely move and erosion cuts a V. Real glaciers move
+   * more like a plug — stress gradients couple the motion over 1–4 ice thicknesses (Kamb & Echelmeyer
+   * 1986) — so the whole bed is scoured and valleys become U-shaped. When > 0, the sliding speed is
+   * averaged over ice-covered cells within this radius before it erodes (box filter, applied twice).
+   */
+  slidingCoupling?: number;
+  /** Fastest erosion allowed (mm/yr); unset = no cap. Geological time uses 10, the top of the range measured for temperate valley glaciers. */
+  maxErosionMmYr?: number;
 }
 
 export function defaultGlacierParams(): GlacierParams {
@@ -97,6 +120,8 @@ const MAX_SLIDE_MS = 2000 / YEAR_S;
 const MAX_SLOPE2 = 0.16;
 const DROP_ICE_M = 0.5;
 export const ICE_TO_WATER = RHO_I / 1000;
+/** Herman et al. (2015) erosion coefficient (m⁻¹ yr): erosion (m/yr) = HERMAN_KG × u_b(m/yr)². */
+const HERMAN_KG = 2.7e-7;
 
 export class GlacierSim {
   ledger: GlacierLedger;
@@ -106,6 +131,23 @@ export class GlacierSim {
   private lastSolveConverged = true;
   /** Wall-clock budget per update (ms); glacier time that does not fit is reported as lag. */
   budgetMs = Infinity;
+  /**
+   * Erosion time per unit of ice time (geological time: the ice is run for a short spell to reach its
+   * near-steady state for the current bed, and its abrasion applied for the whole geological step).
+   */
+  erosionFactor = 1;
+  /**
+   * Meltwater outwash: this share of the debris released where ice melts is carried away by meltwater
+   * rivers (added to `outwash`, m over the cell, for the river model to route) instead of being left
+   * as moraine. 0 = all left as moraine (water time). Temperate glaciers export most of their load in
+   * meltwater (e.g. Hallet et al. 1996), so geological time (long glacials, margins reworked by meltwater) uses 0.95.
+   */
+  meltwaterShare = 0;
+  outwash: Float64Array | null = null;
+  /** If set, debris the ice leaves behind as moraine is also added here (m), so moraine can be told from other sediment. */
+  moraine: Float32Array | null = null;
+  /** If set, rock and sediment eroded by the ice is added here (m per cell). */
+  erosionRecord: Float32Array | null = null;
   /** Fastest sliding speed at the last update (m/yr) — for display. */
   maxSlideMPerYr = 0;
   private qx: Float64Array;
@@ -180,6 +222,7 @@ export class GlacierSim {
     const lapse = c.lapseRateCPerKm / 1000;
     const zEla = w.seaLevelM + (c.seaLevelTempC - p.elaTempC) / Math.max(1e-6, lapse);
     const scale = dtWater / Math.max(dtGeo, 1e-9); // meltwater real-time share
+    const aspect = p.aspectBalance ? this.aspectTerm(p.aspectBalance) : null;
 
     let acc = 0;
     let abl = 0;
@@ -201,6 +244,7 @@ export class GlacierSim {
         const zs = z[i] + ice[i];
         let bm = p.balanceGradient * (zs - zEla);
         if (bm > 0) bm = Math.min(p.maxAccumulation, bm) * this.climate.rainFactor[i];
+        if (aspect) bm += aspect[i];
         const dh = bm * years;
         if (dh >= 0) {
           ice[i] += dh;
@@ -342,16 +386,23 @@ export class GlacierSim {
           edgeOut(y * W, y * W + 1);
           edgeOut(y * W + W - 1, y * W + W - 2);
         }
-      // Abrasion from the sliding speed u_b = f_s/(1+f_s) · |q| / H.
+      // Abrasion from the sliding speed u_b = f_s/(1+f_s) · |q| / H (optionally coupled across the glacier).
+      const ubField = new Float64Array(n);
+      for (let i = 0; i < n; i++) if (ice[i] > MIN_SLIDE_ICE_M) ubField[i] = Math.min(MAX_SLIDE_MS, (slideShare * qc[i]) / ice[i]);
+      if (p.slidingCoupling && p.slidingCoupling > 0) this.couple(ubField, Math.round(p.slidingCoupling));
       for (let i = 0; i < n; i++) {
         const h = ice[i];
         if (h <= MIN_SLIDE_ICE_M) continue;
-        const ub = Math.min(MAX_SLIDE_MS, (slideShare * qc[i]) / h);
+        const ub = ubField[i];
         const ubYr = ub * YEAR_S;
         if (ubYr > this.maxSlideMPerYr) this.maxSlideMPerYr = ubYr;
-        const e = p.abrasionK * ub * sub;
+        const law = p.erosionLaw === 'herman' ? HERMAN_KG * ubYr * ubYr * (sub / YEAR_S) : p.abrasionK * ub * sub;
+        // Optional cap at the measured range for temperate valley glaciers (~1–10 mm/yr, Hallet et al. 1996).
+        const cap = p.maxErosionMmYr ? (p.maxErosionMmYr / 1000) * (sub / YEAR_S) : Infinity;
+        const e = Math.min(law, cap) * this.erosionFactor;
         if (e > 0) {
           const [tot, bed] = this.erode(i, e);
+          if (this.erosionRecord) this.erosionRecord[i] += tot;
           eroded += tot;
           erodedB += bed;
           deb[i] += tot;
@@ -380,6 +431,61 @@ export class GlacierSim {
     L.timeS += t;
     L.lagS += dtGeo - t;
     return melt;
+  }
+
+  /** Average a field over ice-covered cells (thicker than MIN_SLIDE_ICE_M) within r cells: two passes of a separable box filter. */
+  private couple(f: Float64Array, r: number) {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const ice = w.iceThicknessM;
+    const on = (i: number) => ice[i] > MIN_SLIDE_ICE_M;
+    const tmp = new Float64Array(f.length);
+    for (let pass = 0; pass < 2; pass++) {
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (!on(i)) continue;
+          let s = 0;
+          let c = 0;
+          for (let k = Math.max(0, x - r); k <= Math.min(W - 1, x + r); k++) if (on(y * W + k)) (s += f[y * W + k]), c++;
+          tmp[i] = s / c;
+        }
+      for (let y = 0; y < H; y++)
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          if (!on(i)) continue;
+          let s = 0;
+          let c = 0;
+          for (let k = Math.max(0, y - r); k <= Math.min(H - 1, y + r); k++) if (on(k * W + x)) (s += tmp[k * W + x]), c++;
+          f[i] = s / c;
+        }
+    }
+  }
+
+  /** Mass-balance change from slope aspect (m/yr): +k on steep NE-facing ground, −k on SW-facing (ground surface). */
+  private aspectTerm(k: number): Float32Array {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const cs = w.cellSizeM;
+    const z = this.surface;
+    const out = new Float32Array(W * H);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        const xl = x > 0 ? x - 1 : x;
+        const xr = x < W - 1 ? x + 1 : x;
+        const yd = y > 0 ? y - 1 : y;
+        const yu = y < H - 1 ? y + 1 : y;
+        const gx = (z[y * W + xr] - z[y * W + xl]) / ((xr - xl) * cs);
+        const gy = (z[yu * W + x] - z[yd * W + x]) / ((yu - yd) * cs);
+        const s = Math.hypot(gx, gy);
+        if (s < 1e-3) continue;
+        // Downslope direction (−∇z) as a unit vector; NE = (1, 1)/√2 (x east, y north).
+        const facing = (-gx - gy) / (s * Math.SQRT2);
+        out[y * W + x] = k * facing * Math.min(1, s / 0.3);
+      }
+    return out;
   }
 
   /** SIA face diffusivity (m²/s) between i and j using the upstream cell's ice thickness. */
@@ -492,7 +598,13 @@ export class GlacierSim {
   private drop(i: number, v: number) {
     const w = this.world;
     const loose = w.looseSedimentThicknessM;
+    if (this.outwash && this.meltwaterShare > 0) {
+      const o = v * this.meltwaterShare;
+      this.outwash[i] += o;
+      v -= o;
+    }
     loose[i] = loose[i] + v;
+    if (this.moraine) this.moraine[i] += v;
     this.surface[i] = w.bedrockElevationM[i] + loose[i];
   }
 }

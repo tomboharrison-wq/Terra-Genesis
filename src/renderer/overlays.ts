@@ -23,6 +23,7 @@ export type OverlayId =
   | 'flow'
   | 'geology'
   | 'ice'
+  | 'glacial'
   | 'plants'
   | 'ash'
   | 'change'
@@ -215,6 +216,9 @@ const FLOW = ['#e8f1fb', '#8fbbe9', '#3a86f0', '#0b4aa8', '#06225a'];
 const ICE = ['#eef7fc', '#9fd0ea', '#3f8fc7', '#14507f'];
 const PLANTS = ['#f2efd8', '#b9d18a', '#25b755', '#1c6b3c', '#0f3a22'];
 const ASH = ['#ecebea', '#b4b1ae', '#76726e', '#3d3a38'];
+/** Glacial erosion: one hue (red), light → dark. */
+const GLACIAL = ['#fbe3dc', '#f4a08f', '#ed3f23', '#8f1d0c'];
+const GLACIAL_HI = 200;
 // Flood: single-hue sequential through Scouts blue (light = shallow, dark = deep).
 const FLOOD = ['#d6e8fb', '#7fb3ef', '#006ddf', '#003a7a'];
 // Drought: single-hue sequential through Scouts orange (light = little lost, dark = dried up).
@@ -231,6 +235,7 @@ const seaRamp = ramp(SEA);
 const slopeRamp = ramp(SLOPE);
 const flowRamp = ramp(FLOW);
 const iceRamp = ramp(ICE);
+const glacialRamp = ramp(GLACIAL);
 const plantRamp = ramp(PLANTS);
 const ashRamp = ramp(ASH);
 const floodRamp = ramp(FLOOD);
@@ -402,6 +407,24 @@ export const OVERLAYS: OverlayDef[] = [
         const g = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
         out[o] = out[o + 1] = out[o + 2] = g; // no ice: neutral grey (no data shown as colour)
       } else iceRamp(0.15 + 0.85 * Math.min(1, h / ICE_HI), out, o);
+    },
+  },
+  {
+    id: 'glacial',
+    label: 'Glacial erosion (ground worn away by ice)',
+    group: 'Ice & life',
+    available: (s) => !!s.world.meta.glacialErosionM?.some((v) => v > 1),
+    describe: (s, i) => {
+      const v = s.world.meta.glacialErosionM?.[i] ?? 0;
+      return v > 0.5 ? `${fmtM(v)} worn away by ice` : 'not eroded by ice';
+    },
+    legend: () => ({ kind: 'ramp', css: css(GLACIAL), labels: ['1 m', `${GLACIAL_HI / 2} m`, `≥ ${GLACIAL_HI} m`] }),
+    colour: (s, i, _d, out, o) => {
+      const v = s.world.meta.glacialErosionM?.[i] ?? 0;
+      if (v <= 1) {
+        const g = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
+        out[o] = out[o + 1] = out[o + 2] = g; // not eroded by ice: neutral grey
+      } else glacialRamp(0.1 + 0.9 * Math.min(1, v / GLACIAL_HI), out, o);
     },
   },
   {

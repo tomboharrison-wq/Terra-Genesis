@@ -231,3 +231,9 @@
 - Landforms → meanders, oxbow lakes and floodplains & levees now have "Watch it form (landscape model)".
 - Geological time draws shallow hollows as wet ground and only deeper ones as lakes.
 - Fixed in the landscape model: sediment reaching a full sea now goes offshore instead of piling up on one cell.
+
+## M13-C06 — Glaciers in geological time: glaciated upland (2026-10-30)
+- New lesson **Glaciated upland: corries, arêtes, U-shaped valleys (geological time)**: mountains of hard volcanic rock are carved by rivers (300,000 years), glaciated (120,000 years: an ice cap and valley glaciers up to ~250 m thick follow the river valleys) and the ice melts. Measured on the landscape: valley glacier thickness, snowline, rock removed, glacial trough deepening (U-shaped only where the floor really widened), corries and the way they face, pyramidal peak, hanging valley, ribbon lake, moraine.
+- New map overlay **Glacial erosion (ground worn away by ice)**: the last stage shows it — red along the old river valleys and around the summits, ridges untouched.
+- Glaciers in geological time work in any world with climate and glaciers on; glaciers show in Replay. Settings show rock eroded by glaciers and carried off by meltwater.
+- Landforms → corries & arêtes, troughs & hanging valleys, moraines: "Watch it form (landscape model)".

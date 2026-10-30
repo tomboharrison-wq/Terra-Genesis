@@ -1,7 +1,7 @@
 # Project state
 Updated: 2026-10-29, session 1 (cont.)
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M13 geological time (C01–C05 done); optional backlog
+Current milestone: M13 geological time (C01–C06 done); optional backlog
 Current chunk: M04-C06 (optional; see NEXT_TASK)
 Status: READY
 
@@ -29,16 +29,16 @@ Verified working:
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
   C03 exports (app/exportImages.ts, persistence/exports.ts) · C04 QA tests, version in Help.
 - M12 Landform Show (src/education/landforms, src/app/landforms/*Scenes.tsx, LandformShow.tsx; ?landform=id) + Time-lapse.
-- M13 geological time: sim/geology (landscapeEvolution, meander, run, geoWorker), app/geoRunner + GeoControls,
-  lessons riverGeologic ×3 (education/geoFeatures, scenarioWorlds); classroom mode (runtime.setClassroom).
+- M13 geological time: sim/geology (landscapeEvolution, meander, run incl. runGlacial, geoWorker), app/geoRunner +
+  GeoControls; lessons riverGeologic ×3, glacialGeologic (education/geoFeatures, glacialFeatures, scenarioWorlds).
 - Mac app: desktop/ (Electron wrapper of dist/ via app://; package-mac.mjs → desktop/out zips).
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
 - Water depth is float32: a closed basin lake over simulated years drifts ~% in the ledger (backlog M02-C07).
 - Real GPU speed unmeasured; Firefox/WebKit and the Mac app on a real Mac untested. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
-- No depth refraction; bays develop slowly. Geo time: no glaciers/waves; meanders only in lesson world.
-- No isostasy (mountains unlimited). Inland cells below sea level count as sea.
+- No depth refraction; bays develop slowly. Geo time: no waves; meanders only in lesson world; corries sub-grid.
+- No isostasy. Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
 Last checks: typecheck · npm test 277 · build · gpu-check 12/12 · e2e 60/60 — all PASS

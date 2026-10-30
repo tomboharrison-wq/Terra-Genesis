@@ -84,6 +84,10 @@ export interface WorldMeta {
   createdAtIso: string;
   /** Years of geological time run on this world (sim/geology); absent = none. */
   geologicYears?: number;
+  /** Moraine left by glaciers in geological time (m per cell, as a plain array; saved with the world). */
+  moraineM?: number[];
+  /** Ground eroded by glaciers in geological time (m per cell; saved with the world). */
+  glacialErosionM?: number[];
   /** A meandering lowland river (sim/geology/meander.ts MeanderState; plain data, saved with the world). */
   meander?: import('../sim/geology/meander').MeanderState;
 }

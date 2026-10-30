@@ -1272,6 +1272,18 @@ check(
   oxLabels.join(' | '),
 );
 
+// --- Geological lesson: glaciated upland (teacher link to the last stage) — glacial erosion map ---
+await page.goto(base + '?lesson=glaciated-upland-model&stage=5');
+await page.waitForFunction(() => window.__terraGenesis.ui().education?.stage === 4 && !window.__terraGenesis.ui().education.busy, null, { timeout: 400000 });
+await page.waitForTimeout(1500);
+const glLabels = await page.evaluate(() => ({ labels: window.__terraGenesis.ui().lessonLabels.map((l) => l.text), overlay: window.__terraGenesis.ui().terrainOverlay, ice: window.__terraGenesis.engine.world.iceThicknessM.some((h) => h > 1) }));
+await shot('83-lesson-glacial-erosion');
+check(
+  'geological lesson: mountains glaciated and the ice melted; glacial erosion mapped and measured',
+  glLabels.overlay === 'glacial' && !glLabels.ice && glLabels.labels.some((t) => /^Worn away most: \d+ m by the ice/.test(t)),
+  JSON.stringify(glLabels),
+);
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

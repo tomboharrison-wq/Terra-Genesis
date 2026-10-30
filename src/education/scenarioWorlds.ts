@@ -5,6 +5,7 @@ import { Noise2D } from '../utils/noise';
 const SANDSTONE = 1;
 const MUDSTONE = 2;
 const DOLERITE = 5; // volcanic: a hard igneous sill, like the Whin Sill under High Force
+const VOLCANIC_ROCK = 5;
 
 /**
  * Waterfall world: a plateau 4 km long sloping gently west to the sea, ending at a coastal slope.
@@ -121,4 +122,39 @@ export function buildLowlandWorld(seed = 21): { world: WorldState; xs: number[];
     ys.push(y0 + 25 * Math.sin((x * 2 * Math.PI) / 700) + 20 * n.fbm(x * 0.003, 3.3, 2)); // gently winding (amplitude ~ half a channel width)
   }
   return { world: w, xs, ys, zIn, zOut };
+}
+
+/**
+ * Mountain world for glaciation: a massif of hard volcanic rock (like the Borrowdale Volcanics of the
+ * Lake District) rising to ~1,100 m from lowland at ~150 m, with ridges and hollows from noise. Open
+ * map edges. River valleys are cut into it in the lesson's first stage (geological time).
+ */
+export function buildMountainWorld(seed = 31): WorldState {
+  const W = 110;
+  const H = 88;
+  const cs = 60;
+  const w = createWorld({ width: W, height: H, cellSizeM: cs, seed, meta: { name: 'Lesson: glaciated upland', presetId: 'scenario-mountains', reliefM: 1100 } });
+  w.seaLevelM = -200;
+  w.water.boundary = 'open';
+  const n = new Noise2D(seed);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const u = x / (W - 1) - 0.5;
+      const v = y / (H - 1) - 0.5;
+      const r = Math.hypot(u / 0.42, v / 0.36);
+      const dome = Math.exp(-r * r * 1.6);
+      const ridges = n.ridged(u * 3 + 7, v * 3 + 2, 5);
+      w.bedrockElevationM[i] = 150 + 850 * dome + 260 * dome * ridges + 25 * n.fbm(u * 9, v * 9, 3);
+      w.looseSedimentThicknessM[i] = 0.5;
+      w.materialId[i] = VOLCANIC_ROCK;
+    }
+  setUniformStrataLocal(w);
+  return w;
+}
+
+function setUniformStrataLocal(w: WorldState) {
+  w.strataBoundsM.fill(-1e9);
+  for (let i = 0; i < w.materialId.length; i++) w.strataMaterial.fill(w.materialId[i], i * STRATA_LAYERS, (i + 1) * STRATA_LAYERS);
+  refreshAllExposed(w);
 }

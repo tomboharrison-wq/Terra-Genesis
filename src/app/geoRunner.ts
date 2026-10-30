@@ -27,6 +27,8 @@ export interface GeoFrame {
   soil: Float32Array;
   material: Uint8Array;
   meander: MeanderState | null;
+  ice: Float32Array;
+  debris: Float32Array;
 }
 
 let worker: Worker | null = null;
@@ -70,6 +72,8 @@ function record(force = false) {
     soil: w.looseSedimentThicknessM.slice(),
     material: w.materialId.slice(),
     meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
+    ice: w.iceThicknessM.slice(),
+    debris: w.iceDebrisM.slice(),
   });
   lastFrameYears = y;
   if (frames.length > MAX_FRAMES) {
@@ -125,10 +129,16 @@ function send(years: number, done?: () => void) {
     maxStepYears: GEO_MAX_STEP_YEARS, // and never longer than the accurate step (LandscapeEvolution.run)
     params: { ...engine.geoParams },
     meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
+    climate: { ...w.climate },
+    glacier: { ...w.glacier },
+    ice: w.iceThicknessM.slice(),
+    debris: w.iceDebrisM.slice(),
+    moraine: engine.moraineField().slice(),
+    glacialErosion: engine.glacialErosionField().slice(),
   };
   inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w, done };
   setGeo({ busy: true });
-  wk.postMessage(job, [job.bed.buffer, job.soil.buffer, job.material.buffer, job.strataBounds.buffer, job.strataMaterial.buffer]);
+  wk.postMessage(job, [job.bed.buffer, job.soil.buffer, job.material.buffer, job.strataBounds.buffer, job.strataMaterial.buffer, job.ice.buffer, job.debris.buffer, job.moraine.buffer, job.glacialErosion.buffer]);
 }
 
 function onResult(r: GeoResult & { id: number }) {

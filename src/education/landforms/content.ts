@@ -665,6 +665,7 @@ export const FORMATIONS: Formation[] = [
       'When the ice melts, a tarn forms behind the rock lip.',
     ],
     lesson: 'corrie-arete',
+    modelLesson: 'glaciated-upland-model',
   },
   {
     id: 'troughs-spurs-hanging',
@@ -722,6 +723,7 @@ export const FORMATIONS: Formation[] = [
       'Smaller tributary glaciers eroded less, leaving hanging valleys with waterfalls; over-deepened hollows fill with ribbon lakes.',
     ],
     lesson: 'glacial-trough',
+    modelLesson: 'glaciated-upland-model',
   },
   {
     id: 'roche-moutonnee',
@@ -814,6 +816,7 @@ export const FORMATIONS: Formation[] = [
       'At the snout, at the glacier’s maximum extent, debris is dumped and bulldozed.',
       'This forms a ridge of unsorted till across the valley: a terminal moraine.',
     ],
+    modelLesson: 'glaciated-upland-model',
   },
   {
     id: 'crag-tail',
