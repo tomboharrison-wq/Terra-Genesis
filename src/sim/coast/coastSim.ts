@@ -119,6 +119,37 @@ export class CoastSim {
     return this.surface[i] < this.world.seaLevelM;
   }
 
+  /**
+   * Platform down-wearing (geological time): waves keep grinding the rock of the shore platform down,
+   * fastest at the shoreline and fading to nothing at twice the wave height deep — so platforms slope
+   * gently seaward instead of staying flat. Rate at the shoreline = rateMYr × rock erodibility ÷ 0.6
+   * (rateMYr ≈ 0.002: chalk platforms wear down ~1–2 mm/yr, e.g. Stephenson & Kirk; weaker rock faster).
+   * The ground removed is fine sediment carried offshore. Returns the volume (m³).
+   */
+  wearPlatform(dtYears: number, rateMYr: number): number {
+    const w = this.world;
+    const b = w.bedrockElevationM;
+    const loose = w.looseSedimentThicknessM;
+    const z = this.surface;
+    const sl = w.seaLevelM;
+    const reach = 2 * this.params.waveHeightM;
+    let vol = 0;
+    for (let i = 0; i < z.length; i++) {
+      const d = sl - z[i];
+      if (d <= 0 || d >= reach || loose[i] > 0.05) continue; // land, deep water, or covered by sand
+      const lower = ((rateMYr * this.erod[w.materialId[i]]) / 0.6) * (1 - d / reach) * dtYears;
+      const nb = Math.fround(b[i] - lower);
+      vol += b[i] - nb;
+      b[i] = nb;
+      z[i] = b[i] + loose[i];
+      refreshExposed(w, i);
+    }
+    vol *= w.cellSizeM * w.cellSizeM;
+    this.ledger.cliffEroded += vol;
+    this.ledger.exportedFines += vol;
+    return vol;
+  }
+
   /** Unit vector pointing from land towards sea at cell (x, y), from a 5×5 sea mask. */
   private seawardNormal(x: number, y: number): [number, number] {
     const w = this.world;

@@ -48,6 +48,9 @@ describe('coasts in geological time', () => {
     expect(num(/Bay: soft clay worn back (\d+) m/, labels[2])[0]).toBeGreaterThan(500);
     const [eh, eb] = num(/headland ([\d.]+) kW\/m, bay ([\d.]+) kW\/m/, labels[2]);
     expect(eh).toBeGreaterThan(eb);
-    expect(num(/Wave-cut platform: a rock shelf (\d+) m wide/, labels[3])[0]).toBeGreaterThan(100);
+    const [width, inner, outer] = num(/Wave-cut platform: a rock shelf (\d+) m wide, sloping gently out from ([\d.]+) m to ([\d.]+) m/, labels[3]);
+    expect(width).toBeGreaterThan(100);
+    expect(width).toBeLessThan(800); // real platforms: typically a few hundred metres
+    expect(outer).toBeGreaterThan(inner);
   }, 180000);
 });

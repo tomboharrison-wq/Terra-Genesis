@@ -32,6 +32,8 @@ export const COAST_GEO_RATE = 0.05;
 /** Coast sub-step (years): a cell's worth of cliff is never worn back in a single step. */
 export const COAST_STEP_YEARS = 10;
 const COAST_LANDSCAPE_STEP = 50;
+/** Shore-platform down-wearing at the shoreline for chalk (m/yr; Stephenson & Kirk measure ~1–2 mm/yr). */
+export const PLATFORM_WEAR_M_YR = 0.002;
 /** Share of eroded cliff material coarse enough to stay as beach and nearshore sediment. */
 export const COARSE_FRACTION = 0.2;
 
@@ -195,7 +197,8 @@ function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
 /**
  * Geological time on a coast: the landscape model (rivers, weathering, cliff-top collapse — over-steep
  * cliffs fail down to sea level) every few decades, and the coast model (wave attack down to a
- * wave-cut platform, foreshore attenuation, longshore drift) in short sub-steps at its geological rate.
+ * wave-cut platform, foreshore attenuation, longshore drift, platform down-wearing) in short sub-steps
+ * at its geological rate.
  * Only the coarse share of eroded cliff stays as beach / nearshore sediment; the fines are carried
  * offshore (off the map).
  */
@@ -214,6 +217,7 @@ function runCoastal(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
     for (let t = 0; t < dt - 1e-9; ) {
       const d = Math.min(COAST_STEP_YEARS, dt - t);
       c.sim.run(d * YEAR_S, COAST_GEO_RATE);
+      c.sim.wearPlatform(d, PLATFORM_WEAR_M_YR);
       t += d;
     }
     tot.coastEroded += L.cliffEroded - e0;

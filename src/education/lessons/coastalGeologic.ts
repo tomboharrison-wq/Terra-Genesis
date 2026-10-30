@@ -97,8 +97,14 @@ function coastLabels(ctx: StageContext, show: { rocks?: boolean; landforms?: boo
     let x = head.shore;
     while (x < W && z(head.row * W + x) > w.seaLevelM - 3 && z(head.row * W + x) < w.seaLevelM) x++;
     const width = (x - head.shore) * w.cellSizeM;
-    if (width >= 2 * w.cellSizeM)
-      out.push({ text: `Wave-cut platform: a rock shelf ${Math.round(width)} m wide, just below sea level, left as the cliff retreated`, ...at(w, Math.round((head.shore + x) / 2), head.row) });
+    if (width >= 2 * w.cellSizeM) {
+      const inner = w.seaLevelM - z(head.row * W + head.shore);
+      const outer = w.seaLevelM - z(head.row * W + Math.max(head.shore, x - 1));
+      out.push({
+        text: `Wave-cut platform: a rock shelf ${Math.round(width)} m wide, sloping gently out from ${inner.toFixed(1)} m to ${outer.toFixed(1)} m below sea level`,
+        ...at(w, Math.round((head.shore + x) / 2), head.row),
+      });
+    }
   }
   if (show.energy && head && bay) {
     // Wave energy reaching the coast: recompute the coast model's exposure for the present shoreline (no erosion).
@@ -160,7 +166,7 @@ export const headlandsBaysModel: Lesson = {
     {
       title: 'Wave-cut platforms',
       ks3: 'As the cliffs were worn back, they left a flat shelf of rock at their foot, just under the sea. This is a wave-cut platform. It makes the waves break further out, so the cliff behind it wears back more slowly.',
-      gcse: 'Erosion is concentrated between high and low tide at the cliff foot, cutting a wave-cut notch; the overhang collapses and the cliff retreats, leaving a gently sloping wave-cut platform. As the platform widens, waves break and lose energy before reaching the cliff, so retreat slows (in the model, shallow water within three cells of the cliff weakens the waves).',
+      gcse: 'Erosion is concentrated between high and low tide at the cliff foot, cutting a wave-cut notch; the overhang collapses and the cliff retreats, leaving a gently sloping wave-cut platform. As the platform widens, waves break and lose energy before reaching the cliff, so retreat slows (in the model, shallow water within three cells of the cliff weakens the waves). The platform itself is slowly worn down — fastest near the shore (~2 mm a year in chalk, as measured on UK chalk platforms) — so it slopes gently out to sea.',
       camera: 'oblique',
       overlay: 'none',
       labels: (ctx) => coastLabels(ctx, { landforms: true, platform: true }),
