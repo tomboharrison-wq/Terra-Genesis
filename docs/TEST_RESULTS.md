@@ -1,7 +1,7 @@
 # Test results (latest first)
 
-## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (1b25e62 + drift fix)
-- npm test 281 PASS (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on the built app.
+## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (21e14d8–f98ef74)
+- npm test 281 PASS at f98ef74 (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on a build made 14:51, i.e. after 21e14d8 but before the 1b25e62 commit and the drift fix f98ef74 — those two are covered by unit tests only so far.
 - Beach-building trial (not committed): bay retreat −25 %, bay sand 0.4 → 0.2 m; reverted (see BACKLOG M13-C08c).
 
 ## 2026-10-30 M13-C08 coasts in geological time (aa52e61)
