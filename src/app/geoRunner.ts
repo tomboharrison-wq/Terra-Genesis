@@ -160,14 +160,14 @@ function onResult(r: GeoResult & { id: number }) {
 }
 
 /**
- * Run exactly `years` of geological time (lesson stages): in ~10 chunks so the landscape is seen
+ * Run exactly `years` of geological time (lesson stages): in ≤ 6 chunks so the landscape is seen
  * changing, resolving when all of it is applied.
  */
 export function runGeoYears(years: number): Promise<void> {
   if (ui().geo.playing) stopGeo();
   engine.beginGeologic();
   if (frames.length === 0) record(true);
-  const chunk = Math.max(5000, years / 10);
+  const chunk = Math.max(10000, years / 6); // fewer, larger jobs: less overhead, still seen changing
   return new Promise((resolve) => {
     let left = years;
     const next = () => {

@@ -63,7 +63,9 @@ describe('glaciers in geological time', () => {
     expect(num(/Valley glacier: ice (\d+) m thick/, labels[1])).toBeGreaterThan(100);
     expect(num(/(?:Glacial trough|U-shaped valley): (\d+) m deeper/, labels[3])).toBeGreaterThan(50);
     expect(num(/Hanging valley: (\d+) m above/, labels[3])).toBeGreaterThan(60);
-    expect(num(/Moraine: (\d+) m/, labels[3])).toBeGreaterThan(3);
+    const moraines = labels[3].filter((l) => /^(Terminal|Lateral|Recessional) moraine: \d+ m/.test(l.text));
+    expect(moraines.length).toBeGreaterThanOrEqual(2);
+    for (const m of moraines) expect(+m.text.match(/: (\d+) m/)![1]).toBeLessThan(80); // real moraines: metres to tens of metres
     expect(labels[3].some((l) => /^Corrie/.test(l.text))).toBe(true);
     expect(num(/Worn away most: (\d+) m/, labels[4])).toBeGreaterThan(50);
   }, 180000);

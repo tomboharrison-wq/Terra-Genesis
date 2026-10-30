@@ -242,3 +242,7 @@
 - New lesson **Headlands, bays and wave-cut platforms (geological time)**: a straight coast cut across bands of chalk/limestone and clay (like Swanage, Dorset) is worn back by waves for 6,000 years. Measured on the model: how far each band has retreated (clay ~1.2 km, chalk ~0.8 km), how far the headlands jut out (~380 m), cliff height, wave energy reaching the headland vs the bay, sand on the bay shore, and the wave-cut platform left behind.
 - Waves now act in geological time on any world with waves on, at measured cliff-retreat rates; most of the eroded cliff (mud and silt) is carried away offshore, the coarse part stays near the shore.
 - Landforms → headlands & bays and cliffs & wave-cut platforms: "Watch it form (landscape model)".
+
+## M13 refinements (2026-10-30)
+- Wave-cut platforms now wear down slowly (fastest near the shore, ~2 mm a year in chalk) and slope gently out to sea: a realistic ~360 m wide after 6,000 years instead of a flat 940 m shelf. The label gives the slope.
+- Glaciated upland: the ice age now has colder spells (glaciers fill the valleys) and milder spells (they shrink back to the corries), and the ice melts back in steps — so the lesson finds terminal, lateral and recessional moraines (each measured, ~10–20 m) as well as an arête.

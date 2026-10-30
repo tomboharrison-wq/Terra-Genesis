@@ -9,11 +9,29 @@ import { crossSection, mainRiver } from '../geoFeatures';
  * measurements of the simulated landscape.
  */
 const COLD_C = -1; // sea-level mean temperature in the ice age → snowline (equilibrium line) ≈ 570 m here
+const MILD_C = 1; // milder phases of the ice age → snowline ≈ 880 m: only corrie glaciers below the summits
 const WARM_C = 10;
+/** The ice age as cold and milder phases (years): glaciers advance down the valleys, then shrink back to the corries. */
+const CYCLES = [
+  { c: COLD_C, years: 20000 },
+  { c: MILD_C, years: 9000 },
+  { c: COLD_C, years: 20000 },
+  { c: MILD_C, years: 9000 },
+  { c: COLD_C, years: 20000 },
+  { c: MILD_C, years: 9000 },
+  { c: COLD_C, years: 29000 },
+];
+/** Deglaciation in steps (°C, years each): the ice front retreats and pauses, leaving recessional moraines. */
+const MELT_STEPS = [2, 3.5, 5, 6.5, 8, WARM_C].map((c) => ({ c, years: 500 }));
 
 // The land before the ice age and the ice at its greatest (kept when the stages are first run).
 let pre: Float32Array | null = null;
 let iceMax: Float32Array | null = null;
+const trackIce = (ctx: StageContext) => {
+  const ice = ctx.engine.world.iceThicknessM;
+  if (!iceMax || iceMax.length !== ice.length) iceMax = new Float32Array(ice.length);
+  for (let i = 0; i < ice.length; i++) if (ice[i] > iceMax[i]) iceMax[i] = ice[i];
+};
 
 /** The ice-age snowline (equilibrium-line height) of this world. */
 const snowlineCold = (ctx: StageContext) => {
@@ -89,9 +107,11 @@ export const glaciatedUpland: Lesson = {
       gcse: 'With a colder climate the equilibrium line drops below the summits. Accumulation exceeds ablation above it; snow is compacted to firn and glacier ice, which flows by internal deformation and basal sliding (the model uses the shallow-ice approximation of Glen’s flow law). Shaded north- to east-facing slopes, where drifting snow collects and melting is slowest, get extra accumulation in the model, as in the UK.',
       enter: (ctx) => {
         pre = ctx.engine.surface.slice();
+        iceMax = null;
         ctx.engine.setClimateParams({ enabled: true, seaLevelTempC: COLD_C, seasonalAmpC: 0, seasonsRun: false });
         ctx.engine.setGlacierParams({ enabled: true, aspectBalance: 0.4, erosionLaw: 'linear', slidingCoupling: 4, maxErosionMmYr: 10 });
-        return ctx.geo(4000);
+        const r = ctx.geo(4000);
+        return r instanceof Promise ? r.then(() => trackIce(ctx)) : trackIce(ctx);
       },
       camera: 'oblique',
       overlay: 'none',
@@ -99,9 +119,15 @@ export const glaciatedUpland: Lesson = {
     },
     {
       title: 'Glaciers erode: plucking and abrasion',
-      ks3: 'The moving ice freezes onto rocks and plucks them out, then drags them along its bed like sandpaper (abrasion). It deepens and widens the valleys. Frost shatters the rock walls above the ice. Meltwater rivers carry most of the rubble away. (120,000 years of ice.)',
+      ks3: 'The moving ice freezes onto rocks and plucks them out, then drags them along its bed like sandpaper (abrasion). It deepens and widens the valleys. Frost shatters the rock walls above the ice. Meltwater rivers carry most of the rubble away. (120,000 years: colder spells when glaciers fill the valleys, milder spells when they shrink back to the corries.)',
       gcse: 'Basal sliding drives erosion by plucking and abrasion (in the model: bed lowering proportional to sliding speed, at most 10 mm a year, the measured range for temperate glaciers). The debris is carried in the ice; where the ice melts most of it (95 % in the model) leaves in meltwater rivers (outwash) and the rest is left as moraine. Above the ice, freeze-thaw weathering and rockfall keep the back walls of the corries steep.',
-      enter: (ctx) => ctx.geo(116000),
+      enter: async (ctx) => {
+        for (const ph of CYCLES) {
+          ctx.engine.setClimateParams({ seaLevelTempC: ph.c });
+          await ctx.geo(ph.years);
+          trackIce(ctx);
+        }
+      },
       camera: 'oblique',
       overlay: 'none',
       labels: (ctx) => {
@@ -117,12 +143,14 @@ export const glaciatedUpland: Lesson = {
     },
     {
       title: 'The ice melts: a glaciated landscape',
-      ks3: 'The climate warms and the glaciers melt away in a few thousand years. Now we can see what they made. There are armchair-shaped hollows (corries) and knife-edge ridges (arêtes). The main valleys are deeper, with steep sides. Side valleys are left hanging high above them. Piles of rubble (moraine) mark where the ice ended.',
+      ks3: 'The climate warms in steps and the glaciers melt back, pausing now and then. Now we can see what they made. There are armchair-shaped hollows (corries) and knife-edge ridges (arêtes). The main valleys are deeper, with steep sides. Side valleys are left hanging high above them. Piles of rubble (moraine) mark where the ice ended.',
       gcse: 'Deglaciation reveals erosional landforms — corries, arêtes, pyramidal peaks, glacial troughs with steep sides and wide flat floors, truncated spurs, hanging valleys (tributary glaciers eroded their valleys less deeply), ribbon lakes in over-deepened rock basins — and depositional landforms (moraine). Each label is measured on the model landscape and compared with the river-carved land before the ice age. Corries smaller than ~1 km are at the edge of what this 60 m grid can show.',
-      enter: (ctx) => {
-        iceMax = ctx.engine.world.iceThicknessM.slice();
-        ctx.engine.setClimateParams({ seaLevelTempC: WARM_C });
-        return ctx.geo(3000);
+      enter: async (ctx) => {
+        trackIce(ctx);
+        for (const ph of MELT_STEPS) {
+          ctx.engine.setClimateParams({ seaLevelTempC: ph.c });
+          await ctx.geo(ph.years);
+        }
       },
       camera: 'oblique',
       overlay: 'none',
@@ -147,7 +175,9 @@ export const glaciatedUpland: Lesson = {
         if (f.peak) out.push({ text: `Pyramidal peak: corries cut into ${f.peak.corries} sides`, ...at(w, f.peak.cell) });
         if (f.hanging) out.push({ text: `Hanging valley: ${Math.round(f.hanging.dropM)} m above the main valley floor`, ...at(w, f.hanging.cell) });
         if (f.ribbon) out.push({ text: `Ribbon lake: ${(f.ribbon.lengthM / 1000).toFixed(1)} km long, ${f.ribbon.depthM.toFixed(0)} m deep`, ...at(w, f.ribbon.cell) });
-        if (f.moraine) out.push({ text: `Moraine: ${f.moraine.thickM.toFixed(0)} m of rock debris left by the ice`, ...at(w, f.moraine.cell) });
+        if (f.terminal) out.push({ text: `Terminal moraine: ${f.terminal.thickM.toFixed(0)} m of debris where the ice reached furthest`, ...at(w, f.terminal.cell) });
+        if (f.lateral) out.push({ text: `Lateral moraine: ${f.lateral.thickM.toFixed(0)} m of debris along the valley side`, ...at(w, f.lateral.cell) });
+        if (f.recessional) out.push({ text: `Recessional moraine: ${f.recessional.thickM.toFixed(0)} m, left where the melting ice front paused`, ...at(w, f.recessional.cell) });
         return out;
       },
     },

@@ -63,6 +63,12 @@ export interface GlacialFeatures {
   peak: { cell: number; corries: number } | null;
   hanging: { cell: number; dropM: number } | null;
   moraine: { cell: number; thickM: number } | null;
+  /** Moraine where the ice reached furthest (at its greatest extent, on a valley floor). */
+  terminal: { cell: number; thickM: number } | null;
+  /** Moraine along a valley side at the edge of the ice. */
+  lateral: { cell: number; thickM: number } | null;
+  /** Moraine well inside the greatest extent: left where the retreating ice front paused. */
+  recessional: { cell: number; thickM: number } | null;
   ribbon: { cell: number; lengthM: number; depthM: number } | null;
 }
 
@@ -199,6 +205,35 @@ export function findGlacialFeatures(w: WorldState, pre: Float32Array, iceMax: Fl
     if (thick > 3 && (!moraine || thick > moraine.thickM)) moraine = { cell: i, thickM: thick };
   }
 
+  // Moraine types from where the ice left its debris, relative to the greatest ice extent.
+  let terminal: GlacialFeatures['terminal'] = null;
+  let lateral: GlacialFeatures['lateral'] = null;
+  let recessional: GlacialFeatures['recessional'] = null;
+  const nearMargin = (i: number) => {
+    const x = i % W;
+    const y = (i / W) | 0;
+    let inside = false;
+    let outside = false;
+    for (let dy = -2; dy <= 2; dy++)
+      for (let dx = -2; dx <= 2; dx++) {
+        const xx = Math.min(W - 1, Math.max(0, x + dx));
+        const yy = Math.min(H - 1, Math.max(0, y + dy));
+        if (iceMax[yy * W + xx] > 20) inside = true;
+        else outside = true;
+      }
+    return inside && outside;
+  };
+  for (let i = 0; i < n; i++) {
+    if (lakeD(i) > 0.5) continue;
+    const thick = Math.min(moraineM[i], w.looseSedimentThicknessM[i]);
+    if (thick < 2) continue;
+    if (nearMargin(i)) {
+      const floor = geo.area[i] >= 30 * cs * cs; // on a valley floor (drainage line) vs a valley side
+      if (floor && (!terminal || thick > terminal.thickM)) terminal = { cell: i, thickM: thick };
+      if (!floor && (!lateral || thick > lateral.thickM)) lateral = { cell: i, thickM: thick };
+    } else if (iceMax[i] > 50 && geo.area[i] >= 10 * cs * cs && (!recessional || thick > recessional.thickM)) recessional = { cell: i, thickM: thick };
+  }
+
   // Ribbon lake: the longest lake in a glaciated valley.
   let ribbon: GlacialFeatures['ribbon'] = null;
   const seen = new Uint8Array(n);
@@ -231,7 +266,7 @@ export function findGlacialFeatures(w: WorldState, pre: Float32Array, iceMax: Fl
     if (len + cs >= 500 && lakeD(deep) >= 5 && (!ribbon || len > ribbon.lengthM)) ribbon = { cell: deep, lengthM: len + cs, depthM: lakeD(deep) };
   }
 
-  return { trough, corries, arete, peak, hanging, moraine, ribbon };
+  return { trough, corries, arete, peak, hanging, moraine, ribbon, terminal, lateral, recessional };
 }
 
 export const at = xy;
