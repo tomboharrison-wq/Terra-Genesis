@@ -29,8 +29,11 @@ Live site: https://terra-genesis.netlify.app — open **? → Help**; the versio
   on the landscape (also from Landforms → "Watch it form").
 - **Classroom** (top bar): Performance quality and new worlds at 128² (≈ 8× faster water) for school laptops.
 - **Lessons** → pick one of 11 lessons in 5 modules (rivers, coasts, volcanoes, glaciation, tectonics), KS3 or GCSE
-  wording. Panel buttons: Bigger text, High contrast, Hide panel (map only), and **Copy link to this stage** — the
-  link opens the lesson straight at that stage for the class.
+  wording. Panel buttons: Bigger text, High contrast, Hide panel (map only), **Copy link to this stage** — the
+  link opens the lesson straight at that stage for the class — and **Print worksheet** / **Print with answers** (A4: each
+  stage's text, the picture and measurements of each stage shown so far, prediction space, the exam question).
+- Geological lessons open each stage instantly from a run recorded with the same model (live if you change anything).
+- Geological time → Settings: **River deposition** (fans, valley floors) and **Meandering river** on any world's lower course.
 - Lessons marked **Guided model** are drawn from stated rules (teaching models); the others run the real simulation.
 
 ## Mac app (no internet needed)

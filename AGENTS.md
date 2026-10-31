@@ -18,6 +18,7 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 - `npm run build` — typecheck + production build to `dist/` (Netlify publish dir)
 - `npm run preview` — serve built `dist/`
 - `npm run e2e` — headless Chromium e2e + screenshots to tests/screenshots (needs `npm run preview` on :4173)
+- `npm run record-lessons` — re-record geological lesson runs (public/lesson-runs) after ANY model/lesson change; tests fail until you do
 - `npm run gpu-check` — CPU-vs-GPU water solver comparison in headless Chromium (needs preview)
 
 ## Folder map

@@ -58,10 +58,13 @@ export function HelpDialog() {
         <li>
           <b>Geological time</b> (time bar → Geological time): thousands to millions of years. A separate long-timescale landscape model — rivers cut down by
           stream power, soil forms and creeps, over-steep slopes fail, sediment fills lakes and the sea, optional uplift — run in the background; rivers and
-          lakes are drawn from the drainage. Replay goes back to any recorded moment. The lowland-river lesson adds a meandering river (bank erosion and
-          point bars, neck cut-offs → oxbow lakes, flood deposits → levees and floodplain). With climate and glaciers on, glaciers grow, erode and
+          lakes are drawn from the drainage. Replay goes back to any recorded moment. Settings → River deposition makes rivers drop sediment where they
+          slow (alluvial fans, filling valley floors). The lowland-river lesson — or Settings → Meandering river on any world with a gentle, sediment-filled
+          lower course — adds a meandering river (bank erosion and point bars, neck cut-offs → oxbow lakes, flood deposits → levees and floodplain). With climate and glaciers on, glaciers grow, erode and
           melt in geological time too (glaciated-upland lesson; map overlay "Glacial erosion"); with waves on, cliffs retreat at measured rates and
-          leave wave-cut platforms (headlands-and-bays lesson). No lava or plants in geological time.
+          leave wave-cut platforms (headlands-and-bays lesson). No lava or plants in geological time. The geological lessons open each stage from a run
+          recorded with this same model (instant); if you change the land or settings mid-lesson that stage runs live instead (add &amp;recorded=0 to a
+          lesson link to always run live).
         </li>
         <li>
           <b>Coasts, climate, snow, glaciers, plants, plates, lava and ash</b> run on their own clocks with stated time compression.

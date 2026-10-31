@@ -6,22 +6,22 @@
 | M13-C02 | Geological lessons: V-shaped valley + interlocking spurs; waterfall + gorge retreat (measured labels); Landforms "Watch it form" | DONE |
 | M13-C03 | Classroom mode (Performance quality, 128² new worlds, low-fps prompt) | DONE |
 | M13-C04 | Floodplain building: overbank deposition with the meandering river (levees, aggradation, backswamps) | DONE (lesson world) |
-| M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | TODO |
+| M13-C04b | Transport-limited deposition everywhere in geological time (ξ-q): alluvial fans and valley-floor aggradation done (Settings slider, default off); deltas building above sea level not yet checked | DONE |
 | M13-C05 | Meander migration (Howard & Knutson 1984) carved into the terrain; cut-offs → oxbow lakes; lesson with measured labels | DONE |
-| M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
+| M13-C05b | Meandering river in any world (main river's lower course, needs a floodplain): done; estuary at the mouth still TODO | DONE |
 | M13-C06 | Glaciers in geological time + glaciated-upland lesson (troughs, corries, pyramidal peak, hanging valleys, moraine, glacial erosion overlay) | DONE |
 | M13-C06b | Glacial cycles (cold/mild phases, stepped melt) and moraine types (terminal, lateral, recessional) | DONE |
 | M13-C06c | Finer grid / higher-order ice flow for corries and tarns; drumlins & erratics | TODO |
 | M13-C08 | Coasts in geological time + headlands, bays & wave-cut platforms lesson (measured retreat, jut, cliff, sheltering, platform) | DONE |
 | M13-C08b | Platform down-wearing (sloping wave-cut platforms) | DONE |
 | M13-C08c | Coasts: wave refraction over the seabed, beaches that build above sea level in bays (needs a cross-shore beach-profile model: tried 2026-10-30 letting swash push sand to a 1 m berm and sparing low sandy cells from wave attack — it shielded cliff feet, cut bay retreat ~25% and thinned bay sand 0.4→0.2 m; swash alone was wiped by waves next step; reverted), caves/arches/stacks at map scale | TODO |
-| M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops) | TODO |
+| M13-C07 | Pre-recorded runs shipped with the app (instant replay on slow laptops): public/lesson-runs, hash- and fingerprint-checked, live fallback | DONE |
 | D-C01 | Mac desktop app (Electron wrapper, Apple Silicon + Intel zips, ad-hoc signed, install guide) | DONE |
 | D-C02 | Mac app: Apple Developer ID signing + notarisation (no first-open warning), auto-update, Windows build; confirm on a real Mac | TODO |
 | M12-C01 | Landform Show: all 27 Edexcel GCSE Topic 1 landforms (1.4a/b, 1.8a/b/c, 1.12a/b/c) as 17 animated formations — stages with KS3/GCSE text, on-screen process annotations, time-lapse clock (0.25–16×), process glossary, exam steps, teacher links ?landform=; simulator Time-lapse button | DONE |
-| M12-C02 | Landform Show: teacher feedback round (accuracy review by a geography teacher, extra stages where needed, printable stage sheets) | TODO |
-| M11-C05 | Loading a saved slot takes 6–7 s for the default world in headless Chromium (measured 2026-10-30): profile decode vs. rebuild and speed it up | TODO |
-| M04-C06 | Worlds are settled dry at generation, so the first heavy rain makes weak scarps fail en masse (plateau: 80 M m³ in an hour). Decide: settle to wet stability, or a gentle first-rain warm-up, or keep and explain | TODO |
+| M12-C02 | Landform Show / lessons: printable worksheets done (lessons); teacher accuracy review and extra stages still need the teacher | TODO |
+| M11-C05 | Loading a saved slot took 6–14 s in headless Chromium: GPU stalls removed → ~2.5 s there (decode ~30 ms); confirm on a real GPU | DONE |
+| M04-C06 | First heavy rain made weak scarps fail en masse (plateau ~90 Mm³/h): worlds now settle to wet stability (~0.01 Mm³) | DONE |
 | M11-C04 | Final QA: WCAG contrast test (Play button fixed), named buttons/focus/Escape e2e, two-column tool rail on short screens, v1–v11 saves load, slot round trip, frame-rate independence (bit-identical at 60/20/uneven fps), build version in Help, Help text brought up to date | DONE |
 | M10-C06 | Lessons still to add: coastal slumping, subduction / plate boundaries (headlands & bays and glacier retreat now done in geological time, M13) | TODO |
 | M11-C06 | Tsunami as a travelling long wave (sea cells in the solver, wave speed √(gh), run-up) instead of a level surge | TODO |
@@ -54,7 +54,7 @@
 | M06-C03 | Glaciers: mass balance, implicit SIA flow, abrasion, debris + moraines, meltwater | DONE |
 | M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | TODO |
 | M06-C02 | Snowpack (SWE) below 0 °C, degree-day melt, snow cover rendering | DONE |
-| M01-C08 | Mountain preset: soften needle peaks (pre-erosion / slope cap) | TODO |
+| M01-C08 | Mountain preset needle peaks: slopes limited to the rock's long-term stable angle at generation | DONE |
 | M06-C01 | Climate: temperature, season, lapse rate, rain shadow, spatial rainfall/evaporation | DONE |
 | M05-C04c | Couple shoreline model to the world heightfield (bars/spits as real terrain) | TODO |
 | M05-C04b | One-line shoreline lab: spits, bay-mouth bars, lagoons, recurves | DONE |

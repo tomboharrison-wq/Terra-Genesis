@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node scripts/screenshot.mjs",
-    "gpu-check": "node scripts/gpu-check.mjs"
+    "gpu-check": "node scripts/gpu-check.mjs",
+    "record-lessons": "vite-node scripts/record-lessons.ts"
   },
   "dependencies": {
     "react": "19.1.0",

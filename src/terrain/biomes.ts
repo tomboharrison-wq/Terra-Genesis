@@ -26,7 +26,7 @@ export const BIOMES: Record<BiomeId, BiomeDef> = {
     glacierSpinUpYears: 0,
   },
   alpine: {
-    climate: { enabled: true, seaLevelTempC: 10, seasonalAmpC: 8, windFromDeg: 260 },
+    climate: { enabled: true, seaLevelTempC: 8, seasonalAmpC: 8, windFromDeg: 260 },
     vegetation: { enabled: true, annualPrecipMm: 1300 },
     glacier: { enabled: true, elaTempC: -3.5 },
     glacierSpinUpYears: 150,

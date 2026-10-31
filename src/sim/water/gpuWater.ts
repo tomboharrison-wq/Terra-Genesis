@@ -421,6 +421,14 @@ interface Prog {
 
 type Pair = [WebGLTexture, WebGLTexture];
 
+/**
+ * Per GL context: compiled programs (shared by every GpuWater on it, never deleted) and whether this
+ * context's RGBA32F framebuffers have been checked complete (a status check stalls the GPU pipeline —
+ * seconds on software renderers — and the formats never change, so it runs once per context).
+ */
+const programCache = new WeakMap<WebGL2RenderingContext, Map<string, WebGLProgram>>();
+const framebuffersChecked = new WeakSet<WebGL2RenderingContext>();
+
 export class GpuWater implements Stepper {
   readonly kind = 'gpu';
   private gl: WebGL2RenderingContext;
@@ -455,6 +463,8 @@ export class GpuWater implements Stepper {
   private H: number;
   /** Depth assumed when choosing dt between syncs (m); grows to observed max depth. */
   assumedDepthM = 4;
+  /** The GPU has stepped since the CPU mirror was last refreshed (uploads keep the two equal). */
+  private stepped = false;
   disposed = false;
 
   static isSupported(gl: WebGL2RenderingContext): boolean {
@@ -499,6 +509,7 @@ export class GpuWater implements Stepper {
     this.update = this.program(UPDATE_FS);
     this.sediment = this.program(SEDIMENT_FS);
     this.peakProg = this.program(PEAK_FS);
+    framebuffersChecked.add(gl); // all framebuffers above were complete
     this.uploadGround();
     this.uploadWater();
     this.uploadClimate();
@@ -526,7 +537,7 @@ export class GpuWater implements Stepper {
     gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     texs.forEach((t, k) => gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + k, gl.TEXTURE_2D, t, 0));
     gl.drawBuffers(texs.map((_, k) => gl.COLOR_ATTACHMENT0 + k));
-    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    const status = framebuffersChecked.has(gl) ? gl.FRAMEBUFFER_COMPLETE : gl.checkFramebufferStatus(gl.FRAMEBUFFER);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (status !== gl.FRAMEBUFFER_COMPLETE) throw new Error(`Water framebuffer incomplete (0x${status.toString(16)})`);
     return fb;
@@ -534,6 +545,10 @@ export class GpuWater implements Stepper {
 
   private program(fs: string): Prog {
     const gl = this.gl;
+    let cache = programCache.get(gl);
+    if (!cache) programCache.set(gl, (cache = new Map()));
+    const cached = cache.get(fs);
+    if (cached) return { p: cached, u: new Map() };
     const sh = (type: number, src: string) => {
       const s = gl.createShader(type)!;
       gl.shaderSource(s, src);
@@ -546,6 +561,7 @@ export class GpuWater implements Stepper {
     gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`Water program: ${gl.getProgramInfoLog(p)}`);
+    cache.set(fs, p);
     return { p, u: new Map() };
   }
 
@@ -649,6 +665,10 @@ export class GpuWater implements Stepper {
    * Returns true if bed fields (terrain) were read back, i.e. the surface may have changed.
    */
   syncToCpu(): boolean {
+    // Nothing has run on the GPU since the last read: the mirror is current and the accumulators are
+    // empty, so skip the read-back (a pipeline stall — seconds on software-rendered GPUs).
+    if (!this.stepped) return false;
+    this.stepped = false;
     const n = this.W * this.H;
     const w = this.world;
     const A = w.cellSizeM * w.cellSizeM;
@@ -793,6 +813,7 @@ export class GpuWater implements Stepper {
   }
 
   step(dt: number): void {
+    this.stepped = true;
     const gl = this.gl;
     const w = this.world;
     const p = w.water;
@@ -929,7 +950,7 @@ export class GpuWater implements Stepper {
     ])
       gl.deleteTexture(t);
     for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed, ...this.fbPeak]) gl.deleteFramebuffer(fb);
-    for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment, this.peakProg]) gl.deleteProgram(pr.p);
+    // Programs stay: they are shared through programCache by every GpuWater on this context.
     gl.deleteVertexArray(this.vao);
   }
 }

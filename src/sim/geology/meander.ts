@@ -86,6 +86,17 @@ export interface MeanderState {
   years: number;
   /** Years since the channel was last carved into the terrain. */
   sinceCarve: number;
+  /**
+   * A river picked on any world (findMeanderReach): the valley centreline with its floodplain level
+   * (m) at each vertex, from inlet to mouth. Without it the valley is the straight inlet–mouth axis.
+   */
+  vx?: number[];
+  vy?: number[];
+  vz?: number[];
+  /** The river's load comes from the landscape upstream on this map (captured as it reaches the channel), not from beyond the map. */
+  onMap?: boolean;
+  /** Load captured from upstream since the last carve (m³; onMap rivers). */
+  pendingM3?: number;
 }
 
 export function createMeander(xs: number[], ys: number[], zIn: number, zOut: number, params: MeanderParams = defaultMeanderParams()): MeanderState {
@@ -117,10 +128,28 @@ export const cloneMeander = (m: MeanderState): MeanderState => ({
   params: { ...m.params },
   oxbows: m.oxbows.map((o) => ({ ...o, xs: o.xs.slice(), ys: o.ys.slice() })),
   mask: m.mask.slice(),
+  ...(m.vx ? { vx: m.vx.slice(), vy: m.vy!.slice(), vz: m.vz!.slice() } : {}),
 });
 
-/** Floodplain level at (x, y): linear down the valley axis. */
+/** Floodplain level at (x, y): interpolated along the valley centreline (or linear down the straight valley axis). */
 export function floodplainZ(m: MeanderState, x: number, y: number): number {
+  if (m.vx && m.vy && m.vz) {
+    let best = Infinity;
+    let z = m.vz[0];
+    for (let k = 1; k < m.vx.length; k++) {
+      const ax = m.vx[k - 1];
+      const ay = m.vy[k - 1];
+      const dx = m.vx[k] - ax;
+      const dy = m.vy[k] - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1)));
+      const d = (x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2;
+      if (d < best) {
+        best = d;
+        z = m.vz[k - 1] + (m.vz[k] - m.vz[k - 1]) * t;
+      }
+    }
+    return z;
+  }
   const dx = m.bx - m.ax;
   const dy = m.by - m.ay;
   const t = Math.max(0, Math.min(1, ((x - m.ax) * dx + (y - m.ay) * dy) / (dx * dx + dy * dy)));
@@ -134,9 +163,17 @@ export function channelLength(m: MeanderState): number {
   return L;
 }
 
-/** Sinuosity: channel length / straight valley length (1 = straight; > 1.5 = meandering). */
+/** Valley length (m): along the valley centreline, or the straight inlet–mouth distance. */
+export function valleyLength(m: MeanderState): number {
+  if (!m.vx || !m.vy) return Math.hypot(m.bx - m.ax, m.by - m.ay);
+  let L = 0;
+  for (let k = 1; k < m.vx.length; k++) L += Math.hypot(m.vx[k] - m.vx[k - 1], m.vy[k] - m.vy[k - 1]);
+  return L;
+}
+
+/** Sinuosity: channel length / valley length (1 = straight; > 1.5 = meandering). */
 export function sinuosity(m: MeanderState): number {
-  return channelLength(m) / Math.max(1, Math.hypot(m.bx - m.ax, m.by - m.ay));
+  return channelLength(m) / Math.max(1, valleyLength(m));
 }
 
 /** Bank resistance at (x, y): 1 on alluvium in the floodplain, rock erodibility × 0.05 on bedrock or valley sides. */
@@ -425,7 +462,10 @@ export function carve(w: WorldState, m: MeanderState, years: number): CarveStats
   fill += plug;
   budget -= plug; // may go negative: then the plugs took some of the incoming supply
   // Overbank flood deposits: a share of the load passing through, decaying with distance from the channel.
-  const load = p.supplyM3Yr * years + budget;
+  // The load: sediment from beyond the map (lesson river) or captured from the landscape upstream (onMap).
+  const captured = m.pendingM3 ?? 0;
+  m.pendingM3 = 0;
+  const load = p.supplyM3Yr * years + captured + budget;
   const ob = p.overbankFraction * load;
   // Shares are fixed by distance over the whole reach and scaled by the depth of flooding there; what
   // is not laid stays in the river and goes downstream, so deposits never pile up above the floods.

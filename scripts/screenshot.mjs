@@ -1261,27 +1261,28 @@ await page.waitForTimeout(400);
 const clsOff = await page.evaluate(() => ({ on: window.__terraGenesis.ui().classroom, q: window.__terraGenesis.ui().quality }));
 check('classroom mode: Performance quality on, previous quality back when off', cls.on && cls.q === 'performance' && !clsOff.on && clsOff.q !== 'performance', JSON.stringify({ cls, clsOff }));
 
-// --- Geological lesson (teacher link to stage 3): meanders cut off into an oxbow lake ---
-await page.goto(base + '?lesson=meanders-floodplain-model&stage=3');
+// --- Geological lesson (teacher link to stage 3, run live with recordings off): meanders cut off into an oxbow lake ---
+await page.goto(base + '?lesson=meanders-floodplain-model&stage=3&recorded=0');
 await page.waitForFunction(() => window.__terraGenesis.ui().education?.stage === 2 && !window.__terraGenesis.ui().education.busy, null, { timeout: 300000 });
 await page.waitForTimeout(1500);
 const oxLabels = await page.evaluate(() => window.__terraGenesis.ui().lessonLabels.map((l) => l.text));
+const oxLive = await page.evaluate(() => (window.__terraGenesis.ui().education.recorded ?? []).length === 0);
 await shot('82-lesson-oxbow-lake');
 check(
-  'geological lesson: the meandering river is cut off into an oxbow lake (teacher link to stage 3)',
-  oxLabels.some((t) => /^Oxbow lake: cut off [\d,]+ years ago/.test(t)) && oxLabels.some((t) => /\(meandering\)/.test(t)),
-  oxLabels.join(' | '),
+  'geological lesson: the meandering river is cut off into an oxbow lake (teacher link to stage 3, run live)',
+  oxLive && oxLabels.some((t) => /^Oxbow lake: cut off [\d,]+ years ago/.test(t)) && oxLabels.some((t) => /\(meandering\)/.test(t)),
+  `live ${oxLive} · ` + oxLabels.join(' | '),
 );
 
 // --- Geological lesson: glaciated upland (teacher link to the last stage) — glacial erosion map ---
 await page.goto(base + '?lesson=glaciated-upland-model&stage=5');
 await page.waitForFunction(() => window.__terraGenesis.ui().education?.stage === 4 && !window.__terraGenesis.ui().education.busy, null, { timeout: 400000 });
 await page.waitForTimeout(1500);
-const glLabels = await page.evaluate(() => ({ labels: window.__terraGenesis.ui().lessonLabels.map((l) => l.text), overlay: window.__terraGenesis.ui().terrainOverlay, ice: window.__terraGenesis.engine.world.iceThicknessM.some((h) => h > 1) }));
+const glLabels = await page.evaluate(() => ({ labels: window.__terraGenesis.ui().lessonLabels.map((l) => l.text), overlay: window.__terraGenesis.ui().terrainOverlay, ice: window.__terraGenesis.engine.world.iceThicknessM.some((h) => h > 1), recorded: window.__terraGenesis.ui().education.recorded, note: !!document.querySelector('.recorded-note') }));
 await shot('83-lesson-glacial-erosion');
 check(
-  'geological lesson: mountains glaciated and the ice melted; glacial erosion mapped and measured',
-  glLabels.overlay === 'glacial' && !glLabels.ice && glLabels.labels.some((t) => /^Worn away most: \d+ m by the ice/.test(t)),
+  'geological lesson: mountains glaciated and the ice melted; glacial erosion mapped and measured (all stages from the recorded run, marked as such)',
+  glLabels.recorded?.length === 5 && glLabels.note && glLabels.overlay === 'glacial' && !glLabels.ice && glLabels.labels.some((t) => /^Worn away most: \d+ m by the ice/.test(t)),
   JSON.stringify(glLabels),
 );
 

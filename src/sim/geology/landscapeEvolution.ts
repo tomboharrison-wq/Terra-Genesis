@@ -16,8 +16,9 @@ import { MATERIALS } from '../../terrain/materials';
  * - Sediment: everything eroded is routed downstream and deposited where flow stops — in closed
  *   hollows (up to their spill level: lake infill) and in the sea (up to 1 m below sea level, then
  *   onward to deeper water: deltas). Sediment reaching an open map edge, or the sea at any map edge
- *   (the sea continues beyond the map), leaves the map. Channels do
- *   not deposit on the way (no floodplain aggradation in this model — stated in the UI).
+ *   (the sea continues beyond the map), leaves the map. With depositionG > 0 rivers also deposit on
+ *   the way (ξ–q erosion–deposition, see GeoParams.depositionG): alluvial fans, valley-floor
+ *   aggradation; with 0 (default, used by the lessons) channels do not deposit on the way.
  * - Hillslopes: soil production from bare rock P = P0·erodibility·exp(−h/h0) (Heimsath et al. 1997)
  *   and linear soil creep q = −D·∇z, limited to the soil present (bare rock cliffs do not creep).
  * - Threshold hillslopes: over thousands of years slopes steeper than a critical angle fail by
@@ -49,10 +50,18 @@ export interface GeoParams {
   upliftMmYr: number;
   /** Threshold hillslope failure on (off only to test the river solver alone). */
   slopeFailure: boolean;
+  /**
+   * River deposition coefficient G of the ξ–q (erosion–deposition) model (Davy & Lague 2009, JGR 114;
+   * Yuan et al. 2019, JGR Earth Surface 124), dimensionless, with runoff P = 1 m/yr: rivers drop
+   * sediment at the rate G·Qs/(P·A), so a river that slows (mountain front, valley floor) lays down
+   * alluvial fans and floodplains. 0 = detachment-limited (everything eroded is carried away).
+   * At steady state the river slope is (1 + G) × the detachment-limited slope.
+   */
+  depositionG: number;
 }
 
 export function defaultGeoParams(): GeoParams {
-  return { kRef: 1e-5, m: 0.5, soilFactor: 2, soilCoverM: 0.5, diffusivity: 0.01, soilProduction: 1e-4, soilDepthScaleM: 0.5, upliftMmYr: 0, slopeFailure: true };
+  return { kRef: 1e-5, m: 0.5, soilFactor: 2, soilCoverM: 0.5, diffusivity: 0.01, soilProduction: 1e-4, soilDepthScaleM: 0.5, upliftMmYr: 0, slopeFailure: true, depositionG: 0 };
 }
 
 /** Volumes moved by one step (m³). */
@@ -79,6 +88,8 @@ export interface GeoStepStats {
   outwash: number;
   /** Cliffs worn back by waves (rock and debris, m³). */
   coastEroded: number;
+  /** Laid down by rivers on land (alluvial fans, floodplains; ξ–q deposition). */
+  depositedRivers: number;
 }
 
 export const emptyGeoStats = (): GeoStepStats => ({
@@ -98,6 +109,7 @@ export const emptyGeoStats = (): GeoStepStats => ({
   glacialEroded: 0,
   outwash: 0,
   coastEroded: 0,
+  depositedRivers: 0,
 });
 
 export function addGeoStats(a: GeoStepStats, b: GeoStepStats): void {
@@ -143,12 +155,18 @@ export class LandscapeEvolution {
   private readonly done: Uint8Array;
   private readonly qs: Float64Array;
   private readonly flux: Float64Array;
+  /** ξ–q deposition: lowest donor surface and each cell's own erosion this step (allocated when used). */
+  private minDonor: Float64Array | null = null;
+  private own: Float64Array | null = null;
   /** Cells under a glacier: the ice props up valley sides (no slope failure, creep or weathering there). */
   ice: Uint8Array | null = null;
   /** Sediment entering the rivers at each cell in the next step (m³; glacial meltwater outwash), then cleared. */
   sedimentIn: Float64Array | null = null;
   /** Cells whose channel another model controls (the meandering river): no stream-power incision there. */
   fixed: Uint8Array | null = null;
+  /** Hand sediment reaching the fixed cells from upstream to that model (summed in `captured`, m³) instead of routing it on. */
+  captureFixed = false;
+  captured = 0;
   /** tan(critical slope) per material id. */
   private readonly tanCrit = MATERIALS.map((m) => Math.tan((criticalSlopeDeg(m.erodibility, m.cliffDeg) * Math.PI) / 180));
 
@@ -378,6 +396,23 @@ export class LandscapeEvolution {
     // 2b. Threshold hillslopes: over-steep valley sides fail onto the slope foot.
     if (p.slopeFailure) st.failed = this.fail(4);
 
+    // River deposition (ξ–q): a cell may be built up to just below the lowest cell draining into it, as
+    // that cell stands after its own deposition (donors are routed first), so it never blocks its own
+    // inflow; a cell nothing drains into, by at most what it lost this step.
+    const G = p.depositionG;
+    let minDonor: Float64Array | null = null;
+    let own: Float64Array | null = null;
+    if (G > 0) {
+      minDonor = this.minDonor ??= new Float64Array(n);
+      own = this.own ??= new Float64Array(n);
+      own.set(qs);
+      minDonor.fill(Infinity);
+    }
+    const routed = (i: number) => {
+      const r = receiver[i];
+      if (minDonor && r >= 0) minDonor[r] = Math.min(minDonor[r], bed[i] + soil[i]);
+    };
+
     if (this.sedimentIn) {
       for (let i = 0; i < n; i++) qs[i] += this.sedimentIn[i];
       this.sedimentIn.fill(0);
@@ -387,7 +422,10 @@ export class LandscapeEvolution {
     for (let q = n - 1; q >= 0; q--) {
       const i = order[q];
       let v = qs[i];
-      if (v <= 0) continue;
+      if (v <= 0) {
+        routed(i);
+        continue;
+      }
       const zi = bed[i] + soil[i];
       if (this.isSea(i)) {
         qs[i] = 0;
@@ -405,8 +443,23 @@ export class LandscapeEvolution {
       }
       qs[i] = 0;
       const r = receiver[i];
-      if (v <= 0) continue;
-      if (r >= 0) qs[r] += v;
+      if (v <= 0) {
+        routed(i);
+        continue;
+      }
+      if (minDonor && own && room <= 0 && r >= 0 && !this.ice?.[i] && !this.fixed?.[i]) {
+        // Deposition rate G·Qs/(P·A) over the cell (P = 1 m/yr): the share G·cell area / drainage area of the load.
+        const cap = minDonor[i] < Infinity ? (minDonor[i] - EPS - zi) * A : own[i];
+        const d = Math.min(Math.min(1, (G * A) / area[i]) * v, Math.max(0, cap));
+        if (d > 0) {
+          soil[i] += d / A;
+          st.depositedRivers += d;
+          v -= d;
+        }
+      }
+      routed(i);
+      if (r >= 0 && this.captureFixed && this.fixed?.[r] && !this.fixed[i]) this.captured += v; // the meandering river's load
+      else if (r >= 0) qs[r] += v;
       else if (w.water.boundary === 'open') st.exported += v; // leaves at an open map edge
       else {
         soil[i] += v / A; // terminal outlet of a closed map without sea

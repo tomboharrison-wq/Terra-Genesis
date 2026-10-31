@@ -24,13 +24,13 @@ const CYCLES = [
 /** Deglaciation in steps (°C, years each): the ice front retreats and pauses, leaving recessional moraines. */
 const MELT_STEPS = [2, 3.5, 5, 6.5, 8, WARM_C].map((c) => ({ c, years: 500 }));
 
-// The land before the ice age and the ice at its greatest (kept when the stages are first run).
-let pre: Float32Array | null = null;
-let iceMax: Float32Array | null = null;
+// The land before the ice age and the ice at its greatest, kept with the world (so stage states and
+// recorded runs carry them).
 const trackIce = (ctx: StageContext) => {
   const ice = ctx.engine.world.iceThicknessM;
-  if (!iceMax || iceMax.length !== ice.length) iceMax = new Float32Array(ice.length);
+  const iceMax = ctx.engine.lessonField('iceMax') ?? new Float32Array(ice.length);
   for (let i = 0; i < ice.length; i++) if (ice[i] > iceMax[i]) iceMax[i] = ice[i];
+  ctx.engine.setLessonField('iceMax', iceMax);
 };
 
 /** The ice-age snowline (equilibrium-line height) of this world. */
@@ -106,8 +106,8 @@ export const glaciatedUpland: Lesson = {
       ks3: 'The climate cools. Above the snowline more snow falls each winter than melts each summer. It piles up, squashes into ice and starts to flow downhill as glaciers, first in sheltered hollows facing north-east, then filling the valleys. (4,000 years.)',
       gcse: 'With a colder climate the equilibrium line drops below the summits. Accumulation exceeds ablation above it; snow is compacted to firn and glacier ice, which flows by internal deformation and basal sliding (the model uses the shallow-ice approximation of Glen’s flow law). Shaded north- to east-facing slopes, where drifting snow collects and melting is slowest, get extra accumulation in the model, as in the UK.',
       enter: (ctx) => {
-        pre = ctx.engine.surface.slice();
-        iceMax = null;
+        ctx.engine.setLessonField('pre', ctx.engine.surface);
+        ctx.engine.setLessonField('iceMax', null);
         ctx.engine.setClimateParams({ enabled: true, seaLevelTempC: COLD_C, seasonalAmpC: 0, seasonsRun: false });
         ctx.engine.setGlacierParams({ enabled: true, aspectBalance: 0.4, erosionLaw: 'linear', slidingCoupling: 4, maxErosionMmYr: 10 });
         const r = ctx.geo(4000);
@@ -156,6 +156,8 @@ export const glaciatedUpland: Lesson = {
       overlay: 'none',
       labels: (ctx) => {
         const w = ctx.engine.world;
+        const pre = ctx.engine.lessonField('pre');
+        const iceMax = ctx.engine.lessonField('iceMax');
         if (!pre || !iceMax) return [];
         const f = findGlacialFeatures(w, pre, iceMax, ctx.engine.moraineField(), snowlineCold(ctx), ctx.engine.glacialErosionField());
         const out: LessonLabel[] = [];

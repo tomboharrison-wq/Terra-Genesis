@@ -246,3 +246,19 @@
 ## M13 refinements (2026-10-30)
 - Wave-cut platforms now wear down slowly (fastest near the shore, ~2 mm a year in chalk) and slope gently out to sea: a realistic ~360 m wide after 6,000 years instead of a flat 940 m shelf. The label gives the slope.
 - Glaciated upland: the ice age now has colder spells (glaciers fill the valleys) and milder spells (they shrink back to the corries), and the ice melts back in steps — so the lesson finds terminal, lateral and recessional moraines (each measured, ~10–20 m) as well as an arête.
+
+## M13-C07 — Instant geological lessons: recorded runs (2026-10-31)
+- The five geological-time lessons (V-valley, waterfall & gorge, meanders & oxbows, headlands & bays, glaciated upland) ship with each stage already run by the same model. A stage appears in about a second instead of up to a minute (glacial erosion stage: 77 s → 1 s in a software-rendered test browser). The panel says “Shown from a recorded run of this same model (instant)”.
+- A recording is used only when it was made by exactly this version of the model and the world on screen is exactly the one the stage starts from; if you change the terrain or the settings mid-lesson, that stage runs live as before. Add `&recorded=0` to a lesson link to run every stage live.
+- Faster world changes everywhere (also loading a saved world: ~7–14 s → ~2.5 s in the test browser): no GPU read-back of a world being discarded or of water that has not run, shader programs and framebuffer checks reused.
+- Fixed: going back to a stage of the glaciated-upland lesson lost “rock removed by the ice” (the running totals now travel with the world).
+- **Print worksheet** and **Print with answers** in every lesson: each stage's text at the chosen level (KS3/GCSE), the picture of each stage shown so far with numbered markers and the measured labels listed under it, space to write predictions, and the exam question with answer lines (teacher copy adds the model answer and common mistake). A4, Scouts colours.
+
+## M13-C04b/C05b — Rivers anywhere (2026-10-31)
+- **River deposition** (geological time → Settings): rivers drop sediment where they slow down — alluvial fans at mountain fronts, valley floors filling with river sediment. Standard erosion–deposition (ξ–q) model, checked against its exact steady state (river slope (1 + G) × that of a river that carries everything away, within 0.2 %). Off by default; the lessons use off.
+- **Meandering river on any world** (Settings → “Add on the main river’s lower course”): finds the main river's gentle lower course (under 1 in 333) and, if it has a floodplain of river sediment, starts a meandering river along its winding valley — bends grow, cut off into oxbow lakes, floods build levees, with its load coming from the land upstream on the map. If the world has no suitable lower course or too little river sediment it says why (e.g. run with river deposition on first).
+
+## M04-C06 / M01-C08 — Steadier new worlds (2026-10-31)
+- New worlds settle their slopes to the limits the simulator uses for soaked ground, so the first heavy rain no longer sets off mass landslides (plateau: ~90 million m³ of rockfall in the first hour of a 30 mm/h storm → ~0.01 million m³).
+- Mountain ranges no longer have needle peaks: slopes are shaped to their rock's long-term stable angle (≈ 30–55°) — spikes ~210 m above their neighbours → ~50 m, steps steeper than 55° on 15–23 % of the land → none. The alpine-glaciers preset is a little higher (relief 3,200 m) and cooler (8 °C at sea level) so its glaciers still form.
+

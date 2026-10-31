@@ -303,6 +303,13 @@ export class TerrainScene {
 
   // ---------- world → GPU ----------
 
+  /**
+   * Materials of a replaced world, disposed after the next frame: by then the new world's materials
+   * have taken over the same compiled shader programs (three.js shares a program between materials and
+   * deletes it once none uses it, so disposing first forced a full recompile on every world change).
+   */
+  private retired: { dispose(): void }[] = [];
+
   private buildWorld(resetCamera: boolean) {
     this.displayZ = new Float32Array(this.engine.world.width * this.engine.world.height);
     const w = this.engine.world;
@@ -391,7 +398,7 @@ export class TerrainScene {
 
     if (this.waterLayer) {
       this.scene.remove(this.waterLayer.mesh);
-      this.waterLayer.dispose();
+      this.retired.push(this.waterLayer);
     }
     this.waterLayer = new WaterLayer(this.engine, this.renderer, geo.getIndex()!, this.pos.slice());
     this.waterLayer.setView(this.waterView);
@@ -410,9 +417,9 @@ export class TerrainScene {
     if (this.sea) {
       this.scene.remove(this.sea);
       this.sea.geometry.dispose();
-      this.sea.material.dispose();
+      this.retired.push(this.sea.material);
     }
-    this.heightTex?.dispose();
+    if (this.heightTex) this.retired.push(this.heightTex);
     this.heightHalf = new Uint16Array(w.width * w.height);
     this.heightTex = new DataTexture(this.heightHalf, w.width, w.height, RedFormat, HalfFloatType);
     this.heightTex.magFilter = LinearFilter;
@@ -469,7 +476,7 @@ export class TerrainScene {
       if (m) {
         this.scene.remove(m);
         m.geometry.dispose();
-        m.material.dispose();
+        this.retired.push(m.material);
       }
     }
     const per = this.perimeter();
@@ -880,6 +887,7 @@ export class TerrainScene {
     this.waterLayer?.update(now / 1000);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
+    for (const d of this.retired.splice(0)) d.dispose();
     for (const fn of this.frameListeners) fn();
     if (shook) this.camera.position.sub(shook);
     const cpuMs = performance.now() - t0;
@@ -907,6 +915,44 @@ export class TerrainScene {
   }
 
   private viewInsetLeft = 0;
+  /**
+   * A small picture of the current view for printing (lesson worksheets): renders now and copies the
+   * part not covered by the lesson panel into a 2D canvas `maxW` CSS px wide, with numbered markers at
+   * the given map points (numbered from 1 in order; points off screen get none).
+   */
+  snapshot(maxW: number, marks: { xM: number; yM: number }[] = []): HTMLCanvasElement {
+    this.renderer.render(this.scene, this.camera);
+    const src = this.renderer.domElement;
+    const ratio = src.width / Math.max(1, src.clientWidth);
+    const x0 = this.viewInsetLeft;
+    const wCss = Math.max(1, src.clientWidth - x0);
+    const k = Math.min(1, maxW / wCss);
+    const c = document.createElement('canvas');
+    c.width = Math.round(wCss * k);
+    c.height = Math.round(src.clientHeight * k);
+    const g = c.getContext('2d')!;
+    g.drawImage(src, x0 * ratio, 0, wCss * ratio, src.height, 0, 0, c.width, c.height);
+    g.font = 'bold 13px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    marks.forEach((m, n) => {
+      const p = this.project(m.xM, m.yM, 0);
+      if (!p || p.x < x0) return;
+      const x = (p.x - x0) * k;
+      const y = p.y * k;
+      g.beginPath();
+      g.arc(x, y, 10, 0, Math.PI * 2);
+      g.fillStyle = '#006ddf'; // Scouts blue
+      g.fill();
+      g.lineWidth = 2;
+      g.strokeStyle = '#ffffff';
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.fillText(String(n + 1), x, y + 0.5);
+    });
+    return c;
+  }
+
   /** PNG of the current view: render now and read the canvas in the same task (no preserved buffer needed). */
   captureView(): Promise<Blob> {
     this.renderer.render(this.scene, this.camera);
@@ -1167,6 +1213,7 @@ export class TerrainScene {
     cancelAnimationFrame(this.raf);
     this.unsub();
     this.engine.detachGpu();
+    for (const d of this.retired.splice(0)) d.dispose();
     this.waterLayer?.dispose();
     this.trees?.dispose();
     this.resizeObs.disconnect();

@@ -90,6 +90,10 @@ export interface WorldMeta {
   glacialErosionM?: number[];
   /** A meandering lowland river (sim/geology/meander.ts MeanderState; plain data, saved with the world). */
   meander?: import('../sim/geology/meander').MeanderState;
+  /** Running totals of geological time on this world (sim/geology GeoStepStats; saved with it). */
+  geoTotals?: Record<string, number>;
+  /** Per-cell records a lesson keeps for its measurements (e.g. the land before an ice age; m per cell). */
+  lessonFields?: Record<string, number[]>;
 }
 
 /**

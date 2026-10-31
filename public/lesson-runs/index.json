@@ -1,0 +1,120 @@
+{
+ "modelHash": "4e877b3f84fbdcd9",
+ "lessons": {
+  "v-valley-spurs": [
+   {
+    "file": "v-valley-spurs-1.tgw",
+    "before": "eaf92aa0",
+    "after": "d3c69837"
+   },
+   {
+    "file": "v-valley-spurs-2.tgw",
+    "before": "d3c69837",
+    "after": "0688c082"
+   },
+   {
+    "file": "v-valley-spurs-3.tgw",
+    "before": "0688c082",
+    "after": "8b412dfb"
+   },
+   {
+    "file": "v-valley-spurs-4.tgw",
+    "before": "8b412dfb",
+    "after": "20958819"
+   }
+  ],
+  "waterfall-gorge-model": [
+   {
+    "file": "waterfall-gorge-model-1.tgw",
+    "before": "c468dd29",
+    "after": "c468dd29"
+   },
+   {
+    "file": "waterfall-gorge-model-2.tgw",
+    "before": "c468dd29",
+    "after": "a4f78df5"
+   },
+   {
+    "file": "waterfall-gorge-model-3.tgw",
+    "before": "a4f78df5",
+    "after": "0fc2c132"
+   },
+   {
+    "file": "waterfall-gorge-model-4.tgw",
+    "before": "0fc2c132",
+    "after": "d9f4f111"
+   }
+  ],
+  "meanders-floodplain-model": [
+   {
+    "file": "meanders-floodplain-model-1.tgw",
+    "before": "d3b4a7cf",
+    "after": "176eb957"
+   },
+   {
+    "file": "meanders-floodplain-model-2.tgw",
+    "before": "176eb957",
+    "after": "32f01dd9"
+   },
+   {
+    "file": "meanders-floodplain-model-3.tgw",
+    "before": "32f01dd9",
+    "after": "70f6647a"
+   },
+   {
+    "file": "meanders-floodplain-model-4.tgw",
+    "before": "70f6647a",
+    "after": "bb2308ce"
+   }
+  ],
+  "headlands-bays-model": [
+   {
+    "file": "headlands-bays-model-1.tgw",
+    "before": "947daf3a",
+    "after": "2620880d"
+   },
+   {
+    "file": "headlands-bays-model-2.tgw",
+    "before": "2620880d",
+    "after": "be130712"
+   },
+   {
+    "file": "headlands-bays-model-3.tgw",
+    "before": "be130712",
+    "after": "6bd76a19"
+   },
+   {
+    "file": "headlands-bays-model-3.tgw",
+    "before": "6bd76a19",
+    "after": "6bd76a19"
+   }
+  ],
+  "glaciated-upland-model": [
+   {
+    "file": "glaciated-upland-model-1.tgw",
+    "before": "104ab3a6",
+    "after": "038ab629"
+   },
+   {
+    "file": "glaciated-upland-model-2.tgw",
+    "before": "038ab629",
+    "after": "99d62612"
+   },
+   {
+    "file": "glaciated-upland-model-3.tgw",
+    "before": "99d62612",
+    "after": "72c5393a"
+   },
+   {
+    "file": "glaciated-upland-model-4.tgw",
+    "before": "72c5393a",
+    "after": "008568d7"
+   },
+   {
+    "file": "glaciated-upland-model-4.tgw",
+    "before": "008568d7",
+    "after": "008568d7"
+   }
+  ]
+ }
+}

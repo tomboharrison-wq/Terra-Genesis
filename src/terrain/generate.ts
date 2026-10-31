@@ -5,6 +5,8 @@ import { deriveSeed } from '../utils/rng';
 import { clamp, smoothstep } from '../utils/math';
 import { fillDepressions } from './conditioning';
 import { settleSlopes } from './settle';
+import { criticalSlopeDeg } from '../sim/geology/landscapeEvolution';
+import { MATERIALS } from './materials';
 import { applyBiome, type BiomeId } from './biomes';
 
 export type PresetId =
@@ -116,7 +118,7 @@ export const PRESETS: readonly PresetDef[] = [
     id: 'alpine-glaciers',
     name: 'Alpine glaciers',
     description: 'High mountains in a cool climate: glaciers above the snowline flowing into forested valleys.',
-    defaults: { cellSizeM: 40, reliefM: 2600, seaLevelM: -50, roughness: 0.55, biome: 'alpine' },
+    defaults: { cellSizeM: 40, reliefM: 3200, seaLevelM: -50, roughness: 0.55, biome: 'alpine' },
   },
   {
     id: 'rain-shadow',
@@ -369,7 +371,16 @@ export function generateWorld(o: GenerateOptions): WorldState {
   if (o.presetId === 'plateau') applyPlateauStrata(world, o, nd);
   refreshAllExposed(world);
 
-  // Settle over-steep slopes to the dry stability limits the simulator uses (talus aprons).
+  // Mountain ranges: ridged noise makes needle peaks and walls far steeper than real ranges, whose
+  // slopes are held at a threshold angle (≈ 30–55° by rock strength) by landsliding over the long
+  // term (Burbank et al. 1996; Montgomery 2001), the debris carried off by rivers. Shape the range to
+  // that limit: no cell stands above any other by more than its rock's long-term stable slope.
+  if (o.presetId === 'mountain-range' || o.presetId === 'alpine-glaciers') {
+    limitSlopes(world);
+    refreshAllExposed(world);
+  }
+
+  // Settle over-steep slopes to the wet stability limits the simulator uses (talus aprons).
   if (o.presetId !== 'flat') {
     settleSlopes(world);
     for (let i = 0; i < surf.length; i++) surf[i] = world.bedrockElevationM[i] + world.looseSedimentThicknessM[i];
@@ -416,5 +427,44 @@ function applyPlateauStrata(w: WorldState, o: GenerateOptions, n: Noise2D) {
       w.strataMaterial[om + 2] = CLAY;
       w.strataMaterial[om + 3] = CLAY;
     }
+  }
+}
+
+/**
+ * Lower bedrock so no cell rises above a neighbour by more than tan(critical slope of its rock) × the
+ * distance (the geological model's long-term threshold angle, criticalSlopeDeg): min-plus chamfer
+ * sweeps in alternating directions over 8 neighbours. Initial terrain shaping (removes rock; it is
+ * not a physical process run on the world).
+ */
+function limitSlopes(w: WorldState) {
+  const W = w.width;
+  const H = w.height;
+  const cs = w.cellSizeM;
+  const b = w.bedrockElevationM;
+  const tan = MATERIALS.map((m) => Math.tan((criticalSlopeDeg(m.erodibility, m.cliffDeg) * Math.PI) / 180));
+  const NX = [1, -1, 0, 0, 1, 1, -1, -1];
+  const NY = [0, 0, 1, -1, 1, -1, 1, -1];
+  for (let pass = 0; pass < 6; pass++) {
+    let changed = false;
+    const fwd = pass % 2 === 0;
+    for (let yy = 0; yy < H; yy++)
+      for (let xx = 0; xx < W; xx++) {
+        const x = fwd ? xx : W - 1 - xx;
+        const y = fwd ? yy : H - 1 - yy;
+        const i = y * W + x;
+        const t = (tan[w.materialId[i]] ?? 1) * cs;
+        let cap = b[i];
+        for (let d = 0; d < 8; d++) {
+          const xn = x + NX[d];
+          const yn = y + NY[d];
+          if (xn < 0 || yn < 0 || xn >= W || yn >= H) continue;
+          cap = Math.min(cap, b[yn * W + xn] + t * (d < 4 ? 1 : Math.SQRT2));
+        }
+        if (cap < b[i] - 1e-3) {
+          b[i] = cap;
+          changed = true;
+        }
+      }
+    if (!changed) break;
   }
 }

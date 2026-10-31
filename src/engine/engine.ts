@@ -156,7 +156,7 @@ export class Engine {
     this.lava.airC = this.climate.temperatureC;
     this.lava.sea = this.water.sea;
     this.geo = new LandscapeEvolution(world);
-    this.geoTotals = emptyGeoStats();
+    this.geoTotals = { ...emptyGeoStats(), ...world.meta.geoTotals };
     this.geoRivers = null;
     this.glacier.budgetMs = typeof window === 'undefined' ? Infinity : 40; // keep the page responsive
     this.climateDirty = false;
@@ -249,6 +249,17 @@ export class Engine {
     return this.metaField('glacialErosionM');
   }
 
+  /** A per-cell record a lesson keeps in world.meta (so it travels with stage states, saves and recordings). */
+  lessonField(key: string): Float32Array | null {
+    const m = this.world.meta.lessonFields?.[key];
+    return m && m.length === this.world.width * this.world.height ? Float32Array.from(m) : null;
+  }
+  setLessonField(key: string, f: Float32Array | null): void {
+    const m = (this.world.meta.lessonFields ??= {});
+    if (f) m[key] = Array.from(f, (v) => Math.round(v * 100) / 100);
+    else delete m[key];
+  }
+
   /** Glaciers take part in geological time when glaciers and climate are on. */
   private glacialGeo() {
     const w = this.world;
@@ -335,6 +346,7 @@ export class Engine {
     const w = this.world;
     w.meta.geologicYears = (w.meta.geologicYears ?? 0) + st.years;
     addGeoStats(this.geoTotals, st);
+    w.meta.geoTotals = { ...this.geoTotals };
     this.geoRivers = { area, lake, channel: this.channelMask() };
     computeSurface(w, this.surface);
     this.groundDirty = true;
@@ -394,10 +406,10 @@ export class Engine {
     }
   }
 
-  /** Sync GPU state to the CPU mirror and drop the GPU backend (e.g. renderer disposal). */
-  detachGpu(): void {
+  /** Sync GPU state to the CPU mirror (unless `sync` is false) and drop the GPU backend (e.g. renderer disposal). */
+  detachGpu(sync = true): void {
     if (this.gpu) {
-      if (!this.gpu.disposed) this.syncWater();
+      if (sync && !this.gpu.disposed) this.syncWater();
       this.gpu.dispose();
     }
     this.gpu = null;
@@ -850,7 +862,9 @@ export class Engine {
   replaceWorld(world: WorldState, keepCamera = false): void {
     this.stroke = null;
     const gl = this.gpuContext;
-    this.detachGpu();
+    // The old world is being discarded: no need to read its water back from the GPU (a GPU stall that
+    // took ~5 s on first use in software-rendered Chromium).
+    this.detachGpu(false);
     this.gpuContext = gl;
     this.setWorld(world);
     this.history.clear();

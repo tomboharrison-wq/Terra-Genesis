@@ -5,6 +5,7 @@ import { makeCheckpoint, type Checkpoint } from '../engine/checkpoints';
 import { cloneWorld } from '../engine/world';
 import { engine, getScene, newWorld, onWorldReplaced, replaceWorld, syncSim } from './runtime';
 import { runGeoYears, setGeoMode } from './geoRunner';
+import { recordedStage } from '../education/recordings';
 
 /**
  * Lesson player (spec G3/G4). Each stage's world state is kept (privately, not in the user's
@@ -13,6 +14,8 @@ import { runGeoYears, setGeoMode } from './geoRunner';
  */
 let stageStates: Checkpoint[] = [];
 let switching = false;
+/** For printed worksheets: each shown stage's picture (with numbered label markers) and its labels. */
+export const stageSheets: ({ img: string | null; labels: LessonLabel[] } | undefined)[] = [];
 
 const ctx = (): StageContext => ({
   engine,
@@ -32,6 +35,7 @@ export function startLesson(id: string): void {
   engine.setPlaying(false);
   setGeoMode(!!lesson.geological);
   stageStates = [];
+  stageSheets.length = 0;
   useUi.getState().set({
     dialog: null,
     education: {
@@ -84,6 +88,7 @@ export function goToStage(k: number): void {
       scene?.oblique();
     }
     syncSim();
+    captureSheet(lesson.id, k, labels);
   };
   engine.setPlaying(false);
   if (stageStates[k]) {
@@ -94,11 +99,40 @@ export function goToStage(k: number): void {
   if (k > 0 && stageStates[k - 1]) restore(stageStates[k - 1]);
   useUi.getState().set({ education: { ...ed, busy: true } });
   setTimeout(async () => {
-    await stage.enter?.(ctx());
+    // A recorded run of this stage (same model, same starting world) appears at once; else run it live.
+    const rec = lesson.geological ? await recordedStage(lesson.id, k, engine) : null;
+    const now = useUi.getState().education;
+    if (!now || now.lessonId !== lesson.id) return; // lesson left while loading
+    const recorded = (now.recorded ?? []).filter((s) => s < k);
+    if (rec) {
+      switching = true;
+      engine.replaceWorld(rec, true);
+      switching = false;
+      recorded.push(k);
+    } else await stage.enter?.(ctx());
+    useUi.getState().set({ education: { ...useUi.getState().education!, recorded } });
     stageStates[k] = makeCheckpoint(engine.world, k, stage.title);
     stageStates.length = k + 1; // later stages must be re-run from here
     finish();
   }, 30);
+}
+
+/** Keep stage k's picture and labels for the worksheet, once the new stage has been drawn. */
+function captureSheet(id: string, k: number, labels: LessonLabel[]) {
+  stageSheets[k] = { img: null, labels };
+  stageSheets.length = Math.max(stageSheets.length, k + 1);
+  const lesson = lessonById(id);
+  if (lesson?.guided) return; // guided models are drawn by their own views, not the map
+  setTimeout(() => {
+    const ed = useUi.getState().education;
+    const scene = getScene();
+    if (!scene || !ed || ed.lessonId !== id || ed.stage !== k || ed.busy) return;
+    try {
+      stageSheets[k] = { img: scene.snapshot(760, labels).toDataURL('image/jpeg', 0.85), labels };
+    } catch {
+      /* no picture (e.g. no WebGL); the sheet still lists the measurements */
+    }
+  }, 600);
 }
 
 /**

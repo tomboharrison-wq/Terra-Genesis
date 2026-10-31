@@ -4,6 +4,7 @@ import { Dialog } from './Dialog';
 import { LESSONS, lessonById } from '../education/lessons';
 import type { LessonModule } from '../education/types';
 import { exitLesson, goToStage, lessonLink, resetLesson, startLesson } from './educationRunner';
+import { printLessonSheet } from './lessonSheet';
 import { getScene } from './runtime';
 import { MeanderView, WaterfallView } from './GuidedRiver';
 import { ArchLessonView, ShorelineLessonView } from './CoastalLessons';
@@ -109,6 +110,11 @@ export function LessonPanel() {
       </div>
       <p className="stage-text">{ed.level === 'ks3' ? st.ks3 : st.gcse}</p>
       {st.predict && !ed.answer && <p className="predict">Predict: {st.predict}</p>}
+      {lesson.geological && ed.recorded?.includes(ed.stage) && !ed.busy && (
+        <p className="muted small recorded-note" title="This stage was run ahead of time with exactly this model and starting landscape, then saved, so it appears at once. Open the lesson with ?recorded=0 in the address to run every stage live.">
+          Shown from a recorded run of this same model (instant).
+        </p>
+      )}
       <div className="row wrap presentation" aria-label="Presentation">
         <button className="small" onClick={() => upd({ big: !ed.big })} aria-pressed={!!ed.big} title="Larger text for projectors">
           {ed.big ? 'Normal text' : 'Bigger text'}
@@ -131,6 +137,16 @@ export function LessonPanel() {
           }}
         >
           Copy link to this stage
+        </button>
+        <button
+          className="small"
+          title="Print a worksheet: every stage's text at this level, the picture and measurements of each stage shown so far, space to predict and the exam question"
+          onClick={() => printLessonSheet(lesson, ed.level, false)}
+        >
+          Print worksheet
+        </button>
+        <button className="small" title="The same worksheet with the model answer and common mistake (teacher copy)" onClick={() => printLessonSheet(lesson, ed.level, true)}>
+          Print with answers
         </button>
       </div>
       <div className="row wrap">

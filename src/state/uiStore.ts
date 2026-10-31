@@ -293,6 +293,8 @@ interface UiState {
     labels: boolean;
     answer: boolean;
     busy: boolean;
+    /** Indices of stages shown from a recorded run (education/recordings) rather than run live. */
+    recorded?: number[];
     /** Presentation: text scale, high contrast, panel hidden (map only). */
     big?: boolean;
     contrast?: boolean;

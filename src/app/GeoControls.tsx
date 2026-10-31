@@ -4,6 +4,8 @@ import { engine } from './runtime';
 import { Icon } from './icons';
 import { GEO_SPEEDS, playGeo, setGeoMode, setGeoSpeed, showFrame, stepGeo, stopGeo } from './geoRunner';
 import { defaultGeoParams } from '../sim/geology/landscapeEvolution';
+import { findMeanderReach } from '../sim/geology/meanderReach';
+import { sinuosity } from '../sim/geology/meander';
 
 export function fmtGeoYears(y: number): string {
   if (y >= 1e6) return `${(y / 1e6).toFixed(2)} million`;
@@ -126,6 +128,41 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         <input type="range" min={-3} max={-1} step={0.05} value={Math.log10(p.diffusivity)} onChange={(e) => set({ diffusivity: Math.pow(10, +e.target.value) })} />
         <small>How fast soil creeps downhill, rounding hilltops.</small>
       </label>
+      <label className="field">
+        <span>
+          River deposition <b>{p.depositionG === 0 ? 'off' : `G ${p.depositionG.toFixed(1)}`}</b>
+        </span>
+        <input type="range" min={0} max={2} step={0.1} value={p.depositionG} onChange={(e) => set({ depositionG: +e.target.value })} />
+        <small>
+          Off: rivers carry away all they erode. On: they drop sediment where they slow down — alluvial fans at mountain fronts, valley floors filling up (ξ–q
+          model). The lessons use off.
+        </small>
+      </label>
+      <div className="field">
+        <span>
+          Meandering river{' '}
+          <b>{engine.geoMeander ? `on — ${sinuosity(engine.geoMeander).toFixed(2)}× longer than its valley, ${engine.geoMeander.cutoffs} cut-off${engine.geoMeander.cutoffs === 1 ? '' : 's'}` : 'off'}</b>
+        </span>
+        {engine.geoMeander ? (
+          <button className="small" onClick={() => (engine.setMeander(null), bump((k) => k + 1))}>
+            Remove meandering river
+          </button>
+        ) : (
+          <button
+            className="small"
+            onClick={() => {
+              const r = findMeanderReach(engine.world);
+              if (!r.ok) return useUi.getState().toast(r.reason, 'info');
+              engine.setMeander(r.meander);
+              bump((k) => k + 1);
+              useUi.getState().toast(`Meandering river added on the main river's lower course: ${(r.lengthM / 1000).toFixed(1)} km, falling 1 in ${Math.round(1 / r.gradient)}`, 'success');
+            }}
+          >
+            Add on the main river’s lower course
+          </button>
+        )}
+        <small>Bends grow and migrate across the floodplain, cut off into oxbow lakes, and floods build levees (Howard &amp; Knutson 1984). Needs a gentle lower course with river sediment to swing across.</small>
+      </div>
       <dl className="geo-ledger">
         <dt>River erosion of rock</dt>
         <dd>{fmtVol(t.erodedRock)}</dd>
@@ -135,6 +172,12 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         <dd>
           {fmtVol(t.depositedLakes)} / {fmtVol(t.depositedSea)}
         </dd>
+        {t.depositedRivers > 0 && (
+          <>
+            <dt>Laid down by rivers (fans, valley floors)</dt>
+            <dd>{fmtVol(t.depositedRivers)}</dd>
+          </>
+        )}
         <dt>Carried off the map</dt>
         <dd>{fmtVol(t.exported)}</dd>
         {t.coastEroded > 0 && (
@@ -164,7 +207,7 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
       </dl>
       <p className="muted small">
         Model: rivers cut down by stream power (E = K·A<sup>½</sup>·S, Braun &amp; Willett 2013), soil forms from rock and creeps downhill, sediment settles
-        in lakes and the sea. Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
+        in lakes and the sea, and with river deposition on, rivers also drop sediment on land (Davy &amp; Lague 2009). Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
         meanders lesson; with climate and glaciers on, glaciers grow, erode and melt (glaciated-upland lesson); with waves on, cliffs retreat (headlands-and-bays
         lesson). Not included in geological time: lava, plants. Switch to Water time to rain on the landscape you have made.
       </p>

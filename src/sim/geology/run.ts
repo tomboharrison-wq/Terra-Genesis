@@ -77,7 +77,11 @@ export function runGeologic(
     fixed.fill(0);
     for (const i of meander.mask) fixed[i] = 1;
     geo.fixed = fixed;
+    geo.captureFixed = !!meander.onMap;
+    geo.captured = 0;
     addGeoStats(tot, geo.run(dt, p, dt));
+    meander.pendingM3 = (meander.pendingM3 ?? 0) + geo.captured;
+    geo.captureFixed = false;
     geo.fixed = null;
     let t = 0;
     while (t < dt - 1e-9) {
