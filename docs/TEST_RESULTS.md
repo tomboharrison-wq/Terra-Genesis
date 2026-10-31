@@ -1,5 +1,11 @@
 # Test results (latest first)
 
+## 2026-10-31 M13-C07 recordings, worksheets, deposition, meanders anywhere, wet settling (093a6d3)
+- npm test 292 PASS (+ recordings: current model, chain from the lesson start, live = recorded labels, glacial meta; worksheet HTML; ξ–q steady state (1+G) within 5 % (measured 0.2 %), conservation, alluvial fan; meanders on a winding valley: reach found, rock-floored valley refused with reason, bends grow, volume conserved). gpu-check 12/12 (after the GPU-stall changes).
+- e2e 62/62 PASS on the recordings build (before deposition/settling): glacial lesson all 5 stages from recordings, oxbow lesson run live (&recorded=0). Final build: worksheet check in the browser (pictures, labels, answers only on the teacher copy); full e2e on the final build: see next entry.
+- Measured (headless, software GPU): glacial stages 14 / 77 / 13 s live → ~1 s recorded; slot load 6–14 s → ~2.5 s (causes: GPU read-back, framebuffer checks, shader recompiles). First 30 mm/h storm: plateau rockfall 91 → 0.01 Mm³. Mountain spikes 209 → 48 m; >55° steps 15 % → 0.
+- Found by testing: deposition cap against pre-deposition donor heights gave 1.14× instead of 1.5× slope; thresholding by landslides at generation piled 400–700 m scree (rejected); alpine preset lost its glaciers once needles went (relief 3,200 m, 8 °C).
+
 ## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (21e14d8–f98ef74)
 - npm test 281 PASS at f98ef74 (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on a build made 14:51, i.e. after 21e14d8 but before the 1b25e62 commit and the drift fix f98ef74 — those two are covered by unit tests only so far.
 - Re-run on a fresh build of f98ef74: 61/62 — all lessons PASS; the save/load check FAILED because loading took longer than its fixed 2.5 s wait (standalone: loads back exactly 3/3, in 6–7 s). The check now waits up to 20 s for the exact match.
