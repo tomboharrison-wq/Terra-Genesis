@@ -23,9 +23,9 @@
 | M11-C05 | Loading a saved slot takes 6–7 s for the default world in headless Chromium (measured 2026-10-30): profile decode vs. rebuild and speed it up | TODO |
 | M04-C06 | Worlds are settled dry at generation, so the first heavy rain makes weak scarps fail en masse (plateau: 80 M m³ in an hour). Decide: settle to wet stability, or a gentle first-rain warm-up, or keep and explain | TODO |
 | M11-C04 | Final QA: WCAG contrast test (Play button fixed), named buttons/focus/Escape e2e, two-column tool rail on short screens, v1–v11 saves load, slot round trip, frame-rate independence (bit-identical at 60/20/uneven fps), build version in Help, Help text brought up to date | DONE |
-| M10-C06 | Lessons still to add: headlands & bays (emergent), coastal slumping, subduction / plate boundaries, glacier retreat | TODO |
+| M10-C06 | Lessons still to add: coastal slumping, subduction / plate boundaries (headlands & bays and glacier retreat now done in geological time, M13) | TODO |
 | M11-C06 | Tsunami as a travelling long wave (sea cells in the solver, wave speed √(gh), run-up) instead of a level surge | TODO |
-| M11-C05 | Slow test: climate 'seasons advance' takes ~36 s for a quarter year at the 10 s max step (60 s timeout; fails under heavy CPU load) | TODO |
+| M11-C05b | Slow test: climate 'seasons advance' takes ~36 s for a quarter year at the 10 s max step (60 s timeout; fails under heavy CPU load) | TODO |
 | M11-C07 | Complex craters: central peak, terraces, breccia lens; airburst for small stony bodies | TODO |
 | M11-C03 | Export dialog: project .tgw, view PNG, top-down map PNG (overlay colours, legend, scale bar, north), 16-bit heightmap PNG (own encoder, min/max tEXt), float32 .raw + .json | DONE |
 | M11-C02 | Meteor tool (pi-scaling crater, (R/r)³ ejecta, volume conserved incl. off-map, undoable, logged); drought (rain off, evaporation set, lowest-water record CPU+GPU, drought overlay); comparison table; event log kept across checkpoint restore | DONE |
