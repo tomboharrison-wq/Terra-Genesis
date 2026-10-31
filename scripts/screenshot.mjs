@@ -1169,7 +1169,8 @@ const yearB = await page.textContent('.lf-clock b');
 const nItems = await page.locator('.lf-item').count();
 await page.click('.lf-item:has-text("Corries")');
 await page.selectOption('.lf-speed select', '16');
-await page.waitForTimeout(2500);
+// The animation advances with real time; under heavy load frames are slow, so wait for step 2 (up to 15 s).
+await page.waitForFunction(() => /Step [2-6] of 6/.test(document.querySelector('.lf-caption')?.textContent ?? ''), null, { timeout: 15000 }).catch(() => {});
 const corrieCaption = await page.textContent('.lf-caption');
 await page.click('.lf-chip:has-text("plucking")');
 const def = (await page.textContent('.lf-def').catch(() => '')) ?? '';
