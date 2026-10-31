@@ -42,9 +42,13 @@ Open Anyway). Full steps: `desktop/build/HOW-TO-INSTALL.txt`; how to build it: `
 1. Install Node.js 22 LTS from https://nodejs.org
 2. In this folder: `npm install`, then `npm run dev`, and open http://localhost:5173 in Chrome or Safari.
 
-## Put it online (Netlify)
-Pushing to GitHub `main` deploys automatically (`netlify.toml`: build `npm run build`, publish `dist`). Or drag a built
-`dist` folder onto https://app.netlify.com/drop.
+## Put it online (Netlify + GitHub Pages)
+Day-to-day work goes on the `dev` branch, which does not deploy. Merging `dev` into `main` publishes it in two places:
+- Netlify (`netlify.toml`: build `npm run build`, publish `dist`) — one deploy per push to `main`, and pushes that change
+  only notes, tests or scripts are skipped so they use no deploy. The free plan has a monthly allowance.
+- GitHub Pages, free with no monthly limit: https://tomboharrison-wq.github.io/Terra-Genesis/
+  (`.github/workflows/pages.yml`; switch on once in the repository's Settings → Pages → Source: GitHub Actions).
+Or drag a built `dist` folder onto https://app.netlify.com/drop.
 
 ## Checks
 `npm test` (unit, ~256) · `npm run typecheck` · `npm run build` · with `npm run preview` running: `npm run e2e`

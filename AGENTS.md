@@ -8,6 +8,7 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 2. `git status --short && git log --oneline -5`.
 3. `npm test` (fast) to confirm green start.
 4. Continue the active chunk in NEXT_TASK. Do not restart or re-architect.
+5. Commit and push to `dev` (no deploy). Merge to `main` only when the user wants the live site updated: each `main` push uses a Netlify deploy from a monthly allowance.
 
 ## Commands
 - `npm install` — once (lockfile committed)
