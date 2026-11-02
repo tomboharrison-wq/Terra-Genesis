@@ -5,7 +5,10 @@
 - Focused tests: water forcing, persistence, format migrations and overlays — PASS (17 tests).
 - Groundwater acceptance: recharge is retained, baseflow returns water to the surface, and total ledger
   closure remains below 1e-6.
-- Existing suite remains green after the conservation change: 281 tests across 52 files.
+- Existing suite remains green after the conservation change: 283 tests across 52 files.
+- Typecheck and production build — PASS. GitHub Pages workflow run `41510720564` — PASS.
+- Local `gpu-check` / `e2e` could not launch because this host has no Chromium at `/opt/pw-browsers/chromium`;
+  the previous validated baseline was gpu-check 12/12 and e2e 62/62.
 
 ## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (21e14d8–f98ef74)
 - npm test 281 PASS at f98ef74 (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on a build made 14:51, i.e. after 21e14d8 but before the 1b25e62 commit and the drift fix f98ef74 — those two are covered by unit tests only so far.

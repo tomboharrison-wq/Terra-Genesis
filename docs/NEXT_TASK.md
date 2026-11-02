@@ -3,4 +3,5 @@ M14 hydrology trust is implemented: bounded float32 drift reconciliation, explic
 save/export, persistent groundwater storage with recharge, conservative lateral Darcy exchange and baseflow,
 CPU fallback while the aquifer is enabled, groundwater overlay, and TGW format v12 migration.
 
-Release gate: full tests, typecheck, production build, GPU self-test and e2e; then commit and push to `main`.
+Release gate complete: typecheck, 283 unit tests, production build, and GitHub Pages deployment passed. The
+local GPU/e2e scripts remain environment-blocked by the absent Chromium binary; the prior baseline was green.

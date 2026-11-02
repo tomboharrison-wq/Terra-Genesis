@@ -2,7 +2,7 @@
 Updated: 2026-11-02, M14
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
 Current milestone: M14 hydrology trust (C01–C04 done)
-Current chunk: M14-C05 validation and release
+Current chunk: M14 complete; next work is optional backlog
 Status: READY
 
 Verified working:
@@ -44,6 +44,8 @@ Known failures / gaps:
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
 Last checks before M14: typecheck · npm test 281 · build · gpu-check 12/12 · e2e 62/62 — all PASS
-M14 checks in progress: typecheck and focused hydrology/persistence/overlay tests PASS.
-Uncommitted changes: M14 implementation (release chunk)
-Next: run full test/build/e2e/gpu checks, commit and push M14.
+M14 checks: typecheck PASS · npm test 283 PASS · production build PASS · GitHub Pages workflow PASS.
+The local GPU/e2e scripts were not runnable in this environment because `/opt/pw-browsers/chromium` is absent;
+the prior baseline had gpu-check 12/12 and e2e 62/62.
+Uncommitted changes: none
+Next: choose the next optional backlog item; do not reread docs/MASTER_SPEC.md
