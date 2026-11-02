@@ -62,6 +62,29 @@ describe('M02-C01 water forcing and ledger', () => {
     expect(closureError(sim.ledger, 0)).toBeLessThan(1e-5);
   });
 
+  it('groundwater retains recharge, returns baseflow, and closes the total water budget', () => {
+    const { w, s } = world(8, 10, 5);
+    w.water.infiltrationMPerS = 1e-4;
+    w.water.groundwaterEnabled = true;
+    w.water.groundwaterRechargeFraction = 0.75;
+    w.water.groundwaterBaseflowMPerS = 0;
+    w.water.boundary = 'closed';
+    w.waterDepthM.fill(0.01);
+    const sim = new WaterSim(w, s);
+    sim.step(10);
+    const infiltrated = 0.001 * 0.25 * 64 * 100;
+    const aquifer = 0.001 * 0.75 * 64 * 100;
+    expect(sim.ledger.infiltrated).toBeCloseTo(infiltrated, 5);
+    expect(sim.groundwaterVolume()).toBeCloseTo(aquifer, 5);
+    expect(sim.storedVolume()).toBeCloseTo(64 - infiltrated, 5);
+    expect(closureError(sim.ledger, sim.storedVolume())).toBeLessThan(1e-6);
+    w.water.groundwaterBaseflowMPerS = 1e-4;
+    sim.step(10);
+    expect(sim.groundwaterVolume()).toBeLessThan(aquifer);
+    expect(sim.surfaceVolume()).toBeGreaterThan(0);
+    expect(closureError(sim.ledger, sim.storedVolume())).toBeLessThan(1e-6);
+  });
+
   it('rain/drain tool moves water and is ledgered', () => {
     const { w, s } = world();
     const sim = new WaterSim(w, s);
@@ -128,10 +151,14 @@ describe('format v2 water + v1 migration', () => {
     w.waterFluxM3PerS[21] = 0.5;
     w.water.rainMPerS = 2e-5;
     w.water.boundary = 'closed';
+    w.water.groundwaterEnabled = true;
+    w.groundwaterDepthM[5] = 2.5;
+    w.water.groundwaterConductivityM2PerS = 0.03;
     w.water.sources.push({ id: 3, x: 2, y: 4, rateM3PerS: 7 });
     const back = decodeWorld(encodeWorld(w)).world;
     expect(back.waterDepthM).toEqual(w.waterDepthM);
     expect(back.waterFluxM3PerS).toEqual(w.waterFluxM3PerS);
+    expect(back.groundwaterDepthM).toEqual(w.groundwaterDepthM);
     expect(back.water).toEqual(w.water);
   });
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## M14 — hydrology trust
+
+- Added bounded water-mass reconciliation for float32 routing drift; large mismatches remain visible.
+- Added explicit GPU water flushes for save/export and a cumulative correction diagnostic.
+- Added persistent groundwater depth, recharge fraction, porosity, conductivity, storage cap and baseflow.
+- Added conservative lateral aquifer exchange, surface baseflow coupling, water-budget accounting and a
+  groundwater overlay/control panel.
+- World files are now format v12; older files migrate with a disabled, empty aquifer.
+
 ## M00-C01 — Tooling
 - Vite + React + TS strict + Vitest + Three; Netlify config; continuity docs.
 

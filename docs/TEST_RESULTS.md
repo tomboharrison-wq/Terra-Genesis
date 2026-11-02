@@ -1,5 +1,12 @@
 # Test results (latest first)
 
+## 2026-11-02 — M14 hydrology trust
+
+- Focused tests: water forcing, persistence, format migrations and overlays — PASS (17 tests).
+- Groundwater acceptance: recharge is retained, baseflow returns water to the surface, and total ledger
+  closure remains below 1e-6.
+- Existing suite remains green after the conservation change: 281 tests across 52 files.
+
 ## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (21e14d8–f98ef74)
 - npm test 281 PASS at f98ef74 (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on a build made 14:51, i.e. after 21e14d8 but before the 1b25e62 commit and the drift fix f98ef74 — those two are covered by unit tests only so far.
 - Re-run on a fresh build of f98ef74: 61/62 — all lessons PASS; the save/load check FAILED because loading took longer than its fixed 2.5 s wait (standalone: loads back exactly 3/3, in 6–7 s). The check now waits up to 20 s for the exact match.

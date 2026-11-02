@@ -382,6 +382,9 @@ export class Engine {
   /** Attach a GPU backend on the given context; returns false (CPU fallback) if unsupported. */
   attachGpu(gl: WebGL2RenderingContext): boolean {
     this.detachGpu();
+    // Groundwater is currently a CPU reference process; keep the authoritative solver together
+    // rather than silently running an incomplete GPU variant.
+    if (this.world.water.groundwaterEnabled) return false;
     this.gpuContext = gl;
     try {
       if (!GpuWater.isSupported(gl)) return false;
@@ -410,6 +413,14 @@ export class Engine {
     // Pending CPU terrain edits must reach the GPU before reading its bed back.
     this.flushGround();
     if (this.gpu.syncToCpu()) this.markRenderDirtyAll();
+    this.syncTimer = 0;
+  }
+
+  /** Explicit GPU→CPU synchronization transaction for persistence and inspection. */
+  flushWater(): void {
+    this.syncWater();
+    this.water.refreshStats();
+    this.waterRevision++;
   }
 
   /** Terrain changed by the simulation: renderer must rebuild; GPU already has it. */
@@ -791,6 +802,7 @@ export class Engine {
   }
 
   setWaterParams(p: Partial<WaterParams>): void {
+    if (p.groundwaterEnabled && !this.world.water.groundwaterEnabled && this.gpu) this.detachGpu();
     Object.assign(this.world.water, p);
     this.emit({ type: 'water-params-changed' });
   }

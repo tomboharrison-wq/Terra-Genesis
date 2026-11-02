@@ -14,6 +14,7 @@ import {
   WET_ROCK_WEAKENING,
 } from '../sediment/sedimentSim';
 import { MATERIALS } from '../../terrain/materials';
+import { expectedStored, reconcileDepthMass } from './ledger';
 
 /**
  * WebGL2 port of WaterSim + SedimentSim (same schemes, see waterSim.ts / sedimentSim.ts).
@@ -712,6 +713,15 @@ export class GpuWater implements Stepper {
     L.seaOut += sea * A;
     L.edgeOut += edge * A;
     this.write(this.acc[this.s], new Float32Array(n * 4));
+
+    this.sim.massCorrectionM3 += reconcileDepthMass(
+      d,
+      this.sim.sea,
+      A,
+      expectedStored(this.sim.ledger),
+      this.sim.snowVolume() + this.sim.groundwaterVolume(),
+      1e-7,
+    );
 
     let bedChanged = false;
     if (this.sed && w.erosion.enabled) {

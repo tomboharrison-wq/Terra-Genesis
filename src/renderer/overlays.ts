@@ -21,6 +21,7 @@ export type OverlayId =
   | 'slope'
   | 'aspect'
   | 'flow'
+  | 'groundwater'
   | 'geology'
   | 'ice'
   | 'glacial'
@@ -213,6 +214,7 @@ const LAND = ['#5d8f4f', '#a7b46a', '#c9a96e', '#8f6a4b', '#efece6'];
 const SEA = ['#a9d3ef', '#3b7fc4', '#0d2f63'];
 const SLOPE = ['#fff1db', '#ffbf75', '#ff912a', '#b9520b', '#5c2400'];
 const FLOW = ['#e8f1fb', '#8fbbe9', '#3a86f0', '#0b4aa8', '#06225a'];
+const GROUNDWATER = ['#e6f6f5', '#9adbd3', '#36a69b', '#08756f', '#03413f'];
 const ICE = ['#eef7fc', '#9fd0ea', '#3f8fc7', '#14507f'];
 const PLANTS = ['#f2efd8', '#b9d18a', '#25b755', '#1c6b3c', '#0f3a22'];
 const ASH = ['#ecebea', '#b4b1ae', '#76726e', '#3d3a38'];
@@ -234,6 +236,7 @@ const landRamp = ramp(LAND);
 const seaRamp = ramp(SEA);
 const slopeRamp = ramp(SLOPE);
 const flowRamp = ramp(FLOW);
+const groundwaterRamp = ramp(GROUNDWATER);
 const iceRamp = ramp(ICE);
 const glacialRamp = ramp(GLACIAL);
 const plantRamp = ramp(PLANTS);
@@ -253,6 +256,7 @@ const logT = (v: number, lo: number, hi: number) => (v <= lo ? 0 : Math.log10(v 
 
 // Flow accumulation is shown in cells upstream on a log scale 1 … 10⁴ cells.
 const FLOW_MAX_CELLS = 1e4;
+const GROUNDWATER_HI = 10;
 // Ash depth log scale 1 cm … 1 m; ice 0 … 100 m.
 const ASH_LO = 0.01;
 const ASH_HI = 1;
@@ -365,6 +369,21 @@ export const OVERLAYS: OverlayDef[] = [
       css: 'linear-gradient(90deg, #ed3f23, #f4a08f, #9aa0a0, #8fb8ef, #006ddf)',
       labels: ['−10 m', '±5 cm', '+10 m'],
     }),
+  },
+  {
+    id: 'groundwater',
+    label: 'Groundwater storage',
+    group: 'Water',
+    available: (s) => s.world.water.groundwaterEnabled && any(s.world.groundwaterDepthM, 1e-5),
+    describe: (s, i) => `${fmtM(s.world.groundwaterDepthM[i])} water equivalent in aquifer`,
+    legend: () => ({ kind: 'ramp', css: css(GROUNDWATER), labels: ['dry', `${GROUNDWATER_HI / 2} m`, `≥ ${GROUNDWATER_HI} m`] }),
+    colour: (s, i, _d, out, o) => {
+      const g = s.world.groundwaterDepthM[i];
+      if (g <= 1e-5) {
+        const n = 0.25 + 0.2 * Math.min(1, Math.max(0, (s.surface[i] - s.world.seaLevelM) / 2000));
+        out[o] = out[o + 1] = out[o + 2] = n;
+      } else groundwaterRamp(Math.min(1, g / GROUNDWATER_HI), out, o);
+    },
   },
   {
     id: 'temperature',

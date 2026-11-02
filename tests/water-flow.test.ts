@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createWorld, computeSurface, validateWorld, MM_PER_H } from '../src/engine/world';
 import { WaterSim } from '../src/sim/water/waterSim';
-import { closureError } from '../src/sim/water/ledger';
+import { closureError, reconcileDepthMass } from '../src/sim/water/ledger';
 import { generateWorld, defaultOptions } from '../src/terrain/generate';
 
 function mk(size: number, cs: number, zf: (x: number, y: number) => number, boundary: 'open' | 'closed' = 'closed', sea = -1e6) {
@@ -21,6 +21,21 @@ function runFor(sim: WaterSim, seconds: number) {
     t += dt;
   }
 }
+
+describe('M14 water accounting', () => {
+  it('repairs only tiny residuals on wet land, never inventing water on dry hills', () => {
+    const d = new Float32Array([1, 0, 0, 0]);
+    const sea = new Uint8Array(4);
+    const corrected = reconcileDepthMass(d, sea, 100, 100.0001, 0, 1e-9);
+    expect(corrected).toBeCloseTo(0.0001, 8);
+    expect(d[0]).toBeGreaterThan(1);
+    expect(d[1]).toBe(0);
+    expect(d[2]).toBe(0);
+    expect(d[3]).toBe(0);
+    const ignored = reconcileDepthMass(d, sea, 100, 120, 0, 1e-9);
+    expect(ignored).toBe(0);
+  });
+});
 
 function centroidX(w: ReturnType<typeof mk>['w']) {
   let m = 0;

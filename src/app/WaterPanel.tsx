@@ -36,6 +36,24 @@ export function WaterPanel() {
       <p className="hint small tight">{rainNote}. UK heavy storms ≈ 20–50 mm/h; higher values speed up river formation.</p>
       <MmSlider label="Infiltration" value={sim.infMmH} max={50} onChange={(v) => engine.setWaterParams({ infiltrationMPerS: v * MM_PER_H })} title="Water soaking into the ground (removed and ledgered; groundwater arrives later)." />
       <MmSlider label="Evaporation" value={sim.evapMmH} max={10} onChange={(v) => engine.setWaterParams({ evaporationMPerS: v * MM_PER_H })} />
+      <label className="check" title="Recharge, lateral Darcy flow and baseflow are simulated on the CPU reference solver.">
+        <input type="checkbox" checked={sim.groundwaterEnabled} onChange={(e) => engine.setWaterParams({ groundwaterEnabled: e.target.checked })} />
+        <span>Groundwater aquifer</span>
+      </label>
+      {sim.groundwaterEnabled && (
+        <>
+          <label className="field" title="Share of infiltration retained in the aquifer.">
+            <span className="field-label">Recharge fraction <b>{Math.round(sim.groundwaterRechargeFraction * 100)}%</b></span>
+            <input type="range" min={0} max={1} step={0.05} value={sim.groundwaterRechargeFraction} onChange={(e) => engine.setWaterParams({ groundwaterRechargeFraction: +e.target.value })} />
+          </label>
+          <label className="field" title="Lateral aquifer conductivity. Larger values equal faster Darcy exchange.">
+            <span className="field-label">Aquifer conductivity <b>{sim.groundwaterConductivityM2PerS.toFixed(3)} m²/s</b></span>
+            <input type="range" min={0} max={0.1} step={0.005} value={sim.groundwaterConductivityM2PerS} onChange={(e) => engine.setWaterParams({ groundwaterConductivityM2PerS: +e.target.value })} />
+          </label>
+          <MmSlider label="Baseflow" value={sim.groundwaterBaseflowMPerS / MM_PER_H} max={5} onChange={(v) => engine.setWaterParams({ groundwaterBaseflowMPerS: v * MM_PER_H })} title="Groundwater released back to the surface each hour, conserving total water." />
+          <p className="hint small tight">Aquifer storage: {fmtVol(sim.groundwaterM3)}. GPU water switches to the CPU reference while this is enabled.</p>
+        </>
+      )}
       <div className="field">
         <span className="field-label">Map edges</span>
         <div className="seg">

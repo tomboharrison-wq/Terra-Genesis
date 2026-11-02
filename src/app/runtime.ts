@@ -83,6 +83,11 @@ function syncSimInner() {
       rainMmH: w.water.rainMPerS / MM_PER_H,
       infMmH: w.water.infiltrationMPerS / MM_PER_H,
       evapMmH: w.water.evaporationMPerS / MM_PER_H,
+      groundwaterEnabled: w.water.groundwaterEnabled,
+      groundwaterRechargeFraction: w.water.groundwaterRechargeFraction,
+      groundwaterConductivityM2PerS: w.water.groundwaterConductivityM2PerS,
+      groundwaterBaseflowMPerS: w.water.groundwaterBaseflowMPerS,
+      groundwaterM3: engine.water.groundwaterVolume(),
       boundary: w.water.boundary,
       sources: w.water.sources.map((s) => ({ ...s })),
       erosionOn: w.erosion.enabled,
@@ -290,7 +295,7 @@ function extras() {
 
 export async function saveToSlot(id: string, name: string, quiet = false) {
   try {
-    engine.syncWater();
+    engine.flushWater();
     const bytes = await worldToFileBytes(engine.world, extras());
     const w = engine.world;
     const info = await saveSlot({ id, name, width: w.width, height: w.height, presetId: w.meta.presetId }, bytes);
@@ -315,7 +320,7 @@ export async function loadFromSlot(id: string): Promise<boolean> {
 }
 
 export async function exportWorldFile() {
-  engine.syncWater();
+  engine.flushWater();
   const bytes = await worldToFileBytes(engine.world, extras());
   const blob = new Blob([bytes], { type: 'application/octet-stream' });
   const a = document.createElement('a');

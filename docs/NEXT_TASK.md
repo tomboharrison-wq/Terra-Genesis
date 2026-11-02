@@ -1,8 +1,6 @@
 # One next executable task
-M13-C01..C08 done: geological time with rivers (V-valley, waterfall, meanders/oxbows/floodplain), glaciers
-(glaciated upland) and coasts (headlands, bays, platforms); classroom mode.
-Suggested next (optional, see BACKLOG): M13-C06b glacial cycles (rising/falling snowline, recessional
-moraines); M13-C08b coastal refinements (wave refraction, beaches in bays, platform abrasion); M13-C04b
-transport-limited deposition everywhere (fans, deltas above sea level); M13-C05b meanders in any world.
-Teacher feedback round (M12-C02) and the real-Mac performance check (needs the user's Mac) still outstanding.
-Done when: tests/typecheck/build/e2e pass, committed + pushed.
+M14 hydrology trust is implemented: bounded float32 drift reconciliation, explicit GPU→CPU flushes before
+save/export, persistent groundwater storage with recharge, conservative lateral Darcy exchange and baseflow,
+CPU fallback while the aquifer is enabled, groundwater overlay, and TGW format v12 migration.
+
+Release gate: full tests, typecheck, production build, GPU self-test and e2e; then commit and push to `main`.

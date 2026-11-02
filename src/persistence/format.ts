@@ -17,6 +17,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v3 adds sedimentSuspendedM and header.erosion. Older files migrate with no suspended load.
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
  * v11 adds tephraM (ash share of loose sediment). Older files migrate without ash.
+ * v12 adds groundwaterDepthM and groundwater parameters. Older files migrate with a disabled aquifer.
  * v10 adds lavaDepthM, lavaTempC, lavaKind and header.lava. Older files migrate without lava.
  * v9 adds plateId and header.tectonics. Older files migrate with one plate and tectonics off.
  * v8 adds vegCover and header.vegetation. Older files migrate bare.
@@ -26,12 +27,13 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  */
 const MAGIC = 'TGW1';
 
-type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId' | 'lavaDepthM' | 'lavaTempC' | 'lavaKind' | 'tephraM';
+type FieldName = 'bedrockElevationM' | 'looseSedimentThicknessM' | 'materialId' | 'waterDepthM' | 'groundwaterDepthM' | 'waterFluxM3PerS' | 'sedimentSuspendedM' | 'strataBoundsM' | 'strataMaterial' | 'snowSweM' | 'iceThicknessM' | 'iceDebrisM' | 'vegCover' | 'plateId' | 'lavaDepthM' | 'lavaTempC' | 'lavaKind' | 'tephraM';
 const FIELDS: { name: FieldName; type: 'f32' | 'u8'; perCell: number }[] = [
   { name: 'bedrockElevationM', type: 'f32', perCell: 1 },
   { name: 'looseSedimentThicknessM', type: 'f32', perCell: 1 },
   { name: 'materialId', type: 'u8', perCell: 1 },
   { name: 'waterDepthM', type: 'f32', perCell: 1 },
+  { name: 'groundwaterDepthM', type: 'f32', perCell: 1 },
   { name: 'waterFluxM3PerS', type: 'f32', perCell: 4 },
   { name: 'sedimentSuspendedM', type: 'f32', perCell: 1 },
   { name: 'strataBoundsM', type: 'f32', perCell: STRATA_BOUNDS },
@@ -158,6 +160,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     strataMaterial: has('strataMaterial') ? new Uint8Array(get('strataMaterial')) : new Uint8Array(n * STRATA_LAYERS),
     // v1 → v2 migration: worlds without water start dry with default hydrology parameters.
     waterDepthM: has('waterDepthM') ? new Float32Array(get('waterDepthM')) : new Float32Array(n),
+    groundwaterDepthM: has('groundwaterDepthM') ? new Float32Array(get('groundwaterDepthM')) : new Float32Array(n),
     waterFluxM3PerS: has('waterFluxM3PerS') ? new Float32Array(get('waterFluxM3PerS')) : new Float32Array(n * 4),
     water: { ...defaultWaterParams(), ...h.water, sources: (h.water?.sources ?? []).map((s) => ({ ...s })) },
     sedimentSuspendedM: has('sedimentSuspendedM') ? new Float32Array(get('sedimentSuspendedM')) : new Float32Array(n),
@@ -186,6 +189,7 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.bedrockElevationM.length !== n ||
     world.materialId.length !== n ||
     world.waterDepthM.length !== n ||
+    world.groundwaterDepthM.length !== n ||
     world.waterFluxM3PerS.length !== n * 4 ||
     world.sedimentSuspendedM.length !== n ||
     world.snowSweM.length !== n ||

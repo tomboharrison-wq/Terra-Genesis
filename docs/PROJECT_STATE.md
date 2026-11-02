@@ -1,8 +1,8 @@
 # Project state
-Updated: 2026-10-29, session 1 (cont.)
+Updated: 2026-11-02, M14
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M13 geological time (C01–C08 done); optional backlog
-Current chunk: M04-C06 (optional; see NEXT_TASK)
+Current milestone: M14 hydrology trust (C01–C04 done)
+Current chunk: M14-C05 validation and release
 Status: READY
 
 Verified working:
@@ -35,12 +35,15 @@ Verified working:
 - Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
 
 Known failures / gaps:
-- Water depth is float32: a closed basin lake over simulated years drifts ~% in the ledger (backlog M02-C07).
+- Groundwater is a CPU reference process; enabling the aquifer intentionally falls back from GPU so the
+  authoritative solver remains complete. GPU water sync now has an explicit transaction and bounded
+  float32 drift reconciliation with a visible diagnostic counter.
 - Real GPU speed unmeasured; Firefox/WebKit and the Mac app on a real Mac untested. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
 - No depth refraction; bays develop slowly. Geo time: no waves; meanders only in lesson world; corries sub-grid.
 - No isostasy. Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
 
-Last checks: typecheck · npm test 281 · build · gpu-check 12/12 · e2e 62/62 — all PASS
-Uncommitted changes: none
-Next: read docs/NEXT_TASK.md; do not reread docs/MASTER_SPEC.md
+Last checks before M14: typecheck · npm test 281 · build · gpu-check 12/12 · e2e 62/62 — all PASS
+M14 checks in progress: typecheck and focused hydrology/persistence/overlay tests PASS.
+Uncommitted changes: M14 implementation (release chunk)
+Next: run full test/build/e2e/gpu checks, commit and push M14.

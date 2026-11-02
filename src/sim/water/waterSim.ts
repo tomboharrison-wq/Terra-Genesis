@@ -1,6 +1,6 @@
 import type { WorldState } from '../../engine/world';
 import type { Stepper } from '../../engine/clock';
-import { emptyLedger, type WaterLedger } from './ledger';
+import { emptyLedger, expectedStored, reconcileDepthMass, type WaterLedger } from './ledger';
 import type { ClimateField } from '../climate/climate';
 import { updateLow, updatePeak } from '../events/hazards';
 
@@ -54,6 +54,8 @@ export class WaterSim implements Stepper {
    */
   peakDepth: Float32Array | null = null;
   recordLow = false;
+  /** Cumulative float32 mass correction applied for diagnostics. */
+  massCorrectionM3 = 0;
 
   constructor(
     private world: WorldState,
@@ -92,12 +94,16 @@ export class WaterSim implements Stepper {
         snow[i] = 0;
         if (this.snow64) this.snow64[i] = 0;
       }
+      if (s && this.world.groundwaterDepthM[i] > 0) {
+        this.ledger && (this.ledger.seaOut += this.world.groundwaterDepthM[i] * this.cellArea);
+        this.world.groundwaterDepthM[i] = 0;
+      }
     }
   }
 
-  /** All water held on the map: surface water + snowpack (m³). */
+  /** All water held on the map: surface water + snowpack + groundwater (m³). */
   storedVolume(): number {
-    return this.surfaceVolume() + this.snowVolume();
+    return this.surfaceVolume() + this.snowVolume() + this.groundwaterVolume();
   }
 
   surfaceVolume(): number {
@@ -112,6 +118,13 @@ export class WaterSim implements Stepper {
     const s = this.snow64;
     let v = 0;
     for (let i = 0; i < s.length; i++) v += s[i];
+    return v * this.cellArea;
+  }
+
+  groundwaterVolume(): number {
+    const g = this.world.groundwaterDepthM;
+    let v = 0;
+    for (let i = 0; i < g.length; i++) v += g[i];
     return v * this.cellArea;
   }
 
@@ -162,9 +175,18 @@ export class WaterSim implements Stepper {
 
   step(dt: number): void {
     this.applyForcing(dt);
+    this.stepGroundwater(dt);
     this.route(dt);
-    if (this.peakDepth) (this.recordLow ? updateLow : updatePeak)(this.peakDepth, this.world.waterDepthM);
+    this.massCorrectionM3 += reconcileDepthMass(
+      this.world.waterDepthM,
+      this.sea,
+      this.cellArea,
+      expectedStored(this.ledger),
+      this.snowVolume() + this.groundwaterVolume(),
+      1e-7,
+    );
     this.refreshStats();
+    if (this.peakDepth) (this.recordLow ? updateLow : updatePeak)(this.peakDepth, this.world.waterDepthM);
   }
 
   /** Rain, sources, infiltration and evaporation for one step. */
@@ -226,6 +248,10 @@ export class WaterSim implements Stepper {
     if (p.infiltrationMPerS + p.evaporationMPerS > 0) {
       let inf = 0;
       let evap = 0;
+      const gw = w.groundwaterDepthM;
+      const gwOn = p.groundwaterEnabled;
+      const recharge = Math.min(1, Math.max(0, p.groundwaterRechargeFraction));
+      const gwMax = Math.max(0, p.groundwaterMaxDepthM);
       for (let i = 0; i < n; i++) {
         const di = d[i];
         if (di <= 0) continue;
@@ -234,11 +260,75 @@ export class WaterSim implements Stepper {
         if (rate <= 0) continue;
         const l = Math.min(di, rate * dt);
         d[i] = di - l;
-        inf += l * (p.infiltrationMPerS / rate);
+        const infDepth = l * (p.infiltrationMPerS / rate);
+        if (gwOn && infDepth > 0) {
+          const accepted = Math.min(infDepth * recharge, Math.max(0, gwMax - gw[i]));
+          gw[i] += accepted;
+          inf += infDepth - accepted;
+        } else {
+          inf += infDepth;
+        }
         evap += l * (ev / rate);
       }
       this.ledger.infiltrated += inf * A;
       this.ledger.evaporated += evap * A;
+    }
+  }
+
+  /** Conservative Darcy exchange plus delayed aquifer baseflow. */
+  private stepGroundwater(dt: number): void {
+    const w = this.world;
+    const p = w.water;
+    if (!p.groundwaterEnabled || dt <= 0) return;
+    const g = w.groundwaterDepthM;
+    const z = this.surface;
+    const sea = this.sea;
+    const W = w.width;
+    const H = w.height;
+    const cs = w.cellSizeM;
+    const A = this.cellArea;
+    const porosity = Math.min(1, Math.max(1e-3, p.groundwaterPorosity));
+    const conductivity = Math.max(0, p.groundwaterConductivityM2PerS);
+    const maxDepth = Math.max(0, p.groundwaterMaxDepthM);
+    const delta = new Float64Array(g.length);
+    const transfer = (i: number, j: number) => {
+      if (sea[i] || sea[j]) return;
+      const hi = z[i] + g[i] / porosity;
+      const hj = z[j] + g[j] / porosity;
+      const grad = (hi - hj) / Math.max(cs, 1e-6);
+      if (Math.abs(grad) < 1e-12 || conductivity <= 0) return;
+      let volume = conductivity * grad * cs * dt;
+      if (volume > 0) {
+        const available = Math.max(0, g[i] * A + delta[i] * A);
+        const capacity = Math.max(0, maxDepth * A - g[j] * A - delta[j] * A);
+        volume = Math.min(volume, available, capacity);
+      } else {
+        const available = Math.max(0, g[j] * A + delta[j] * A);
+        const capacity = Math.max(0, maxDepth * A - g[i] * A - delta[i] * A);
+        volume = -Math.min(-volume, available, capacity);
+      }
+      const d = volume / A;
+      delta[i] -= d;
+      delta[j] += d;
+    };
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        if (x + 1 < W) transfer(i, i + 1);
+        if (y + 1 < H) transfer(i, i + W);
+      }
+    }
+    for (let i = 0; i < g.length; i++) {
+      if (sea[i]) {
+        g[i] = 0;
+        continue;
+      }
+      g[i] = Math.min(maxDepth, Math.max(0, g[i] + delta[i]));
+      const base = Math.min(g[i], Math.max(0, p.groundwaterBaseflowMPerS) * dt);
+      if (base > 0) {
+        g[i] -= base;
+        w.waterDepthM[i] += base;
+      }
     }
   }
 

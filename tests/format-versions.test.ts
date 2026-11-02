@@ -17,6 +17,7 @@ const ADDED: Record<number, { fields: string[]; header: (keyof FileHeader)[] }> 
   9: { fields: ['plateId'], header: ['tectonics'] },
   10: { fields: ['lavaDepthM', 'lavaTempC', 'lavaKind'], header: ['lava'] },
   11: { fields: ['tephraM'], header: [] },
+  12: { fields: ['groundwaterDepthM'], header: [] },
 };
 
 /** Rewrite a current file as version `v` would have written it (only the fields and sections it knew). */
@@ -29,7 +30,7 @@ function downgrade(bytes: Uint8Array, v: number): Uint8Array {
     ADDED[k].header.forEach((h) => keepH.add(h));
   }
   const h: Record<string, unknown> = { ...header, formatVersion: v };
-  for (let k = v + 1; k <= 11; k++) for (const s of ADDED[k].header) if (!keepH.has(s)) delete h[s];
+    for (let k = v + 1; k <= 12; k++) for (const s of ADDED[k].header) if (!keepH.has(s)) delete h[s];
   const align4 = (n: number) => (n + 3) & ~3;
   const parts: { f: FileHeader['fields'][number]; data: Uint8Array }[] = [];
   let off = 0;
@@ -50,19 +51,21 @@ function downgrade(bytes: Uint8Array, v: number): Uint8Array {
 }
 
 describe('M11-C04 saving: every older format version still loads', () => {
-  it('v1 … v11 files decode to valid, runnable worlds with migrated defaults', () => {
-    expect(WORLD_FORMAT_VERSION).toBe(11);
+  it('v1 … v12 files decode to valid, runnable worlds with migrated defaults', () => {
+    expect(WORLD_FORMAT_VERSION).toBe(12);
     const w = generateWorld(defaultOptions('river-basin', 7, 64));
     w.water.rainMPerS = 1e-6;
     w.waterDepthM.fill(0.2);
     w.snowSweM.fill(0.01);
     const bytes = encodeWorld(w);
-    for (let v = 1; v <= 11; v++) {
+    for (let v = 1; v <= 12; v++) {
       const back = decodeWorld(downgrade(bytes, v)).world;
       expect(validateWorld(back), `v${v}`).toEqual([]);
       expect(Array.from(back.bedrockElevationM)).toEqual(Array.from(w.bedrockElevationM));
       expect(back.waterDepthM[0], `v${v} water`).toBe(v >= 2 ? Math.fround(0.2) : 0);
       expect(back.snowSweM[0], `v${v} snow`).toBe(v >= 6 ? Math.fround(0.01) : 0);
+      expect(back.groundwaterDepthM[0], `v${v} groundwater`).toBe(0);
+      if (v < 12) expect(back.water.groundwaterEnabled).toBe(false);
       if (v < 5) expect(back.climate.enabled).toBe(false);
       if (v < 9) expect(back.tectonics.enabled).toBe(false);
       const e = new Engine(back);

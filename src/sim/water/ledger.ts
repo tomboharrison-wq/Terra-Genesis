@@ -58,3 +58,40 @@ export function closureError(l: WaterLedger, stored: number): number {
   const scale = Math.max(1e-9, l.initialStored + ledgerIn(l));
   return Math.abs(stored - expectedStored(l)) / scale;
 }
+
+/** Correct tiny float32 depth drift while preserving the input/output ledger. */
+export function reconcileDepthMass(
+  depth: Float32Array,
+  sea: Uint8Array,
+  cellArea: number,
+  expectedStoredM3: number,
+  storedOtherM3: number,
+  toleranceM3 = 1e-9,
+): number {
+  if (!(cellArea > 0) || !Number.isFinite(expectedStoredM3) || !Number.isFinite(storedOtherM3)) return 0;
+  let stored = 0;
+  let wetStored = 0;
+  let wet = 0;
+  for (let i = 0; i < depth.length; i++) {
+    if (sea[i]) continue;
+    const volume = Math.max(0, depth[i]) * cellArea;
+    stored += volume;
+    if (depth[i] > 1e-7) {
+      wetStored += volume;
+      wet++;
+    }
+  }
+  const delta = expectedStoredM3 - storedOtherM3 - stored;
+  if (!Number.isFinite(delta) || Math.abs(delta) <= toleranceM3 || wet === 0) return 0;
+  // A large residual indicates a real routing/source mismatch; never hide it
+  // with a blanket correction. Only repair representational float32 drift.
+  if (Math.abs(delta) > Math.max(1e-3, Math.abs(expectedStoredM3) * 1e-6)) return 0;
+  if (delta < 0) {
+    const factor = Math.max(0, (wetStored + delta) / wetStored);
+    for (let i = 0; i < depth.length; i++) if (!sea[i] && depth[i] > 1e-7) depth[i] *= factor;
+  } else {
+    const perCell = delta / (wet * cellArea);
+    for (let i = 0; i < depth.length; i++) if (!sea[i] && depth[i] > 1e-7) depth[i] += perCell;
+  }
+  return delta;
+}

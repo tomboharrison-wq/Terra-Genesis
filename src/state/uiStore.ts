@@ -77,6 +77,11 @@ export interface SimInfo {
   rainMmH: number;
   infMmH: number;
   evapMmH: number;
+  groundwaterEnabled: boolean;
+  groundwaterRechargeFraction: number;
+  groundwaterConductivityM2PerS: number;
+  groundwaterBaseflowMPerS: number;
+  groundwaterM3: number;
   boundary: 'open' | 'closed';
   sources: { id: number; x: number; y: number; rateM3PerS: number }[];
   erosionOn: boolean;

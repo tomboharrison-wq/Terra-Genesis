@@ -6,7 +6,7 @@ import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacier
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 
-export const WORLD_FORMAT_VERSION = 11;
+export const WORLD_FORMAT_VERSION = 12;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -36,6 +36,18 @@ export interface WaterParams {
   boundary: BoundaryMode;
   /** Manning roughness n (s/m^(1/3)). */
   manningN: number;
+  /** Enable the distributed aquifer and groundwater baseflow model. GPU water falls back to CPU. */
+  groundwaterEnabled: boolean;
+  /** Fraction of infiltrated water that recharges the aquifer (0…1). */
+  groundwaterRechargeFraction: number;
+  /** Effective aquifer porosity used to convert storage to hydraulic head (0…1). */
+  groundwaterPorosity: number;
+  /** Hydraulic conductivity in m²/s for lateral Darcy exchange between cells. */
+  groundwaterConductivityM2PerS: number;
+  /** Maximum baseflow release to the surface in m/s of water column. */
+  groundwaterBaseflowMPerS: number;
+  /** Per-cell aquifer storage cap in m of water equivalent. */
+  groundwaterMaxDepthM: number;
   sources: WaterSource[];
 }
 
@@ -73,7 +85,20 @@ export function defaultErosionParams(): ErosionParams {
 }
 
 export function defaultWaterParams(): WaterParams {
-  return { rainMPerS: 0, infiltrationMPerS: 0, evaporationMPerS: 0, boundary: 'open', manningN: 0.035, sources: [] };
+  return {
+    rainMPerS: 0,
+    infiltrationMPerS: 0,
+    evaporationMPerS: 0,
+    boundary: 'open',
+    manningN: 0.035,
+    groundwaterEnabled: false,
+    groundwaterRechargeFraction: 0.8,
+    groundwaterPorosity: 0.25,
+    groundwaterConductivityM2PerS: 0.02,
+    groundwaterBaseflowMPerS: 1e-7,
+    groundwaterMaxDepthM: 20,
+    sources: [],
+  };
 }
 
 export interface WorldMeta {
@@ -122,6 +147,8 @@ export interface WorldState {
   strataMaterial: Uint8Array;
   /** Surface water depth above the ground surface (m), ≥ 0. Zero on sea cells (sea is a fixed-head sink). */
   waterDepthM: Float32Array;
+  /** Groundwater stored in the aquifer as water-equivalent depth (m), ≥ 0. */
+  groundwaterDepthM: Float32Array;
   /** Pipe-model outflow per cell, 4 per cell [west, east, south, north] (m³/s), ≥ 0. */
   waterFluxM3PerS: Float32Array;
   water: WaterParams;
@@ -191,6 +218,7 @@ export function createWorld(init: WorldInit): WorldState {
     strataBoundsM: new Float32Array(n * STRATA_BOUNDS).fill(STRATA_NONE),
     strataMaterial: new Uint8Array(n * STRATA_LAYERS),
     waterDepthM: new Float32Array(n),
+    groundwaterDepthM: new Float32Array(n),
     waterFluxM3PerS: new Float32Array(n * 4),
     water: defaultWaterParams(),
     sedimentSuspendedM: new Float32Array(n),
@@ -250,6 +278,7 @@ export function validateWorld(w: WorldState): string[] {
   if (w.materialId.length !== n) errs.push('material length mismatch');
   if (w.strataBoundsM.length !== n * STRATA_BOUNDS) errs.push('strata bounds length mismatch');
   if (w.strataMaterial.length !== n * STRATA_LAYERS) errs.push('strata material length mismatch');
+  if (w.groundwaterDepthM.length !== n) errs.push('groundwater length mismatch');
   for (let i = 0; i < n; i++) {
     const o = i * STRATA_BOUNDS;
     for (let k = 1; k < STRATA_BOUNDS; k++)
@@ -273,6 +302,13 @@ export function validateWorld(w: WorldState): string[] {
     const d = w.waterDepthM[i];
     if (!(d >= 0) || !Number.isFinite(d)) {
       errs.push(`invalid water depth ${d} at ${i}`);
+      break;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    const d = w.groundwaterDepthM[i];
+    if (!(d >= 0) || !Number.isFinite(d)) {
+      errs.push(`invalid groundwater depth ${d} at ${i}`);
       break;
     }
   }
@@ -301,6 +337,7 @@ export function cloneWorld(w: WorldState): WorldState {
     strataBoundsM: w.strataBoundsM.slice(),
     strataMaterial: w.strataMaterial.slice(),
     waterDepthM: w.waterDepthM.slice(),
+    groundwaterDepthM: w.groundwaterDepthM.slice(),
     waterFluxM3PerS: w.waterFluxM3PerS.slice(),
     water: { ...w.water, sources: w.water.sources.map((s) => ({ ...s })) },
     sedimentSuspendedM: w.sedimentSuspendedM.slice(),
