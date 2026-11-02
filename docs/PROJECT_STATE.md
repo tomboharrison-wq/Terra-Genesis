@@ -1,8 +1,8 @@
 # Project state
-Updated: 2026-11-02, M14
+Updated: 2026-11-02, M15
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M14 hydrology trust (C01–C04 done)
-Current chunk: M14 complete; next work is optional backlog
+Current milestone: M15 travelling long waves (C01–C04 done)
+Current chunk: M15-C05 validation and release
 Status: READY
 
 Verified working:
@@ -15,24 +15,17 @@ Verified working:
 - M06-C05 biome presets (src/terrain/biomes.ts, spin-up) + what-if compare (two cloned spin-ups, plant-difference overlay).
 - M07 plates (src/sim/tectonics/plates.ts, v9): boundaries, uplift/trench belts, rifts, transform column shifts,
   subduction arcs + Subduction lab, Fold lab, Quake tool (earthquake.ts, W&C scaling, undo incl. strata).
-- M08 volcanoes (src/sim/lava/): lavaSim (Bingham flow, η,τ(T), cooling, solidify → addTopRock; v10), tephra.ts
-  (Mastin plume, cinder ring + settleLoose 8-nbr, wind-stretched fall, tephraM v11), build.ts (shield/composite/
-  island plans, rest years skipped; growIsland → 'volcanic-island' preset), caldera.ts (piston). VolcanoPanel (V).
-- M09 data tools: measure.ts + MeasurePanel (pins, pairs, transect CSV); overlays.ts (data-gated defs, D8 flow,
-  legends, inspector; TimeBar OverlayMenu); checkpoints.ts + CheckpointsDialog (exact restore, diff summary, cp-* overlays).
+- M08 volcanoes: lava, tephra, shield/composite/island builds and caldera; VolcanoPanel (V).
+- M09 data tools: measures, overlays, checkpoints and comparison overlays.
 - M09-C04 challenges (src/challenges, app/challengeRunner.ts via runtime onSync/onWorldReplaced, ChallengeHud).
-- M10 education: src/education (types, features.ts, lessons/), app/educationRunner.ts (per-stage world copies),
-  EducationMode.tsx (panel, labels, GuidedStage, presentation, teacher links ?lesson=&stage=&level=), guided views
-  GuidedRiver/GuidedGlacial/CoastalLessons/FoldSection; models src/local/{waterfall,meander,glacial}. 11 lessons, 5 modules.
+- M10 education: classroom mode, 11 lessons, guided river/glacial/coastal/fold views and Landform Show.
 - M11-C01 floods (src/sim/events/hazards.ts, engine hazard section, HazardsPanel, tool H): storm, sea surge
   (raised sea head in both solvers, surgeIn ledger), per-step peak depth (GPU max pass), 'flood' overlay, event log.
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
   C03 exports (app/exportImages.ts, persistence/exports.ts) · C04 QA tests, version in Help.
 - M12 Landform Show (src/education/landforms, src/app/landforms/*Scenes.tsx, LandformShow.tsx; ?landform=id) + Time-lapse.
-- M13 geological time: sim/geology (landscapeEvolution, meander, run: glacial/coastal, geoWorker), app/geoRunner +
-  GeoControls; lessons riverGeologic ×3, glacialGeologic, coastalGeologic (geoFeatures, glacialFeatures, scenarioWorlds).
-- Mac app: desktop/ (Electron wrapper of dist/ via app://; package-mac.mjs → desktop/out zips).
-- Generation settles slopes to dry stability (src/terrain/settle.ts) → worlds start in equilibrium.
+- M13 geological time: river, glacier and coastal evolution in a Web Worker with classroom lessons.
+- Mac app: desktop/ Electron wrapper of `dist/`; generation settles slopes to dry stability.
 
 Known failures / gaps:
 - Groundwater is a CPU reference process; enabling the aquifer intentionally falls back from GPU so the
@@ -41,11 +34,13 @@ Known failures / gaps:
 - Real GPU speed unmeasured; Firefox/WebKit and the Mac app on a real Mac untested. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
 - No depth refraction; bays develop slowly. Geo time: no waves; meanders only in lesson world; corries sub-grid.
 - No isostasy. Inland cells below sea level count as sea.
-- No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly. Surge is a level rise, not a wave.
+- No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly.
 
 Last checks before M14: typecheck · npm test 281 · build · gpu-check 12/12 · e2e 62/62 — all PASS
 M14 checks: typecheck PASS · npm test 283 PASS · production build PASS · GitHub Pages workflow PASS.
+M15 checks: typecheck PASS · npm test 286 PASS · production build PASS; GPU/e2e remain host-blocked by absent
+Chromium and M15 deliberately uses CPU-authoritative event physics.
 The local GPU/e2e scripts were not runnable in this environment because `/opt/pw-browsers/chromium` is absent;
 the prior baseline had gpu-check 12/12 and e2e 62/62.
 Uncommitted changes: none
-Next: choose the next optional backlog item; do not reread docs/MASTER_SPEC.md
+Next: run the full M15 release gate, commit and push; do not reread docs/MASTER_SPEC.md

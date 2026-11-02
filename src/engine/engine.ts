@@ -21,7 +21,8 @@ import { LavaSim, type LavaKind, type LavaVent } from '../sim/lava/lavaSim';
 import { episodePlan, runEruption, type VolcanoType } from '../sim/lava/build';
 import { caldera, type CalderaOptions, type CalderaResult } from '../sim/lava/caldera';
 import type { EruptionStyle } from '../sim/lava/tephra';
-import { droughtSummary, floodSummary, surgeHeight, type DroughtSummary, type FloodSummary, type HazardEvent, type HazardKind } from '../sim/events/hazards';
+import { droughtSummary, floodSummary, surgeHeight, updatePeak, type DroughtSummary, type FloodSummary, type HazardEvent, type HazardKind } from '../sim/events/hazards';
+import { TsunamiSim, type TsunamiEdge } from '../sim/events/tsunami';
 import { impact, type ImpactOptions, type ImpactResult } from '../sim/events/meteor';
 import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
 import { LandscapeEvolution, addGeoStats, defaultGeoParams, emptyGeoStats, type GeoParams, type GeoStepStats } from '../sim/geology/landscapeEvolution';
@@ -166,6 +167,7 @@ export class Engine {
     this.lastQuake = null;
     this.hazard = null;
     this.flood = null;
+    this.tsunamiSim = new TsunamiSim(world, this.surface);
     this.lastImpact = null;
     // The event log survives restoring a checkpoint of the same world (run, restore, change, run again).
     if (world.meta.createdAtIso !== this.hazardLogWorld) this.hazardLog = [];
@@ -348,14 +350,20 @@ export class Engine {
   get stepper(): Stepper {
     const hz = this.hazard;
     const base0 = this.gpu ?? this.cpuStepper;
-    // A flood event runs on the solver's own clock, so the storm / surge timing is exact per step.
+    const tsunami = hz?.kind === 'tsunami' && !hz.done ? this.tsunamiSim : null;
+    // A flood event runs on the solver's own clock, so storm / surge / tsunami timing is exact per step.
     const base: Stepper =
       hz && !hz.done
         ? {
-            stableDt: () => base0.stableDt(),
+            stableDt: () => Math.min(base0.stableDt(), tsunami?.stableDt() ?? Infinity),
             step: (dt) => {
-              this.hazardStep(hz, dt);
-              base0.step(dt);
+              if (hz.kind === 'tsunami') {
+                base0.step(dt);
+                this.hazardStep(hz, dt);
+              } else {
+                this.hazardStep(hz, dt);
+                base0.step(dt);
+              }
             },
           }
         : base0;
@@ -978,6 +986,8 @@ export class Engine {
 
   /** The current or last flood event (null before the first one in this world). */
   hazard: HazardEvent | null = null;
+  /** CPU reference shallow-water field used by travelling tsunami events. */
+  tsunamiSim!: TsunamiSim;
   /**
    * Depth record of the current / last event: deepest water per cell (storm, surge) or the shallowest
    * (drought, kind 'drought'), and the water when it began.
@@ -1023,6 +1033,25 @@ export class Engine {
     });
   }
 
+  /** Travelling long-wave event: a shallow-water pulse enters from a map edge and runs up the coast. */
+  startTsunami(amplitudeM: number, minutes: number, sourceEdge: TsunamiEdge = 'west', afterMinutes = 60): HazardEvent {
+    this.stopHazard();
+    this.syncWater();
+    this.detachGpu();
+    const hz = this.startHazard({
+      kind: 'tsunami',
+      tsunamiAmplitudeM: amplitudeM,
+      sourceEdge,
+      sourceWidthCells: 4,
+      dampingPerS: 0.00025,
+      activeS: minutes * 60,
+      recordS: (minutes + afterMinutes) * 60,
+      label: `Tsunami ${amplitudeM} m from the ${sourceEdge}`,
+    });
+    this.tsunamiSim.start({ amplitudeM, sourceEdge, sourceWidthCells: hz.sourceWidthCells, dampingPerS: hz.dampingPerS });
+    return hz;
+  }
+
   private startHazard(o: Partial<HazardEvent> & Pick<HazardEvent, 'kind' | 'activeS' | 'recordS' | 'label'>): HazardEvent {
     this.stopHazard();
     this.syncWater();
@@ -1036,6 +1065,10 @@ export class Engine {
       rainRestored: false,
       surgeM: 0,
       rampS: 0,
+      tsunamiAmplitudeM: 0,
+      sourceEdge: 'west',
+      sourceWidthCells: 4,
+      dampingPerS: 0.00025,
       evapMmDay: 0,
       prevEvapMPerS: w.water.evaporationMPerS,
       done: false,
@@ -1064,6 +1097,10 @@ export class Engine {
     if (hz.done) return;
     hz.elapsedS += dt;
     if (hz.kind === 'surge') this.water.surgeM = surgeHeight(hz, hz.elapsedS);
+    if (hz.kind === 'tsunami') {
+      this.tsunamiSim.step(dt);
+      this.applyTsunamiRunup();
+    }
     // (tolerance: the step sizes rarely sum exactly to the set duration)
     if (hz.kind !== 'surge' && !hz.rainRestored && hz.elapsedS >= hz.activeS - 1e-6) this.restoreWeather(hz);
     if (hz.elapsedS >= hz.recordS - 1e-6) this.finishHazard(hz);
@@ -1072,8 +1109,53 @@ export class Engine {
   private finishHazard(hz: HazardEvent) {
     hz.done = true;
     this.water.surgeM = 0;
+    if (hz.kind === 'tsunami') {
+      this.clearTsunamiRunup();
+      this.tsunamiSim.stop();
+    }
     if (hz.kind !== 'surge' && !hz.rainRestored) this.restoreWeather(hz);
     this.hazardChanged = true;
+  }
+
+  /** Couple the wave field's actual land inundation into the authoritative surface-water store. */
+  private applyTsunamiRunup() {
+    const t = this.tsunamiSim;
+    const d = this.world.waterDepthM;
+    const A = this.world.cellSizeM * this.world.cellSizeM;
+    for (let i = 0; i < d.length; i++) {
+      if (this.water.sea[i]) continue;
+      const target = t.runupDepth(i);
+      const delta = target - t.runup[i];
+      if (delta > 0) {
+        d[i] += delta;
+        this.water.ledger.surgeIn += delta * A;
+      } else if (delta < 0) {
+        const removed = Math.min(d[i], -delta);
+        d[i] -= removed;
+        this.water.ledger.seaOut += removed * A;
+      }
+      t.runup[i] = target;
+    }
+    if (this.water.peakDepth) updatePeak(this.water.peakDepth, d);
+    this.water.refreshStats();
+    this.waterRevision++;
+  }
+
+  /** Remove any remaining wave run-up when the event ends, returning it to the ocean sink. */
+  private clearTsunamiRunup() {
+    const t = this.tsunamiSim;
+    const d = this.world.waterDepthM;
+    const A = this.world.cellSizeM * this.world.cellSizeM;
+    for (let i = 0; i < d.length; i++) {
+      const removed = Math.min(d[i], t.runup[i]);
+      if (removed > 0) {
+        d[i] -= removed;
+        this.water.ledger.seaOut += removed * A;
+      }
+      t.runup[i] = 0;
+    }
+    this.water.refreshStats();
+    this.waterRevision++;
   }
 
   /** Storm / drought over: rain (and evaporation) back to what they were before the event. */

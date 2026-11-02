@@ -28,6 +28,9 @@ export function HazardsPanel() {
   const [hours, setHours] = useState(3);
   const [surge, setSurge] = useState(4);
   const [minutes, setMinutes] = useState(45);
+  const [tsunami, setTsunami] = useState(6);
+  const [tsunamiMinutes, setTsunamiMinutes] = useState(30);
+  const [sourceEdge, setSourceEdge] = useState<'west' | 'east' | 'south' | 'north'>('west');
   const [days, setDays] = useState(10);
   const [evap, setEvap] = useState(6);
   const [checkpoint, setCheckpoint] = useState(true);
@@ -37,17 +40,33 @@ export function HazardsPanel() {
   const dr = engine.droughtSummary();
   const results = engine.hazardLog.filter((l) => l.result);
 
-  const start = (kind: 'storm' | 'surge' | 'drought') => {
-    const label = kind === 'storm' ? `Before storm ${rain} mm/h` : kind === 'surge' ? `Before sea surge ${surge} m` : `Before drought ${days} days`;
+  const start = (kind: 'storm' | 'surge' | 'tsunami' | 'drought') => {
+    const label =
+      kind === 'storm'
+        ? `Before storm ${rain} mm/h`
+        : kind === 'surge'
+          ? `Before sea surge ${surge} m`
+          : kind === 'tsunami'
+            ? `Before tsunami ${tsunami} m`
+            : `Before drought ${days} days`;
     if (checkpoint) engine.takeCheckpoint(`${label} (${fmtSimTime(engine.world.simTimeSeconds)})`);
     if (kind === 'storm') engine.startStorm(rain, hours);
     else if (kind === 'surge') engine.startSurge(surge, minutes);
+    else if (kind === 'tsunami') engine.startTsunami(tsunami, tsunamiMinutes, sourceEdge);
     else engine.startDrought(days, evap);
     engine.setPlaying(true);
     set({ terrainOverlay: kind === 'drought' ? 'drought' : 'flood' });
   };
   const status = (h: NonNullable<typeof hz>) =>
-    h.elapsedS >= h.activeS ? 'draining' : h.kind === 'storm' ? 'raining' : h.kind === 'surge' ? `sea ${engine.water.surgeM.toFixed(1)} m up` : 'no rain';
+    h.elapsedS >= h.activeS
+      ? 'draining'
+      : h.kind === 'storm'
+        ? 'raining'
+        : h.kind === 'surge'
+          ? `sea ${engine.water.surgeM.toFixed(1)} m up`
+          : h.kind === 'tsunami'
+            ? `wave ${engine.tsunamiSim.maxElevationM().toFixed(1)} m`
+            : 'no rain';
 
   return (
     <section className="hazards-panel">
@@ -71,6 +90,26 @@ export function HazardsPanel() {
       </p>
       <button className="small" disabled={running} onClick={() => start('surge')}>
         Start sea surge
+      </button>
+
+      <h3>Travelling tsunami</h3>
+      <Slider label="Initial wave" value={`${tsunami} m`} min={1} max={20} step={0.5} v={tsunami} onChange={setTsunami} />
+      <Slider label="Event duration" value={`${tsunamiMinutes} min`} min={5} max={120} step={5} v={tsunamiMinutes} onChange={setTsunamiMinutes} />
+      <label className="field">
+        <span className="field-label">Source edge</span>
+        <select value={sourceEdge} onChange={(e) => setSourceEdge(e.target.value as typeof sourceEdge)}>
+          <option value="west">West</option>
+          <option value="east">East</option>
+          <option value="south">South</option>
+          <option value="north">North</option>
+        </select>
+      </label>
+      <p className="hint small tight">
+        A depth-averaged shallow-water pulse travels through the real bathymetry at approximately √(gh), slows in shallow water, and runs up onto land. This is
+        separate from the instantaneous sea-level surge above.
+      </p>
+      <button className="small" disabled={running} onClick={() => start('tsunami')}>
+        Start travelling tsunami
       </button>
 
       <h3>Drought</h3>

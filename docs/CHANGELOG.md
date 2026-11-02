@@ -9,6 +9,12 @@
   groundwater overlay/control panel.
 - World files are now format v12; older files migrate with a disabled, empty aquifer.
 
+## M15 — travelling long waves
+
+- Added a CPU-authoritative depth-averaged tsunami reference field with CFL-limited propagation over real bathymetry.
+- Added wetting/run-up onto land, damping, source-edge selection, peak flood recording and ledgered water return.
+- Added separate tsunami controls and event logging; the existing fixed-head sea surge remains explicitly distinct.
+
 ## M00-C01 — Tooling
 - Vite + React + TS strict + Vitest + Three; Netlify config; continuity docs.
 

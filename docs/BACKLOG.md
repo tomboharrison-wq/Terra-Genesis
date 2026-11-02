@@ -7,6 +7,11 @@
 | M14-C03 | Groundwater diagnostics, overlay and authoritative UI controls | DONE |
 | M14-C04 | World-file v12 migration and conservation acceptance tests | DONE |
 | M14-C05 | Full release validation and GitHub Pages deployment | DONE |
+| M15-C01 | Depth-averaged travelling long-wave reference model with CFL-limited propagation | DONE |
+| M15-C02 | Bathymetry-aware coastal run-up coupled to authoritative water depth and ledger | DONE |
+| M15-C03 | Tsunami hazard controls, source-edge selection, peak flood record and event log | DONE |
+| M15-C04 | Determinism, boundedness, run-up and water-budget acceptance tests | DONE |
+| M15-C05 | Full release validation and GitHub Pages deployment | IN PROGRESS |
 | M13-C01 | Geological time: landscape evolution model (stream power, threshold hillslopes, soil, creep, lakes/sea deposition, uplift) in a Web Worker; record & replay; settings + ledger | DONE |
 | M13-C02 | Geological lessons: V-shaped valley + interlocking spurs; waterfall + gorge retreat (measured labels); Landforms "Watch it form" | DONE |
 | M13-C03 | Classroom mode (Performance quality, 128² new worlds, low-fps prompt) | DONE |

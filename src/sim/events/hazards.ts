@@ -5,11 +5,13 @@
  * Storm: the map-wide rain is set to `rainMmH` for `activeS`, then put back to what it was. Rivers
  * rise, overtop their banks and drain through the normal shallow-water routing.
  *
- * Sea surge ("tsunami", explicitly simplified): the sea's fixed water level rises by `surgeM` for
- * `activeS` (smooth rise and fall over `rampS`), and the solver pushes sea water onto any land the
- * raised sea can reach, then lets it drain back. It is NOT a travelling wave: there is no wave speed,
- * shoaling, breaking or backwash force, and every sea cell rises at once (inland cells below sea level
- * count as sea, so they rise too). Run-up = the surge height you set.
+ * Sea surge: the sea's fixed water level rises by `surgeM` for `activeS` (smooth rise and fall over
+ * `rampS`), and the solver pushes sea water onto any land the raised sea can reach, then lets it drain
+ * back. It remains a useful level-rise control, but is not a travelling wave.
+ *
+ * Tsunami: a separate depth-averaged linear shallow-water reference field enters from a selected map
+ * edge, slows with the real bathymetry, and couples its measured land run-up into the water ledger. It
+ * has wave speed, damping and a finite pulse; it is CPU-authoritative while active.
  *
  * Drought: no rain and evaporation raised to `evapMmDay` for `activeS`, then both put back. Springs
  * keep flowing. The record is then the LOWEST water reached on each cell (lakes and rivers shrinking).
@@ -18,7 +20,9 @@
  * `FLOOD_THRESHOLD_M` higher than the water there when the event began, so rivers and lakes that
  * were already full do not count as flooded. Peak depth is updated after every solver step.
  */
-export type HazardKind = 'storm' | 'surge' | 'drought';
+import type { TsunamiEdge } from './tsunami';
+
+export type HazardKind = 'storm' | 'surge' | 'tsunami' | 'drought';
 
 export interface HazardEvent {
   id: number;
@@ -28,7 +32,7 @@ export interface HazardEvent {
   startS: number;
   /** Simulated time since the event began (s). */
   elapsedS: number;
-  /** How long the storm rain / raised sea lasts (s). */
+  /** How long the storm rain / raised sea / tsunami event lasts (s). */
   activeS: number;
   /** Total recording time including the aftermath while water drains (s). */
   recordS: number;
@@ -38,6 +42,11 @@ export interface HazardEvent {
   rainRestored: boolean;
   surgeM: number;
   rampS: number;
+  /** Travelling-wave source parameters (unused by storms, surges and droughts). */
+  tsunamiAmplitudeM: number;
+  sourceEdge: TsunamiEdge;
+  sourceWidthCells: number;
+  dampingPerS: number;
   /** Drought: evaporation during the event (mm/day) and the evaporation before it (m/s). */
   evapMmDay: number;
   prevEvapMPerS: number;

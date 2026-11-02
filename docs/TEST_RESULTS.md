@@ -10,6 +10,14 @@
 - Local `gpu-check` / `e2e` could not launch because this host has no Chromium at `/opt/pw-browsers/chromium`;
   the previous validated baseline was gpu-check 12/12 and e2e 62/62.
 
+## 2026-11-02 — M15 travelling long waves
+
+- Tsunami reference model: deterministic propagation, bounded long runs, shallow-water run-up — PASS (2 tests).
+- Hazard integration: source-edge wave reaches low coast, peak flood is recorded, water is ledgered and closes — PASS.
+- Full suite: 286 tests across 53 files — PASS. Typecheck and production build — PASS.
+- GPU/e2e scripts remain host-blocked by the absent `/opt/pw-browsers/chromium`; M15 intentionally uses the
+  CPU reference during the event rather than claiming untested GPU parity.
+
 ## 2026-10-30 refinements: wave-cut platform wear, glacial cycles, drift at physical rate (21e14d8–f98ef74)
 - npm test 281 PASS at f98ef74 (platform 100–800 m wide and sloping seaward). e2e 62/62 PASS on a build made 14:51, i.e. after 21e14d8 but before the 1b25e62 commit and the drift fix f98ef74 — those two are covered by unit tests only so far.
 - Re-run on a fresh build of f98ef74: 61/62 — all lessons PASS; the save/load check FAILED because loading took longer than its fixed 2.5 s wait (standalone: loads back exactly 3/3, in 6–7 s). The check now waits up to 20 s for the exact match.

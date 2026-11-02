@@ -122,6 +122,22 @@ describe('M11-C01 flood hazards', () => {
     expect(L.seaOut).toBeGreaterThan(0.9 * L.surgeIn); // … and took (nearly) all of it back
   });
 
+  it('travelling tsunami reaches the low coast, records run-up and returns the water budget', () => {
+    const e = coast();
+    const w = e.world;
+    e.startTsunami(6, 30, 'east', 30);
+    let peakPlain = 0;
+    for (let k = 0; k < 12; k++) {
+      e.advance(120);
+      for (let y = 0; y < w.height; y++) for (let x = 20; x < 40; x++) peakPlain = Math.max(peakPlain, e.flood!.peak[y * w.width + x]);
+    }
+    expect(peakPlain).toBeGreaterThan(0.1);
+    expect(e.hazard?.kind).toBe('tsunami');
+    expect(e.floodSummary()!.peakDepthM).toBeGreaterThan(0.1);
+    expect(e.water.ledger.surgeIn).toBeGreaterThan(0);
+    expect(closureError(e.water.ledger, e.water.storedVolume())).toBeLessThan(1e-4);
+  });
+
   it('drought: lowest depth ≤ every depth seen, lakes shrink, weather restored, ledger closes; log kept across checkpoint restore', () => {
     const e = valley();
     const w = e.world;
