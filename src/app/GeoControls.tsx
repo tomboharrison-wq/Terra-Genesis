@@ -126,6 +126,13 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         <input type="range" min={-3} max={-1} step={0.05} value={Math.log10(p.diffusivity)} onChange={(e) => set({ diffusivity: Math.pow(10, +e.target.value) })} />
         <small>How fast soil creeps downhill, rounding hilltops.</small>
       </label>
+      <label className="field check">
+        <input type="checkbox" checked={p.transportCapacityK > 0} onChange={(e) => set({ transportCapacityK: e.target.checked ? 1 : 0 })} />
+        <span>
+          <b>Transport-limited deposition</b>
+          <small>Let rivers carry only a finite sediment load; excess builds fans, floodplains and deltas on this world.</small>
+        </span>
+      </label>
       <dl className="geo-ledger">
         <dt>River erosion of rock</dt>
         <dd>{fmtVol(t.erodedRock)}</dd>
@@ -135,6 +142,14 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         <dd>
           {fmtVol(t.depositedLakes)} / {fmtVol(t.depositedSea)}
         </dd>
+        {t.transportDeposited > 0 && (
+          <>
+            <dt>Transport-limited deposits</dt>
+            <dd>
+              {fmtVol(t.transportDeposited)} ({fmtVol(t.transportOverbank)} beside channels)
+            </dd>
+          </>
+        )}
         <dt>Carried off the map</dt>
         <dd>{fmtVol(t.exported)}</dd>
         {t.coastEroded > 0 && (
@@ -163,8 +178,8 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         )}
       </dl>
       <p className="muted small">
-        Model: rivers cut down by stream power (E = K·A<sup>½</sup>·S, Braun &amp; Willett 2013), soil forms from rock and creeps downhill, sediment settles
-        in lakes and the sea. Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
+        Model: rivers cut down by stream power (E = K·A<sup>½</sup>·S, Braun &amp; Willett 2013), carry a finite sediment load (reduced ξ–q capacity), lay excess
+        sediment on low ground beside the channel, and settle the remainder in lakes and the sea. Rivers and lakes are drawn from where water would drain. A meandering lowland river (Howard &amp; Knutson 1984) runs in the
         meanders lesson; with climate and glaciers on, glaciers grow, erode and melt (glaciated-upland lesson); with waves on, cliffs retreat (headlands-and-bays
         lesson). Not included in geological time: lava, plants. Switch to Water time to rain on the landscape you have made.
       </p>

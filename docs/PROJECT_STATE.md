@@ -1,8 +1,8 @@
 # Project state
-Updated: 2026-11-02, M15
+Updated: 2026-11-03, M13-C04b
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M15 travelling long waves (C01–C04 done)
-Current chunk: M15-C05 validation and release
+Current milestone: M13 geological time (C04b done)
+Current chunk: M13-C05b arbitrary-world meanders and estuary
 Status: READY
 
 Verified working:
@@ -24,7 +24,8 @@ Verified working:
   C02 drought (low record, 'drought' overlay), Meteor tool J (sim/events/meteor.ts), comparison table.
   C03 exports (app/exportImages.ts, persistence/exports.ts) · C04 QA tests, version in Help.
 - M12 Landform Show (src/education/landforms, src/app/landforms/*Scenes.tsx, LandformShow.tsx; ?landform=id) + Time-lapse.
-- M13 geological time: river, glacier and coastal evolution in a Web Worker with classroom lessons.
+- M13 geological time: river, glacier and coastal evolution in a Web Worker with classroom lessons; optional
+  transport-limited sediment capacity now lays excess load on channels and adjacent low ground in any world.
 - Mac app: desktop/ Electron wrapper of `dist/`; generation settles slopes to dry stability.
 
 Known failures / gaps:
@@ -32,7 +33,8 @@ Known failures / gaps:
   authoritative solver remains complete. GPU water sync now has an explicit transaction and bounded
   float32 drift reconciliation with a visible diagnostic counter.
 - Real GPU speed unmeasured; Firefox/WebKit and the Mac app on a real Mac untested. Map drift cannot make bars/lagoons/recurves (shoreline lab only).
-- No depth refraction; bays develop slowly. Geo time: no waves; meanders only in lesson world; corries sub-grid.
+- No depth refraction; bays develop slowly. Geo time: no waves; arbitrary-world meanders/estuaries remain the next
+  gap; corries sub-grid.
 - No isostasy. Inland cells below sea level count as sea.
 - No map U-shapes (plan-view SIA). Lava: no crust/steam/ice melt. Ash lands instantly.
 
@@ -42,5 +44,8 @@ M15 checks: typecheck PASS · npm test 286 PASS · production build PASS; GPU/e2
 Chromium and M15 deliberately uses CPU-authoritative event physics.
 The local GPU/e2e scripts were not runnable in this environment because `/opt/pw-browsers/chromium` is absent;
 the prior baseline had gpu-check 12/12 and e2e 62/62.
+M13-C04b checks: npm test 287 PASS · typecheck PASS · production build PASS. Full suite includes a deterministic
+ordinary-world fan/floodplain deposition and mass-balance acceptance test. GPU/e2e are not applicable to the
+geological-time CPU/Web Worker process; the host still lacks `/opt/pw-browsers/chromium`.
 Uncommitted changes: none
-Next: run the full M15 release gate, commit and push; do not reread docs/MASTER_SPEC.md
+Next: M13-C05b; do not reread docs/MASTER_SPEC.md

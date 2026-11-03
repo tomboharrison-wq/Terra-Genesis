@@ -11,12 +11,12 @@
 | M15-C02 | Bathymetry-aware coastal run-up coupled to authoritative water depth and ledger | DONE |
 | M15-C03 | Tsunami hazard controls, source-edge selection, peak flood record and event log | DONE |
 | M15-C04 | Determinism, boundedness, run-up and water-budget acceptance tests | DONE |
-| M15-C05 | Full release validation and GitHub Pages deployment | IN PROGRESS |
+| M15-C05 | Full release validation and GitHub Pages deployment | DONE |
 | M13-C01 | Geological time: landscape evolution model (stream power, threshold hillslopes, soil, creep, lakes/sea deposition, uplift) in a Web Worker; record & replay; settings + ledger | DONE |
 | M13-C02 | Geological lessons: V-shaped valley + interlocking spurs; waterfall + gorge retreat (measured labels); Landforms "Watch it form" | DONE |
 | M13-C03 | Classroom mode (Performance quality, 128² new worlds, low-fps prompt) | DONE |
 | M13-C04 | Floodplain building: overbank deposition with the meandering river (levees, aggradation, backswamps) | DONE (lesson world) |
-| M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | TODO |
+| M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | DONE |
 | M13-C05 | Meander migration (Howard & Knutson 1984) carved into the terrain; cut-offs → oxbow lakes; lesson with measured labels | DONE |
 | M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
 | M13-C06 | Glaciers in geological time + glaciated-upland lesson (troughs, corries, pyramidal peak, hanging valleys, moraine, glacial erosion overlay) | DONE |

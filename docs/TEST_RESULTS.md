@@ -1,5 +1,13 @@
 # Test results (latest first)
 
+## 2026-11-03 — M13-C04b transport-limited geological deposition
+
+- Added deterministic ordinary-world fan/floodplain acceptance: finite sediment capacity deposits excess load
+  on the channel and neighbouring low cells, while the mass balance closes with supplied sediment and export.
+- Full suite: 287 tests across 53 files — PASS. Typecheck and production build — PASS.
+- GPU/e2e are not applicable to the geological-time CPU/Web Worker process; this host still has no Chromium at
+  `/opt/pw-browsers/chromium`.
+
 ## 2026-11-02 — M14 hydrology trust
 
 - Focused tests: water forcing, persistence, format migrations and overlays — PASS (17 tests).

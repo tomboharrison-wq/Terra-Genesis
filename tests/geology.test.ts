@@ -165,4 +165,35 @@ describe('geological time: landscape evolution model', () => {
     const ms = (performance.now() - t0) / 5;
     expect(ms).toBeLessThan(250);
   });
+
+  it('transport-limited rivers build a fan and floodplain on an ordinary world', () => {
+    const W = 50;
+    const H = 9;
+    const mid = Math.floor(H / 2);
+    const cs = 50;
+    const w = createWorld({ width: W, height: H, cellSizeM: cs, seed: 33 });
+    w.water.boundary = 'closed';
+    w.seaLevelM = -1000;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const profile = x < 15 ? 300 - x * 8 : 180 - (x - 15) * 0.05;
+        w.bedrockElevationM[y * W + x] = profile + Math.abs(y - mid) * 4;
+      }
+    }
+    setUniformStrata(w);
+    refreshAllExposed(w);
+    const geo = new LandscapeEvolution(w);
+    const input = new Float64Array(W * H);
+    input[2 * W + mid] = 100_000;
+    geo.sedimentIn = input;
+    const p = { ...pureRiver(), transportCapacityK: 1, kRef: 1e-5 };
+    const v0 = volume(w);
+    const st = geo.step(1000, p);
+    const v1 = volume(w);
+    expect(st.transportDeposited).toBeGreaterThan(0);
+    expect(st.transportOverbank).toBeGreaterThan(0);
+    expect(w.looseSedimentThicknessM[mid * W + 15]).toBeGreaterThan(0);
+    expect(w.looseSedimentThicknessM[(mid - 1) * W + 15]).toBeGreaterThan(0);
+    expect(v1 - v0).toBeCloseTo(100_000 + st.uplifted - st.exported, -1);
+  });
 });

@@ -1,5 +1,12 @@
 # Changelog
 
+## M13-C04b — transport-limited geological deposition
+
+- Added an opt-in reduced ξ–q sediment-capacity law to ordinary geological-time rivers.
+- Excess load now deposits on the channel and adjacent low ground, allowing alluvial fans, floodplain
+  aggradation and above-sea deltas to emerge on arbitrary worlds, with exact volume accounting.
+- Added Geological Time setting control, transport/flood-spread diagnostics and deterministic acceptance tests.
+
 ## M14 — hydrology trust
 
 - Added bounded water-mass reconciliation for float32 routing drift; large mismatches remain visible.

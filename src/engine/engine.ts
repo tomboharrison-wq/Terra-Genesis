@@ -113,6 +113,7 @@ export class Engine {
   readonly clock = new SimClock(10);
   /** Geological time (sim/geology): long-timescale landscape evolution, run instead of water time. */
   geo!: LandscapeEvolution;
+  /** Geological-time reference defaults; transport-limited deposition is an explicit model setting. */
   geoParams: GeoParams = defaultGeoParams();
   /** Volumes moved in geological time since this world was loaded. */
   geoTotals: GeoStepStats = emptyGeoStats();

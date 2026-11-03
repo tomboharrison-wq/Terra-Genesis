@@ -1,5 +1,12 @@
 # Decisions (append-only)
 
+- 2026-11-03 — M13-C04b adds an opt-in reduced ξ–q transport-capacity process to geological time. Capacity
+  scales with drainage area, slope and the existing stream-power reference rate; excess load is conserved and
+  spread to the channel plus adjacent low ground. The library/reference default remains detachment-limited so
+  analytic and classroom lessons keep their calibrated outcomes; the Geological Time settings checkbox changes
+  the authoritative `transportCapacityK` parameter. This is a 1-D drainage-network plus local flood-spread
+  approximation, not a full 2-D sediment solver.
+
 - 2026-10-22 — Stack pinned to known-stable versions (three 0.170, React 19.1, Vite 6.3, Vitest 3.2, TS 5.8, zustand 5) rather than newest majors; reason: API certainty. Trade-off: upgrade later deliberately.
 - 2026-10-22 — Renderer ownership: one imperative `TerrainScene` class owns all Three objects; React only mounts a container and calls methods. Reason: avoid dual scene ownership (spec C1).
 - 2026-10-22 — Terrain mesh: one BufferGeometry, vertex per cell centre; dirty-region updates recompute normals/colours on CPU for the dirty rect and upload a contiguous row range via `addUpdateRange`. Reason: no chunk seams at ≤512². Trade-off: 1024² may need true chunking (revisit at M01-C07/M09).

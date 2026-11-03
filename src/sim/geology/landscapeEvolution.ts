@@ -14,10 +14,12 @@ import { MATERIALS } from '../../terrain/materials';
  * - Drainage: steepest descent (D8) over the depression-filled surface (priority-flood, Barnes et al.
  *   2014), so water crosses lakes and spills over saddles; drainage area A accumulates downstream.
  * - Sediment: everything eroded is routed downstream and deposited where flow stops — in closed
- *   hollows (up to their spill level: lake infill) and in the sea (up to 1 m below sea level, then
- *   onward to deeper water: deltas). Sediment reaching an open map edge, or the sea at any map edge
- *   (the sea continues beyond the map), leaves the map. Channels do
- *   not deposit on the way (no floodplain aggradation in this model — stated in the UI).
+ *   hollows (up to their spill level: lake infill), where transport capacity falls (alluvial fans,
+ *   floodplains and above-sea deltas), and in the sea (up to 1 m below sea level, then onward to
+ *   deeper water: deltas). Sediment reaching an open map edge, or the sea at any map edge (the sea
+ *   continues beyond the map), leaves the map. The capacity law is a reduced ξ–q relation: a river's
+ *   carrying capacity grows with drainage area and slope, and excess load is laid beside the channel
+ *   using a local flood-spread kernel. This is deliberately not a full 2-D sediment solver.
  * - Hillslopes: soil production from bare rock P = P0·erodibility·exp(−h/h0) (Heimsath et al. 1997)
  *   and linear soil creep q = −D·∇z, limited to the soil present (bare rock cliffs do not creep).
  * - Threshold hillslopes: over thousands of years slopes steeper than a critical angle fail by
@@ -49,10 +51,28 @@ export interface GeoParams {
   upliftMmYr: number;
   /** Threshold hillslope failure on (off only to test the river solver alone). */
   slopeFailure: boolean;
+  /** Dimensionless multiplier for the geological-time sediment capacity law. */
+  transportCapacityK: number;
+  /** Slope exponent in the reduced ξ–q transport-capacity law. */
+  transportCapacitySlope: number;
 }
 
 export function defaultGeoParams(): GeoParams {
-  return { kRef: 1e-5, m: 0.5, soilFactor: 2, soilCoverM: 0.5, diffusivity: 0.01, soilProduction: 1e-4, soilDepthScaleM: 0.5, upliftMmYr: 0, slopeFailure: true };
+  return {
+    kRef: 1e-5,
+    m: 0.5,
+    soilFactor: 2,
+    soilCoverM: 0.5,
+    diffusivity: 0.01,
+    soilProduction: 1e-4,
+    soilDepthScaleM: 0.5,
+    upliftMmYr: 0,
+    slopeFailure: true,
+    // The detachment-limited reference model remains the neutral library default; the Geological Time
+    // settings control enables the transport-limited extension for a run.
+    transportCapacityK: 0,
+    transportCapacitySlope: 1,
+  };
 }
 
 /** Volumes moved by one step (m³). */
@@ -73,6 +93,10 @@ export interface GeoStepStats {
   bankEroded: number;
   pointBars: number;
   overbank: number;
+  /** Transport-limited deposition in ordinary geological-time rivers (fans, floodplains, deltas). */
+  transportDeposited: number;
+  /** Portion of transport-limited deposition spread into neighbouring low-lying cells. */
+  transportOverbank: number;
   /** Rock eroded by glaciers (abrasion), carried as debris and dropped as moraine. */
   glacialEroded: number;
   /** Glacial debris carried away by meltwater rivers (outwash). */
@@ -95,6 +119,8 @@ export const emptyGeoStats = (): GeoStepStats => ({
   bankEroded: 0,
   pointBars: 0,
   overbank: 0,
+  transportDeposited: 0,
+  transportOverbank: 0,
   glacialEroded: 0,
   outwash: 0,
   coastEroded: 0,
@@ -403,6 +429,18 @@ export class LandscapeEvolution {
         st.depositedLakes += d;
         v -= d;
       }
+      // A real river cannot carry an arbitrary sediment load across a flat or widening reach.
+      // Keep the capacity that can continue downstream and lay the excess on the channel cell and
+      // adjacent low ground. This is the ordinary-world counterpart of the dedicated meander model's
+      // floodplain process, and is what lets fans, floodplains and deltas emerge outside lessons.
+      if (v > 0 && receiver[i] >= 0 && p.transportCapacityK > 0) {
+        const capacity = this.transportCapacity(i, years, p, A);
+        if (v > capacity) {
+          const laid = v - capacity;
+          this.depositTransport(i, laid, st, A);
+          v = capacity;
+        }
+      }
       qs[i] = 0;
       const r = receiver[i];
       if (v <= 0) continue;
@@ -532,6 +570,62 @@ export class LandscapeEvolution {
     // The nearby sea is full to 1 m below sea level: the rest is carried offshore, off the map
     // (piling it on one cell would build an island the river then cuts away again).
     st.exported += v;
+  }
+
+  /** Reduced geological-time ξ–q capacity (m³ for this cell and step). */
+  private transportCapacity(i: number, years: number, p: GeoParams, cellArea: number): number {
+    const r = this.receiver[i];
+    if (r < 0 || p.transportCapacityK <= 0 || p.kRef <= 0) return 0;
+    // Use the post-incision surface for this step. `filled` is the routing surface from the start of
+    // the step and can be stale after uplift or a large implicit incision.
+    const bed = this.w.bedrockElevationM;
+    const soil = this.w.looseSedimentThicknessM;
+    const slope = Math.max(0, (bed[i] + soil[i] - bed[r] - soil[r]) / Math.max(this.dist[i], this.w.cellSizeM));
+    if (slope <= 0) return 0;
+    const q = Math.pow(Math.max(this.area[i], cellArea), p.m);
+    return p.transportCapacityK * p.kRef * years * q * Math.pow(slope, p.transportCapacitySlope) * cellArea;
+  }
+
+  /** Deposit excess capacity into the channel and nearby low ground, conserving the exact volume. */
+  private depositTransport(i: number, v: number, st: GeoStepStats, cellArea: number): void {
+    const w = this.w;
+    const W = w.width;
+    const H = w.height;
+    const bed = w.bedrockElevationM;
+    const soil = w.looseSedimentThicknessM;
+    const cs = w.cellSizeM;
+    const zi = bed[i] + soil[i];
+    const basinCells = Math.max(1, this.area[i] / cellArea);
+    const overbankTarget = v * Math.min(0.45, 0.15 + 0.05 * Math.log10(basinCells));
+    const candidates: { j: number; weight: number }[] = [];
+    let weightSum = 0;
+    const x = i % W;
+    const y = (i / W) | 0;
+    for (let d = 0; d < 8; d++) {
+      const xn = x + DX[d];
+      const yn = y + DY[d];
+      if (xn < 0 || yn < 0 || xn >= W || yn >= H) continue;
+      const j = yn * W + xn;
+      if (this.isSea(j) || this.ice?.[j]) continue;
+      const zj = bed[j] + soil[j];
+      const rise = zj - zi;
+      if (rise > Math.max(0.5, cs * 0.1)) continue;
+      const weight = (1 / DD[d]) * Math.exp(-Math.max(0, rise) / Math.max(1, cs * 0.25)) * (1 + Math.max(0, -rise) / Math.max(1, cs));
+      candidates.push({ j, weight });
+      weightSum += weight;
+    }
+    const channel = candidates.length > 0 ? v - overbankTarget : v;
+    soil[i] += channel / cellArea;
+    let spread = 0;
+    if (candidates.length > 0 && overbankTarget > 0) {
+      for (const c of candidates) {
+        const d = (overbankTarget * c.weight) / weightSum;
+        soil[c.j] += d / cellArea;
+        spread += d;
+      }
+    }
+    st.transportDeposited += channel + spread;
+    st.transportOverbank += spread;
   }
 
   /** Linear soil creep q = −D∇z between 4-neighbours, explicit with sub-steps, never moving more soil than a cell has. */
