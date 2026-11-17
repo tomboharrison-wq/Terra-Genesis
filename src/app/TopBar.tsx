@@ -62,6 +62,9 @@ export function TopBar() {
         <button onClick={() => set({ dialog: 'lessons' })} title="Education Mode: classroom lessons for KS3 / GCSE">
           <Icon name="lesson" /> Lessons
         </button>
+        <button onClick={() => set({ dialog: 'evidence' })} title="GCSE Inquiry & Evidence Lab: Predict → Run → Observe → Measure → Explain + Export Evidence Sheet">
+          <Icon name="checkpoint" /> Evidence
+        </button>
         <button onClick={() => set({ dialog: 'challenges' })} title="Goals scored from the simulation">
           <Icon name="flag" /> Challenges
         </button>

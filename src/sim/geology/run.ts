@@ -172,15 +172,15 @@ function runGlacial(
     const before = g.sim.ledger.eroded;
     const spell = Math.min(ICE_SPELL_YEARS, dt);
     let v0 = g.sim.iceVolume();
-    g.sim.erosionFactor = dt / spell;
-    g.sim.run(spell * YEAR_S, spell * YEAR_S);
     g.sim.erosionFactor = 0;
-    for (let iceYears = spell; iceYears < ICE_SETTLE_MAX_YEARS; iceYears += spell) {
+    for (let iceYears = 0; iceYears < ICE_SETTLE_MAX_YEARS - spell; iceYears += spell) {
+      g.sim.run(spell * YEAR_S, spell * YEAR_S);
       const v1 = g.sim.iceVolume();
       if (Math.abs(v1 - v0) <= 0.02 * Math.max(v0, v1) + 1) break;
       v0 = v1;
-      g.sim.run(spell * YEAR_S, spell * YEAR_S);
     }
+    g.sim.erosionFactor = dt / spell;
+    g.sim.run(spell * YEAR_S, spell * YEAR_S);
     g.sim.erosionFactor = 1;
     tot.glacialEroded += g.sim.ledger.eroded - before;
     // Meltwater carries the outwash into the rivers; the landscape step routes it (lakes, sea, off the map).

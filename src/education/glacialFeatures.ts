@@ -1,4 +1,5 @@
 import type { WorldState } from '../engine/world';
+import { MATERIALS } from '../terrain/materials';
 import { LandscapeEvolution } from '../sim/geology/landscapeEvolution';
 
 /**
@@ -70,6 +71,10 @@ export interface GlacialFeatures {
   /** Moraine well inside the greatest extent: left where the retreating ice front paused. */
   recessional: { cell: number; thickM: number } | null;
   ribbon: { cell: number; lengthM: number; depthM: number } | null;
+  /** Streamlined subglacial till mound (drumlin) in the lower glaciated valley. */
+  drumlin: { cell: number; heightM: number; lengthM: number; bearing: string } | null;
+  /** Glacial erratic: rock debris carried from an upland source and dropped down-valley. */
+  erratic: { cell: number; sourceRock: string; transportKm: number } | null;
 }
 
 /**
@@ -266,7 +271,38 @@ export function findGlacialFeatures(w: WorldState, pre: Float32Array, iceMax: Fl
     if (len + cs >= 500 && lakeD(deep) >= 5 && (!ribbon || len > ribbon.lengthM)) ribbon = { cell: deep, lengthM: len + cs, depthM: lakeD(deep) };
   }
 
-  return { trough, corries, arete, peak, hanging, moraine, ribbon, terminal, lateral, recessional };
+  // Drumlin: streamlined subglacial till mound inside the lower glaciated valley (iceMax ≥ 35 m, moraine/till ≥ 1.8 m).
+  let drumlin: GlacialFeatures['drumlin'] = null;
+  for (let i = 0; i < n; i++) {
+    if (lakeD(i) > 0.5 || iceMax[i] < 35 || z[i] > snowlineM) continue;
+    const till = Math.min(moraineM[i], w.looseSedimentThicknessM[i]);
+    if (till < 1.8) continue;
+    const [dx, dy] = dirOf(i);
+    if (!drumlin || till > drumlin.heightM) {
+      drumlin = {
+        cell: i,
+        heightM: till,
+        lengthM: Math.max(cs * 3, Math.round(till * 25)),
+        bearing: compass(dx, dy),
+      };
+    }
+  }
+
+  // Erratic: glacial debris deposited near the terminal/lower margin, carried from the highest-erosion upland source.
+  let erratic: GlacialFeatures['erratic'] = null;
+  const srcCell = tc >= 0 ? tc : cands[0] ?? -1;
+  if (srcCell >= 0) {
+    const srcRock = MATERIALS[w.materialId[srcCell]]?.name ?? 'volcanic rock';
+    const targetCell = terminal?.cell ?? moraine?.cell ?? -1;
+    if (targetCell >= 0) {
+      const distKm = (Math.hypot((targetCell % W) - (srcCell % W), ((targetCell / W) | 0) - ((srcCell / W) | 0)) * cs) / 1000;
+      if (distKm >= 0.5) {
+        erratic = { cell: targetCell, sourceRock: srcRock, transportKm: distKm };
+      }
+    }
+  }
+
+  return { trough, corries, arete, peak, hanging, moraine, ribbon, terminal, lateral, recessional, drumlin, erratic };
 }
 
 export const at = xy;

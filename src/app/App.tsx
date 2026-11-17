@@ -1,5 +1,6 @@
 import { LandformShow } from './LandformShow';
 import { ExportDialog } from './ExportDialog';
+import { EvidenceDialog } from './EvidenceDialog';
 import { useEffect } from 'react';
 import { Viewport } from './Viewport';
 import { TopBar } from './TopBar';
@@ -72,6 +73,7 @@ export function App() {
       {dialog === 'checkpoints' && <CheckpointsDialog />}
       {dialog === 'challenges' && <ChallengesDialog />}
       {dialog === 'lessons' && <LessonsDialog />}
+      {dialog === 'evidence' && <EvidenceDialog />}
       {dialog === 'export' && <ExportDialog />}
       {dialog === 'landforms' && <LandformShow />}
       <ChallengeHud />

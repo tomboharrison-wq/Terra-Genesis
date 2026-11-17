@@ -7,6 +7,8 @@ export interface StrataUniforms {
   uDetailScale: { value: number };
   uSeaLevel: { value: number };
   uSunDir: { value: [number, number, number] };
+  uContoursOn: { value: number };
+  uTime: { value: number };
 }
 
 export function createStrataUniforms(colours: Color[]): StrataUniforms {
@@ -17,6 +19,8 @@ export function createStrataUniforms(colours: Color[]): StrataUniforms {
     uDetailScale: { value: 1 / 30 },
     uSeaLevel: { value: 0 },
     uSunDir: { value: [0.5, 0.7, 0.3] },
+    uContoursOn: { value: 0 },
+    uTime: { value: 0 },
   };
 }
 
@@ -77,6 +81,8 @@ uniform float uSeaLevel;
 uniform vec3 uMatCol[8];
 uniform float uStrataOn;
 uniform float uLineW;
+uniform float uContoursOn;
+uniform float uTime;
 float tgHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float tgNoise(vec2 p) {
   vec2 i = floor(p); vec2 f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
@@ -91,7 +97,8 @@ float tgFbm(vec2 p) {
         '#include <color_fragment>',
         `#include <color_fragment>
 float tgSteep = (1.0 - smoothstep(0.48, 0.84, vTgNormalY)) * uStrataOn;
-float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow < 0.01) ? 1.0 : 0.0;
+float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow <= 0.01) ? 1.0 : 0.0;
+float tgGeoWater = clamp(-vTgGlow, 0.0, 1.0);
 {
   // Triplanar weights so steep cliffs get crisp horizontal bedding + vertical fracture detail
   vec3 tw = pow(abs(normalize(vTgWorldNormal)), vec3(4.0));
@@ -102,11 +109,11 @@ float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow < 0.01) ? 1.0 : 0.0;
   float nTop = tgFbm(qXZ);
   float nSide = tgFbm(qXY) * tw.z + tgFbm(qZY) * tw.x;
   float n = nTop * tw.y + nSide;
-  diffuseColor.rgb *= 0.88 + 0.24 * n;
+  diffuseColor.rgb *= mix(0.88 + 0.24 * n, 1.0, tgGeoWater * 0.75);
 
   // Subtle noise-warped stratigraphy on steep faces
   float warp = (tgNoise(vTgWorld.xz * (uDetailScale * 0.35)) - 0.5) * uLineW * 3.5;
-  float steepMask = clamp(tgSteep + (n - 0.5) * 0.18 * tgSteep, 0.0, 1.0);
+  float steepMask = clamp(tgSteep + (n - 0.5) * 0.18 * tgSteep, 0.0, 1.0) * (1.0 - tgGeoWater);
   if (steepMask > 0.01 && vTgStrataM.x < 200.0) {
     float y = vTgWorld.y + warp;
     float m = vTgStrataM.x;
@@ -120,9 +127,20 @@ float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow < 0.01) ? 1.0 : 0.0;
 
   // Wet shoreline darkening just above sea level
   float aboveSea = vTgWorld.y - uSeaLevel;
-  if (uStrataOn > 0.5 && aboveSea >= -0.2 && aboveSea < 1.1 && tgIsIce < 0.5 && vTgGlow < 0.01) {
+  if (uStrataOn > 0.5 && aboveSea >= -0.2 && aboveSea < 1.1 && tgIsIce < 0.5 && vTgGlow <= 0.01 && tgGeoWater < 0.1) {
     float wet = 1.0 - smoothstep(-0.1, 1.1, aboveSea);
     diffuseColor.rgb *= 1.0 - 0.22 * wet;
+  }
+
+  // Anti-aliased topographic contour lines (minor every 20 m, major index every 100 m)
+  if (uContoursOn > 0.5 && aboveSea > 0.3 && tgGeoWater < 0.3) {
+    float fw = max(fwidth(aboveSea), 0.02);
+    float minorDist = abs(fract(aboveSea / 20.0 + 0.5) - 0.5) * 20.0;
+    float majorDist = abs(fract(aboveSea / 100.0 + 0.5) - 0.5) * 100.0;
+    float minorLine = 1.0 - smoothstep(fw * 0.6, fw * 1.6, minorDist);
+    float majorLine = 1.0 - smoothstep(fw * 0.9, fw * 2.1, majorDist);
+    float cFade = 1.0 - smoothstep(15.0, 45.0, fw); // fade out when zoomed far out
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.14, 0.11, 0.08), cFade * max(minorLine * 0.22, majorLine * 0.52));
   }
 }`,
       )
@@ -135,6 +153,7 @@ float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow < 0.01) ? 1.0 : 0.0;
   roughnessFactor = mix(0.91, 0.84, tgSteep);
   roughnessFactor = mix(roughnessFactor, 0.28, tgIsIce);
   roughnessFactor = mix(roughnessFactor, 0.24, wetShore * (1.0 - tgIsIce));
+  roughnessFactor = mix(roughnessFactor, 0.14, tgGeoWater);
 }`,
       )
       .replace(
@@ -143,20 +162,29 @@ float tgIsIce = (vTgStrataM.x > 200.0 && vTgGlow < 0.01) ? 1.0 : 0.0;
 {
   vec2 p = vTgWorld.xz * (uDetailScale * 2.2);
   float eps = 0.08;
-  float h0 = tgFbm(p);
-  float hx = tgFbm(p + vec2(eps, 0.0)) - h0;
-  float hz = tgFbm(p + vec2(0.0, eps)) - h0;
-  // Add vertical fracture / bedding micro-normal on steep cliffs
-  float hy = (tgNoise(vec2(vTgWorld.y * uDetailScale * 3.5, vTgWorld.x * uDetailScale)) - 0.5) * tgSteep;
-  float bumpStrength = mix(0.14, 0.36, tgSteep) * (1.0 - 0.6 * tgIsIce);
-  vec3 dN = vec3(-hx / eps, hy * 0.4, -hz / eps) * bumpStrength;
-  normal = normalize(normal + mat3(viewMatrix) * dN);
+  if (tgGeoWater > 0.1) {
+    // Animated water ripples on geological-time rivers, oxbow lakes, and estuaries
+    vec2 wp = vTgWorld.xz * 0.09 + vec2(uTime * 0.22, -uTime * 0.17);
+    float w0 = tgNoise(wp) * 0.6 + tgNoise(wp * 2.3 - vec2(uTime * 0.31, uTime * 0.19)) * 0.4;
+    float wx = tgNoise(wp + vec2(0.2, 0.0)) - w0;
+    float wz = tgNoise(wp + vec2(0.0, 0.2)) - w0;
+    vec3 wN = vec3(-wx * 1.4, 0.0, -wz * 1.4) * tgGeoWater;
+    normal = normalize(normal + mat3(viewMatrix) * wN);
+  } else {
+    float h0 = tgFbm(p);
+    float hx = tgFbm(p + vec2(eps, 0.0)) - h0;
+    float hz = tgFbm(p + vec2(0.0, eps)) - h0;
+    float hy = (tgNoise(vec2(vTgWorld.y * uDetailScale * 3.5, vTgWorld.x * uDetailScale)) - 0.5) * tgSteep;
+    float bumpStrength = mix(0.14, 0.36, tgSteep) * (1.0 - 0.6 * tgIsIce);
+    vec3 dN = vec3(-hx / eps, hy * 0.4, -hz / eps) * bumpStrength;
+    normal = normalize(normal + mat3(viewMatrix) * dN);
+  }
 }`,
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-totalEmissiveRadiance += vec3(1.0, 0.38, 0.08) * vTgGlow * 1.6; // molten lava glows by temperature`,
+totalEmissiveRadiance += vec3(1.0, 0.38, 0.08) * max(vTgGlow, 0.0) * 1.6; // molten lava glows by temperature`,
       );
   };
 }

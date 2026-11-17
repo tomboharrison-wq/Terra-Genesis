@@ -435,7 +435,20 @@ export class GlacierSim {
         const ub = ubField[i];
         const ubYr = ub * YEAR_S;
         if (ubYr > this.maxSlideMPerYr) this.maxSlideMPerYr = ubYr;
-        const law = p.erosionLaw === 'herman' ? HERMAN_KG * ubYr * ubYr * (sub / YEAR_S) : p.abrasionK * ub * sub;
+        let law = p.erosionLaw === 'herman' ? HERMAN_KG * ubYr * ubYr * (sub / YEAR_S) : p.abrasionK * ub * sub;
+        // Rotational slip over-deepening in cirque/corrie hollows (steep backwall + concave bed near ELA)
+        if (p.slidingCoupling && p.slidingCoupling > 0 && h < 110) {
+          const x = i % W;
+          const y = (i / W) | 0;
+          if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+            const zi = z[i];
+            const maxRise = Math.max(z[i - 1] - zi, z[i + 1] - zi, z[i - W] - zi, z[i + W] - zi);
+            const lap = (z[i - 1] + z[i + 1] + z[i - W] + z[i + W]) * 0.25 - zi;
+            if (maxRise > 0.32 * cs && lap > 0) {
+              law *= 1 + Math.min(0.28, lap / (cs * 0.4));
+            }
+          }
+        }
         // Optional cap at the measured range for temperate valley glaciers (~1–10 mm/yr, Hallet et al. 1996).
         const cap = p.maxErosionMmYr ? (p.maxErosionMmYr / 1000) * (sub / YEAR_S) : Infinity;
         const e = Math.min(law, cap) * this.erosionFactor;

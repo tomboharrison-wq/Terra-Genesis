@@ -1,6 +1,7 @@
 import { GEO_MAX_STEP_YEARS, type GeoResult } from '../engine/engine';
 import type { GeoJob } from '../sim/geology/geoWorker';
 import { cloneMeander, type MeanderState } from '../sim/geology/meander';
+import { arbitraryMeanderLabels } from '../education/geoFeatures';
 import { useUi } from '../state/uiStore';
 import { engine, onWorldReplaced, syncSim } from './runtime';
 
@@ -44,6 +45,10 @@ const setGeo = (p: Partial<ReturnType<typeof ui>['geo']>) => ui().set({ geo: { .
 
 function publish() {
   setGeo({ years: engine.geologicYears, achieved, frames: frames.map((f) => f.years) });
+  // When meandering is active outside a scripted lesson, keep live measured meander & estuary labels updated on the map
+  if (!ui().education && ui().geo.mode && engine.geoMeander) {
+    ui().set({ lessonLabels: arbitraryMeanderLabels(engine.world, engine.geoMeander, engine.geoRivers?.lake) });
+  }
   syncSim();
 }
 
@@ -86,10 +91,16 @@ function record(force = false) {
 
 /** Switch the time bar between water time and geological time. */
 export function setGeoMode(on: boolean) {
-  if (!on) stopGeo();
+  if (!on) {
+    stopGeo();
+    if (!ui().education) ui().set({ lessonLabels: [] });
+  }
   if (on) {
     engine.setPlaying(false);
     engine.beginGeologic();
+    if (!engine.geoMeander && engine.world.meta.presetId === 'river-delta') {
+      engine.enableLowlandMeander();
+    }
   }
   setGeo({ mode: on, viewing: null });
   publish();

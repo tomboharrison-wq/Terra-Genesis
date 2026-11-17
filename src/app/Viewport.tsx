@@ -274,6 +274,8 @@ export function Viewport() {
     scene.setPins(initSt.pins);
     scene.setSun(initSt.sunAzimuthDeg, initSt.sunElevationDeg);
     scene.setVerticalExaggeration(initSt.verticalExaggeration);
+    scene.setClouds(initSt.cloudsOn);
+    scene.setContours(initSt.contoursOn);
     const unsubView = useUi.subscribe((st, prev) => {
       if (st.quality !== prev.quality) scene.setQuality(st.quality);
       if (st.sunAzimuthDeg !== prev.sunAzimuthDeg || st.sunElevationDeg !== prev.sunElevationDeg) {
@@ -282,6 +284,8 @@ export function Viewport() {
       if (st.verticalExaggeration !== prev.verticalExaggeration) {
         scene.setVerticalExaggeration(st.verticalExaggeration);
       }
+      if (st.cloudsOn !== prev.cloudsOn) scene.setClouds(st.cloudsOn);
+      if (st.contoursOn !== prev.contoursOn) scene.setContours(st.contoursOn);
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
       if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
       if (st.pins !== prev.pins) scene.setPins(st.pins);

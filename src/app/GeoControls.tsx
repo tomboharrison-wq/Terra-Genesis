@@ -4,6 +4,7 @@ import { engine } from './runtime';
 import { Icon } from './icons';
 import { GEO_SPEEDS, playGeo, setGeoMode, setGeoSpeed, showFrame, stepGeo, stopGeo } from './geoRunner';
 import { defaultGeoParams } from '../sim/geology/landscapeEvolution';
+import { arbitraryMeanderLabels } from '../education/geoFeatures';
 
 export function fmtGeoYears(y: number): string {
   if (y >= 1e6) return `${(y / 1e6).toFixed(2)} million`;
@@ -131,6 +132,29 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
         <span>
           <b>Transport-limited deposition</b>
           <small>Let rivers carry only a finite sediment load; excess builds fans, floodplains and deltas on this world.</small>
+        </span>
+      </label>
+      <label className="field check">
+        <input
+          type="checkbox"
+          checked={!!engine.geoMeander}
+          onChange={(e) => {
+            if (e.target.checked) {
+              const ok = engine.enableLowlandMeander();
+              if (!ok) useUi.getState().toast('No lowland trunk river found to meander on this world', 'info');
+              else if (!useUi.getState().education && engine.geoMeander) {
+                useUi.getState().set({ lessonLabels: arbitraryMeanderLabels(engine.world, engine.geoMeander, engine.geoRivers?.lake) });
+              }
+            } else {
+              engine.setMeander(null);
+              if (!useUi.getState().education) useUi.getState().set({ lessonLabels: [] });
+            }
+            bump((n) => n + 1);
+          }}
+        />
+        <span>
+          <b>Meandering lowland river &amp; estuary</b>
+          <small>Migrate the main lowland river sideways (Howard &amp; Knutson 1984), cutting oxbow lakes, building levees and widening into an estuary at the sea.</small>
         </span>
       </label>
       <dl className="geo-ledger">

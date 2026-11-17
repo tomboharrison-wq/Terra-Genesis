@@ -206,17 +206,27 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
 
   'river-delta': (c) => {
     const [wu, wv] = warp(c, 0.05);
-    // Coast runs east–west at v ≈ 0.3; land rises northward; one main valley feeds the coast.
-    const coast = 0.3 + 0.04 * c.n.fbm(wu * 3, 1.7, 3);
+    // Coast runs east–west at v ≈ 0.28; a wide, gently sloping alluvial floodplain occupies the
+    // lower valley (0.28..0.62) with a winding meander belt, rising into steeper uplands in the north.
+    const coast = 0.28 + 0.04 * c.n.fbm(wu * 3, 1.7, 3);
     const land = wv - coast;
-    const axis = 0.5 + 0.08 * Math.sin(wv * Math.PI * 2 + 1);
-    const dx = (wu - axis) / 0.16;
-    const valley = 1 - Math.exp(-dx * dx);
+    const lowT = clamp(land / 0.36, 0, 1);
+    const meanderWave = (1 - lowT * 0.65) * 0.11 * Math.sin(wv * Math.PI * 5.2 + 0.7) + 0.06 * Math.sin(wv * Math.PI * 2 + 1);
+    const axis = 0.5 + meanderWave;
+    const halfW = 0.22 - 0.08 * lowT;
+    const dx = (wu - axis) / halfW;
+    // Flat-floored U/box floodplain in the lower course, narrowing to a V-valley in the uplands
+    const valley = 1 - Math.exp(-Math.pow(Math.abs(dx), 2.6 - 0.8 * lowT));
     const ridges = c.n.ridged(wu * 4, wv * 4, 5);
     let e: number;
-    if (land < 0)
+    if (land < 0) {
       e = land * 0.25 - 0.004; // shallow shelf
-    else e = 0.01 + land * 0.95 * (0.3 + 0.7 * valley) * (0.7 + 0.45 * ridges) + 0.015 * c.n.fbm(wu * 10, wv * 10, 3);
+    } else {
+      // Concave longitudinal profile: very gentle floodplain gradient near the sea, steeper headwaters
+      const longProfile = 0.08 * land + 0.92 * Math.pow(land / 0.72, 1.75) * 0.72;
+      const channelGroove = (1 - lowT * 0.5) * 0.012 * Math.exp(-((dx * 4.5) ** 2));
+      e = 0.008 + longProfile * (0.22 + 0.78 * valley) * (0.72 + 0.42 * ridges) - channelGroove + 0.012 * c.n.fbm(wu * 10, wv * 10, 3);
+    }
     const mat = e > 0.35 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
     return { e, mat };
   },
@@ -360,7 +370,8 @@ export function generateWorld(o: GenerateOptions): WorldState {
       const relH = o.reliefM > 0 ? (surf[i] - o.seaLevelM) / o.reliefM : 0;
       const gentle = clamp(1 - slope / 0.7, 0, 1);
       const altitudeFactor = clamp(1 - relH * 0.8, 0.25, 1);
-      const sed = 2.0 * gentle * gentle * altitudeFactor * (0.7 + 0.3 * nsed.noise(x * 0.05, y * 0.05));
+      const floodplainBonus = o.presetId === 'river-delta' && relH >= 0 && relH < 0.12 ? 4.5 * (1 - relH / 0.12) * gentle : 0;
+      const sed = (2.0 * gentle * gentle * altitudeFactor + floodplainBonus) * (0.7 + 0.3 * nsed.noise(x * 0.05, y * 0.05));
       const thickness = o.presetId === 'flat' ? 1 : Math.max(0, sed);
       world.looseSedimentThicknessM[i] = thickness;
       world.bedrockElevationM[i] = surf[i] - thickness;

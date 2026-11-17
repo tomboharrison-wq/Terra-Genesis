@@ -79,11 +79,15 @@ export class CoastSim {
   coarseFraction = 1;
   /** Wave power reaching each coastal land cell at the last update (W/m), else 0. */
   exposure: Float32Array;
+  /** Cumulative wave energy (MJ/m) absorbed at jutting rocky headland tips, driving cave → arch → stack → stump progression. */
+  headlandDamage: Float32Array;
   private erod = new Float32Array(256);
   private sinceLast = 0;
 
   constructor(private world: WorldState, private surface: Float32Array) {
-    this.exposure = new Float32Array(world.width * world.height);
+    const n = world.width * world.height;
+    this.exposure = new Float32Array(n);
+    this.headlandDamage = new Float32Array(n);
     for (const m of MATERIALS) this.erod[m.id] = m.erodibility;
   }
 
@@ -188,10 +192,41 @@ export class CoastSim {
   }
 
   /**
+   * Seabed-controlled wave refraction factor Kr ∈ [0.68, 1.35] at coastal cell (x, y) with seaward
+   * normal (nx, ny). Waves slow in shallow water (c ≈ √(g·d)), bending orthogonals toward shallow
+   * submarine headland ridges (converging energy, Kr > 1) and diverging in deeper embayments (Kr < 1).
+   * On a straight uniform coast, curvature is 0 so Kr = 1.0.
+   */
+  refractionFactor(x: number, y: number, nx: number, ny: number): number {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const z = this.surface;
+    const tx = -ny;
+    const ty = nx;
+    const sampleAt = (ox: number, oy: number) => {
+      const xx = Math.min(W - 1, Math.max(0, Math.round(ox)));
+      const yy = Math.min(H - 1, Math.max(0, Math.round(oy)));
+      return z[yy * W + xx];
+    };
+    const zCentre = sampleAt(x + nx * 2, y + ny * 2);
+    const zLeft = sampleAt(x + nx * 2 - tx * 3, y + ny * 2 - ty * 3);
+    const zRight = sampleAt(x + nx * 2 + tx * 3, y + ny * 2 + ty * 3);
+    const curv = zCentre - 0.5 * (zLeft + zRight);
+    if (Math.abs(curv) < 1e-3) return 1;
+    return curv > 0 ? 1 + 0.32 * Math.tanh(curv / 5) : 1 + 0.28 * Math.tanh(curv / 5);
+  }
+
+  /**
    * Local wave field at (x, y): energy share e ∈ [0, 1] of a ±60° ray fan (weights cos²δ) that
-   * reaches open water, and the unit vector towards the effective wave source.
+   * reaches open water, and the unit vector towards the effective wave source (bent by shallow seabed refraction).
    */
   waveField(x: number, y: number): { e: number; sx: number; sy: number } {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const sl = w.seaLevelM;
+    const z = this.surface;
     const t0 = (this.params.waveFromDeg * Math.PI) / 180;
     let wSum = 0;
     let open = 0;
@@ -204,9 +239,18 @@ export class CoastSim {
       const uy = Math.cos(t0 + d);
       wSum += wt;
       if (this.rayOpen(x, y, ux, uy)) {
+        // Weight rays by shallow-water shoaling/refraction along the nearshore approach
+        let shoalW = 1;
+        const xx = Math.min(W - 1, Math.max(0, Math.round(x + ux * 3)));
+        const yy = Math.min(H - 1, Math.max(0, Math.round(y + uy * 3)));
+        const depth = sl - z[yy * W + xx];
+        if (depth > 0 && depth < 15) {
+          // Snell's law: waves bend toward shallower water normals
+          shoalW = 0.85 + 0.3 * (1 - depth / 15);
+        }
         open += wt;
-        vx += wt * ux;
-        vy += wt * uy;
+        vx += wt * shoalW * ux;
+        vy += wt * shoalW * uy;
       }
     }
     const l = Math.hypot(vx, vy);
@@ -247,7 +291,7 @@ export class CoastSim {
       if (wf.e <= 0) continue;
       const cosI = nx * wf.sx + ny * wf.sy;
       if (cosI < -0.3) continue; // faces away from the waves
-      let e = Math.max(0, 0.25 + 0.75 * cosI) * wf.e;
+      let e = Math.max(0, 0.25 + 0.75 * cosI) * wf.e * this.refractionFactor(x, y, nx, ny);
       // Foreshore attenuation from the shallowest of the next three seaward cells.
       let dmin = Infinity;
       for (let k = 1; k <= 3; k++) {
@@ -261,16 +305,28 @@ export class CoastSim {
       const P = P0 * e;
       this.exposure[i] = P;
       if (P <= 0 || z[i] <= floor) continue;
+
+      // Track cumulative wave attack on jutting rocky headland tips (cave → arch → stack → stump)
+      const seaNb = 4 - this.landNeighbours(x, y);
+      if (seaNb >= 2 && this.erod[w.materialId[i]] <= 0.65 && b[i] > sl + 2) {
+        this.headlandDamage[i] += (P * speedup * dt) / 1e9; // GJ/m of cumulative headland wave attack
+      }
+
+      // Preserve constructive sandy pocket-beach berms in sheltered bays (while still attacking cliffs behind them)
+      const isSandyBerm = b[i] < sl && loose[i] > 0.3 && z[i] <= sl + 1.1 && e < 0.42;
+      const cellFloor = isSandyBerm ? Math.max(floor, sl + 0.35) : floor;
+      if (z[i] <= cellFloor) continue;
+
       // Lower the cell: loose debris first, then the exposed lithology.
       const rateLoose = p.cliffK * P * speedup * dt; // debris erodes at the base rate (erodibility 1)
       let removed = 0;
-      const fromLoose = Math.min(loose[i], rateLoose, z[i] - floor);
+      const fromLoose = Math.min(loose[i], rateLoose, z[i] - cellFloor);
       loose[i] -= fromLoose;
       removed += fromLoose;
       const remainingFrac = rateLoose > 0 ? 1 - fromLoose / rateLoose : 0;
       let fromRock = 0;
-      if (remainingFrac > 0 && loose[i] <= 0) {
-        const want = Math.min(remainingFrac * rateLoose * this.erod[w.materialId[i]], b[i] - floor);
+      if (remainingFrac > 0 && loose[i] <= 0 && b[i] > cellFloor) {
+        const want = Math.min(remainingFrac * rateLoose * this.erod[w.materialId[i]], b[i] - cellFloor);
         if (want > 0) {
           const nb = Math.fround(b[i] - want);
           fromRock = b[i] - nb;
@@ -529,6 +585,91 @@ export class CoastSim {
       z[mv.to] = b[mv.to] + loose[mv.to];
     }
     this.nearshoreSmooth(activeDepth);
+    this.buildBayBeaches(dt, speedup);
     return moves.length;
+  }
+
+  /**
+   * Cross-shore equilibrium beach profile & swash berm building in sheltered bays:
+   * Where nearshore sea cells hold abundant sand adjacent to a sheltered bay shore (Kr < 0.96),
+   * constructive swash pushes sand up the beach face to build a sub-aerial sandy beach berm
+   * above sea level (up to seaLevel + 0.8 m), conserving total sediment volume.
+   */
+  private buildBayBeaches(dt: number, speedup: number) {
+    const w = this.world;
+    const p = this.params;
+    if (p.onshoreK <= 0 || p.waveHeightM <= 0) return;
+    const W = w.width;
+    const H = w.height;
+    const sl = w.seaLevelM;
+    const z = this.surface;
+    const b = w.bedrockElevationM;
+    const loose = w.looseSedimentThicknessM;
+    const bermCap = sl + Math.min(0.9, 0.4 * p.waveHeightM);
+    const rate = Math.min(0.15, p.onshoreK * Math.pow(p.waveHeightM, 2) * speedup * dt * 0.25);
+    if (rate <= 0) return;
+
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        const i = y * W + x;
+        // Target cell: shallow foreshore or low bay edge with bedrock below sea level
+        if (b[i] >= sl || z[i] >= bermCap || z[i] < sl - 1.2) continue;
+        // Must touch land on at least 2 sides (concave embayment / pocket beach)
+        if (this.landNeighbours(x, y) < 2) continue;
+        const [nx, ny] = this.seawardNormal(x, y);
+        if (this.refractionFactor(x, y, nx, ny) > 0.96) continue; // only sheltered bays build constructive berms
+        const sx = Math.min(W - 1, Math.max(0, Math.round(x + nx)));
+        const sy = Math.min(H - 1, Math.max(0, Math.round(y + ny)));
+        const donor = sy * W + sx;
+        if (donor === i || !this.isSea(donor) || loose[donor] <= 0.35) continue;
+        const need = bermCap - z[i];
+        const avail = (loose[donor] - 0.25) * 0.35;
+        const move = Math.min(need, avail, rate);
+        if (move <= 1e-4) continue;
+        loose[donor] -= move;
+        loose[i] += move;
+        z[donor] = b[donor] + loose[donor];
+        z[i] = b[i] + loose[i];
+      }
+    }
+  }
+
+  /**
+   * Map-scale headland features (cave → arch → stack → stump) measured from cumulative headland
+   * wave attack and isolated rocky pillars off retreated headlands.
+   */
+  findHeadlandFeatures(): { cell: number; xM: number; yM: number; stage: 'cave' | 'arch' | 'stack' | 'stump'; heightM: number }[] {
+    const w = this.world;
+    const W = w.width;
+    const H = w.height;
+    const cs = w.cellSizeM;
+    const sl = w.seaLevelM;
+    const z = this.surface;
+    const out: { cell: number; xM: number; yM: number; stage: 'cave' | 'arch' | 'stack' | 'stump'; heightM: number }[] = [];
+
+    for (let y = 2; y < H - 2; y++) {
+      for (let x = 2; x < W - 2; x++) {
+        const i = y * W + x;
+        const dmg = this.headlandDamage[i];
+        if (dmg <= 0.05 && this.landNeighbours(x, y) > 0) continue;
+        const h = z[i] - sl;
+        const landNb = this.landNeighbours(x, y);
+        let stage: 'cave' | 'arch' | 'stack' | 'stump' | null = null;
+        if (landNb === 0 && h > 2.5 && this.erod[w.materialId[i]] <= 0.65) {
+          stage = 'stack';
+        } else if (landNb === 0 && h > -0.5 && h <= 2.5 && dmg > 0.1) {
+          stage = 'stump';
+        } else if (landNb <= 2 && h > 3 && dmg > 0.6) {
+          stage = 'arch';
+        } else if (landNb <= 2 && h > 3 && dmg > 0.15) {
+          stage = 'cave';
+        }
+        if (stage) {
+          if (out.some((f) => Math.hypot(f.xM - x * cs, f.yM - y * cs) < cs * 4)) continue;
+          out.push({ cell: i, xM: x * cs, yM: y * cs, stage, heightM: Math.max(0, h) });
+        }
+      }
+    }
+    return out;
   }
 }

@@ -179,6 +179,8 @@ export function OverlayLegend({ legend, title }: { legend: Legend; title: string
 /** Map overlay picker (spec F4): only overlays whose data exists are offered, grouped, each with its legend. */
 function OverlayMenu() {
   const id = useUi((s) => s.terrainOverlay);
+  const cloudsOn = useUi((s) => s.cloudsOn);
+  const contoursOn = useUi((s) => s.contoursOn);
   const sim = useUi((s) => s.sim);
   const set = useUi((s) => s.set);
   const available = OVERLAYS.filter((o) => o.available(engine));
@@ -186,6 +188,22 @@ function OverlayMenu() {
   const def: OverlayDef | undefined = overlayById(id);
   return (
     <>
+      <button
+        className={contoursOn ? 'active-toggle' : ''}
+        onClick={() => set({ contoursOn: !contoursOn })}
+        aria-pressed={contoursOn}
+        title="Toggle topographic contour lines (every 20 m, index every 100 m)"
+      >
+        Contours
+      </button>
+      <button
+        className={cloudsOn ? 'active-toggle' : ''}
+        onClick={() => set({ cloudsOn: !cloudsOn })}
+        aria-pressed={cloudsOn}
+        title="Toggle 3D wind-driven cumulus clouds, shadows and rain shafts"
+      >
+        ☁ Clouds
+      </button>
       <select
         className="overlay-select"
         value={id}

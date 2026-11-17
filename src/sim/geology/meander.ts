@@ -1,5 +1,6 @@
 import { refreshExposed, type WorldState } from '../../engine/world';
 import { MATERIALS } from '../../terrain/materials';
+import { LandscapeEvolution } from './landscapeEvolution';
 
 /**
  * Meandering lowland river (geological time). The channel is a centreline that migrates sideways
@@ -38,6 +39,8 @@ export interface MeanderParams {
   overbankDecayM: number;
   /** Floods reach this high above the floodplain (m): no deposition above. */
   floodHeightM: number;
+  /** If true, the river mouth widens and deepens into a funnel-shaped tidal estuary where it meets the sea. */
+  estuary?: boolean;
 }
 
 export function defaultMeanderParams(): MeanderParams {
@@ -149,7 +152,9 @@ function bankFactor(w: WorldState, m: MeanderState, x: number, y: number): numbe
   const i = cy * W + cx;
   const z = w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
   if (z < w.seaLevelM) return 0; // no banks in the sea
-  const alluvium = w.looseSedimentThicknessM[i] >= m.params.depthM && z <= floodplainZ(m, x, y) + m.params.floodHeightM + 1;
+  const minAlluvium = m.params.estuary !== undefined ? 0.4 : m.params.depthM;
+  const maxRise = m.params.estuary !== undefined ? m.params.floodHeightM + 22 : m.params.floodHeightM + 1;
+  const alluvium = w.looseSedimentThicknessM[i] >= minAlluvium && z <= floodplainZ(m, x, y) + maxRise;
   return alluvium ? 1 : (MATERIALS[w.materialId[i]]?.erodibility ?? 1) * 0.05;
 }
 
@@ -364,8 +369,10 @@ export function carve(w: WorldState, m: MeanderState, years: number): CarveStats
   const bed = w.bedrockElevationM;
   const soil = w.looseSedimentThicknessM;
   const half = Math.max(p.widthM / 2, cs * 0.75);
+  const estuaryFactor = p.estuary ? 2.2 : 1;
+  const maxHalf = half * estuaryFactor;
   const reach = 6 * p.overbankDecayM;
-  const dist = channelDistance(w, m.xs, m.ys, half + 2 * cs);
+  const dist = channelDistance(w, m.xs, m.ys, maxHalf + 2 * cs);
   const was = new Set(m.mask);
   const now: number[] = [];
   const oxbowCells = new Set<number>();
@@ -373,14 +380,22 @@ export function carve(w: WorldState, m: MeanderState, years: number): CarveStats
     const od = channelDistance(w, o.xs, o.ys, half, false);
     for (let i = 0; i < od.length; i++) if (od[i] <= half) oxbowCells.add(i);
   }
+  const vdx = m.bx - m.ax;
+  const vdy = m.by - m.ay;
+  const vL2 = vdx * vdx + vdy * vdy || 1;
   let cut = 0;
   let fill = 0;
   for (let i = 0; i < dist.length; i++) {
-    if (dist[i] > half) continue;
-    now.push(i);
     const x = (i % W) * cs;
     const y = ((i / W) | 0) * cs;
-    const target = floodplainZ(m, x, y) - p.depthM;
+    // Along-valley progress t ∈ [0, 1]; if estuary is enabled, flare the last 18% of the reach toward the sea mouth
+    const vt = Math.max(0, Math.min(1, ((x - m.ax) * vdx + (y - m.ay) * vdy) / vL2));
+    const estT = p.estuary && vt > 0.82 ? (vt - 0.82) / 0.18 : 0;
+    const localHalf = half * (1 + (estuaryFactor - 1) * estT * estT);
+    if (dist[i] > localHalf) continue;
+    now.push(i);
+    const estDrop = estT > 0 ? 1.5 * estT : 0;
+    const target = floodplainZ(m, x, y) - p.depthM - estDrop;
     const z = bed[i] + soil[i];
     if (z > target) {
       let e = z - target;
@@ -451,4 +466,101 @@ export function carve(w: WorldState, m: MeanderState, years: number): CarveStats
   m.overbankM3 += laid;
   // Bank erosion beyond what the bars took, plus the supply not laid on the floodplain, goes downstream.
   return { suppliedM3: p.supplyM3Yr * years, cutM3: cut, barM3: fill, overbankM3: laid, exportM3: load - laid };
+}
+
+/**
+ * Automatically find the main lowland trunk river on any world and build a MeanderState along its
+ * lower floodplain reach (M13-C05b). If the mouth meets the sea, enables estuarine widening (`estuary: true`).
+ * Returns null if the world has no significant trunk river reach on land.
+ */
+export function detectLowlandMeander(w: WorldState): MeanderState | null {
+  const geo = new LandscapeEvolution(w);
+  geo.route();
+  const W = w.width;
+  const H = w.height;
+  const cs = w.cellSizeM;
+  const n = W * H;
+  const sea = w.seaLevelM;
+  const surf = (i: number) => w.bedrockElevationM[i] + w.looseSedimentThicknessM[i];
+
+  // 1. Find the land cell draining the largest catchment into the sea or map edge.
+  let mouth = -1;
+  let seaMouth = false;
+  for (let i = 0; i < n; i++) {
+    if (surf(i) < sea) continue;
+    const r = geo.receiver[i];
+    if ((r < 0 || surf(r) < sea) && (mouth < 0 || geo.area[i] > geo.area[mouth])) {
+      mouth = i;
+      seaMouth = r >= 0 && surf(r) < sea;
+    }
+  }
+  if (mouth < 0 || geo.area[mouth] < 16 * cs * cs) return null;
+
+  // 2. Trace upstream along the highest-drainage-area donor while in the lowland/middle valley.
+  const zMouth = Math.max(sea + 1.5, surf(mouth));
+  const maxClimb = Math.max(45, (w.meta.reliefM || 300) * 0.25);
+  const minArea = Math.max(10 * cs * cs, geo.area[mouth] * 0.14);
+  const path: number[] = [mouth];
+  let cur = mouth;
+  for (let step = 0; step < Math.max(W, H) * 2; step++) {
+    const cx = cur % W;
+    const cy = (cur / W) | 0;
+    let best = -1;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 2 || ny < 2 || nx >= W - 2 || ny >= H - 2) continue;
+        const j = ny * W + nx;
+        if (geo.receiver[j] === cur && (best < 0 || geo.area[j] > geo.area[best])) best = j;
+      }
+    }
+    if (best < 0 || geo.area[best] < minArea || surf(best) - zMouth > maxClimb) break;
+    path.push(best);
+    cur = best;
+  }
+  if (path.length < 10) return null;
+  path.reverse(); // upstream inlet → downstream mouth
+
+  const widthM = Math.max(cs * 1.6, Math.min(70, Math.round(Math.sqrt(geo.area[mouth]) * 0.015)));
+  const rawXs = path.map((i) => (i % W) * cs);
+  const rawYs = path.map((i) => ((i / W) | 0) * cs);
+
+  // Smooth grid staircase (6 Laplacian passes keeping endpoints fixed)
+  for (let pass = 0; pass < 6; pass++) {
+    for (let k = 1; k < rawXs.length - 1; k++) {
+      rawXs[k] = 0.25 * rawXs[k - 1] + 0.5 * rawXs[k] + 0.25 * rawXs[k + 1];
+      rawYs[k] = 0.25 * rawYs[k - 1] + 0.5 * rawYs[k] + 0.25 * rawYs[k + 1];
+    }
+  }
+
+  // Seed a gentle initial bend wave if the traced valley path is nearly straight so Howard & Knutson migration starts immediately
+  const vx = rawXs[rawXs.length - 1] - rawXs[0];
+  const vy = rawYs[rawYs.length - 1] - rawYs[0];
+  const vLen = Math.hypot(vx, vy) || 1;
+  const px = -vy / vLen;
+  const py = vx / vLen;
+  const margin = widthM * 1.2;
+  const maxX = (W - 1) * cs - margin;
+  const maxY = (H - 1) * cs - margin;
+  for (let k = 1; k < rawXs.length - 1; k++) {
+    const u = k / (rawXs.length - 1);
+    const env = Math.sin(u * Math.PI);
+    const wave = widthM * 0.45 * env * Math.sin(u * Math.PI * 5 + 0.4);
+    rawXs[k] = Math.max(margin, Math.min(maxX, rawXs[k] + px * wave));
+    rawYs[k] = Math.max(margin, Math.min(maxY, rawYs[k] + py * wave));
+  }
+
+  const zIn = Math.max(zMouth + 1, surf(path[0]));
+  const params: MeanderParams = {
+    ...defaultMeanderParams(),
+    widthM,
+    depthM: Math.max(2.5, Math.min(4, widthM * 0.06)),
+    erosionMYr: Math.max(0.6, widthM * 0.014),
+    estuary: seaMouth,
+  };
+  const m = createMeander(rawXs, rawYs, zIn, zMouth, params);
+  resample(m, widthM * 0.4);
+  return m;
 }

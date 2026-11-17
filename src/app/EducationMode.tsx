@@ -239,14 +239,17 @@ export function LessonLabels() {
     place();
     return scene.addFrameListener(place);
   }, [labels]);
-  if (!ed || !ed.labels) return null;
+  if (ed ? !ed.labels : labels.length === 0) return null;
   return (
     <div className="lesson-labels" ref={ref} aria-hidden="false">
-      {labels.map((l, k) => (
-        <div key={k} className={`lesson-label ${l.answer && !ed.answer ? 'hidden-answer' : ''}`}>
-          <span>{l.answer && !ed.answer ? '?' : l.text}</span>
-        </div>
-      ))}
+      {labels.map((l, k) => {
+        const hideAns = l.answer && ed && !ed.answer;
+        return (
+          <div key={k} className={`lesson-label ${hideAns ? 'hidden-answer' : ''}`}>
+            <span>{hideAns ? '?' : l.text}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

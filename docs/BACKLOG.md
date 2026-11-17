@@ -18,7 +18,7 @@
 | M13-C04 | Floodplain building: overbank deposition with the meandering river (levees, aggradation, backswamps) | DONE (lesson world) |
 | M13-C04b | Transport-limited deposition everywhere in geological time (Yuan et al. 2019 ξ-q): alluvial fans, deltas above sea level, floodplains in any world | DONE |
 | M13-C05 | Meander migration (Howard & Knutson 1984) carved into the terrain; cut-offs → oxbow lakes; lesson with measured labels | DONE |
-| M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | TODO |
+| M13-C05b | Meandering river in any world (pick a river on a floodplain), estuary at the mouth | DONE |
 | M13-C06 | Glaciers in geological time + glaciated-upland lesson (troughs, corries, pyramidal peak, hanging valleys, moraine, glacial erosion overlay) | DONE |
 | M13-C06b | Glacial cycles (cold/mild phases, stepped melt) and moraine types (terminal, lateral, recessional) | DONE |
 | M13-C06c | Finer grid / higher-order ice flow for corries and tarns; drumlins & erratics | TODO |

@@ -26,7 +26,7 @@ import { TsunamiSim, type TsunamiEdge } from '../sim/events/tsunami';
 import { impact, type ImpactOptions, type ImpactResult } from '../sim/events/meteor';
 import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from './world';
 import { LandscapeEvolution, addGeoStats, defaultGeoParams, emptyGeoStats, type GeoParams, type GeoStepStats } from '../sim/geology/landscapeEvolution';
-import { carve, cloneMeander, type MeanderState } from '../sim/geology/meander';
+import { carve, cloneMeander, detectLowlandMeander, type MeanderState } from '../sim/geology/meander';
 import { runGeologic } from '../sim/geology/run';
 
 /** Result of geological time computed elsewhere (a Web Worker) for applyGeologic. */
@@ -298,6 +298,14 @@ export class Engine {
     this.groundDirty = true;
     this.showGeoRivers();
     this.emit({ type: 'water-params-changed' });
+  }
+
+  /** Detect and activate a meandering lowland river + estuary on the current world (M13-C05b). */
+  enableLowlandMeander(): boolean {
+    const m = detectLowlandMeander(this.world);
+    if (!m) return false;
+    this.setMeander(m);
+    return true;
   }
 
   private channelMask(): Uint8Array | null {

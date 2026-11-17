@@ -43,6 +43,7 @@ import { STRATA_BOUNDS, STRATA_LAYERS } from '../engine/world';
 import { WaterLayer, type WaterView } from './waterLayer';
 import { overlayById, prepareOverlay, type OverlayData, type OverlayId } from './overlays';
 import { TreeLayer } from './treeLayer';
+import { CloudLayer } from './cloudLayer';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
 
 export type Quality = 'performance' | 'balanced' | 'high';
@@ -136,6 +137,8 @@ export class TerrainScene {
   }
   private snowTimer = 0;
   private trees: TreeLayer | null = null;
+  private clouds: CloudLayer | null = null;
+  private cloudsOn = false;
   private plateArrows = new Group();
   private treeRev = -1;
   private treesStale = false;
@@ -391,6 +394,11 @@ export class TerrainScene {
     }
     this.trees.rebuild();
     this.treeRev = this.engine.vegetationRevision;
+    if (!this.clouds) {
+      this.clouds = new CloudLayer(this.engine);
+      this.scene.add(this.clouds.group);
+    }
+    this.clouds.setEnabled(this.cloudsOn);
     this.stats.triangles = idx.length / 3;
 
     if (this.waterLayer) {
@@ -714,6 +722,17 @@ uniform float uLineW;`,
     return this.verticalExaggeration;
   }
 
+  /** Toggle 3D cumulus clouds and rain shafts. */
+  setClouds(on: boolean) {
+    this.cloudsOn = on;
+    this.clouds?.setEnabled(on);
+  }
+
+  /** Toggle anti-aliased topographic contour lines (20 m minor, 100 m major). */
+  setContours(on: boolean) {
+    this.strataUniforms.uContoursOn.value = on ? 1 : 0;
+  }
+
   /** Update rendering quality in-place without destroying the WebGL2 context or losing camera pose. */
   setQuality(quality: Quality) {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'balanced' ? 1.5 : 1));
@@ -852,21 +871,24 @@ uniform float uLineW;`,
         if (gr && this.terrainOverlay === 'none' && ground[i] >= sea) {
           const lakeD = gr.lake[i] - ground[i];
           if (gr.channel?.[i]) {
-            // The meandering river's channel (geological time).
+            // The meandering river's channel (geological time): specular rippled water
             this.col[o] = GEO_RIVER.r;
             this.col[o + 1] = GEO_RIVER.g;
             this.col[o + 2] = GEO_RIVER.b;
+            this.glow[i] = -1.0;
           } else if (lakeD > GEO_LAKE_MIN_M) {
             tmp.copy(GEO_LAKE).lerp(GEO_LAKE_DEEP, Math.min(1, lakeD / 30));
             this.col[o] = tmp.r;
             this.col[o + 1] = tmp.g;
             this.col[o + 2] = tmp.b;
+            this.glow[i] = -1.0;
           } else if (lakeD > 0.05) {
             // A shallow hollow: wet ground, not open water (the model fills every hollow; in a humid
             // climate shallow ones are marsh or wet meadow, drained by small streams and evaporation).
             this.col[o] += (GEO_WET.r - this.col[o]) * 0.45;
             this.col[o + 1] += (GEO_WET.g - this.col[o + 1]) * 0.45;
             this.col[o + 2] += (GEO_WET.b - this.col[o + 2]) * 0.45;
+            this.glow[i] = -0.35;
           } else if (gr.area[i] >= GEO_CHANNEL_AREA_M2) {
             // Bigger rivers (more ground upstream) are drawn stronger: log scale over 3 decades.
             const t = Math.min(1, Math.log10(gr.area[i] / GEO_CHANNEL_AREA_M2) / 3);
@@ -874,6 +896,7 @@ uniform float uLineW;`,
             this.col[o] += (GEO_RIVER.r - this.col[o]) * a;
             this.col[o + 1] += (GEO_RIVER.g - this.col[o + 1]) * a;
             this.col[o + 2] += (GEO_RIVER.b - this.col[o + 2]) * a;
+            this.glow[i] = -a;
           }
         }
         const gen = this.overlayData ? overlayById(this.terrainOverlay)?.colour : undefined;
@@ -1046,8 +1069,10 @@ uniform float uLineW;`,
       this.camera.position.add(shook);
     }
     this.sky.position.copy(this.camera.position);
+    this.strataUniforms.uTime.value = now / 1000;
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
     this.waterLayer?.update(now / 1000);
+    this.clouds?.update(dt);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
     for (const fn of this.frameListeners) fn();
@@ -1344,6 +1369,7 @@ uniform float uLineW;`,
     this.engine.detachGpu();
     this.waterLayer?.dispose();
     this.trees?.dispose();
+    this.clouds?.dispose();
     this.resizeObs.disconnect();
     this.controls.dispose();
     this.terrain?.geometry.dispose();

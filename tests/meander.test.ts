@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildLowlandWorld } from '../src/education/scenarioWorlds';
-import { carve, createMeander, migrate, sinuosity, cloneMeander } from '../src/sim/geology/meander';
+import { carve, createMeander, detectLowlandMeander, migrate, sinuosity, cloneMeander } from '../src/sim/geology/meander';
 import { LandscapeEvolution, defaultGeoParams } from '../src/sim/geology/landscapeEvolution';
 import { runGeologic } from '../src/sim/geology/run';
+import { generateWorld, defaultOptions } from '../src/terrain/generate';
 import type { WorldState } from '../src/engine/world';
 
 const volume = (w: WorldState) => {
@@ -64,5 +65,19 @@ describe('meandering river (Howard & Knutson centreline migration)', () => {
     expect(st.bankEroded).toBeGreaterThan(0);
     expect(st.overbank).toBeGreaterThan(0);
     expect(Math.abs(volume(w) - v0 - expected) / (st.supplied + st.bankEroded)).toBeLessThan(2e-3);
+  });
+
+  it('detectLowlandMeander finds the trunk river on River-to-sea (river-delta), migrates meanders, and widens an estuary', () => {
+    const w = generateWorld(defaultOptions('river-delta', 777, 128));
+    const m = detectLowlandMeander(w);
+    expect(m).not.toBeNull();
+    expect(m!.params.estuary).toBe(true);
+    carve(w, m!, 0);
+    expect(m!.mask.length).toBeGreaterThan(20);
+    const s0 = sinuosity(m!);
+    const geo = new LandscapeEvolution(w);
+    const st = runGeologic(geo, 4000, defaultGeoParams(), 5000, m!);
+    expect(sinuosity(m!)).toBeGreaterThan(s0);
+    expect(st.bankEroded).toBeGreaterThan(0);
   });
 });

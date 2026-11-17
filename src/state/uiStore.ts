@@ -345,6 +345,8 @@ interface UiState {
   sunAzimuthDeg: number;
   sunElevationDeg: number;
   verticalExaggeration: number;
+  cloudsOn: boolean;
+  contoursOn: boolean;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel?: string;
@@ -365,6 +367,7 @@ interface UiState {
     | 'checkpoints'
     | 'challenges'
     | 'lessons'
+    | 'evidence'
     | 'export'
     | 'landforms';
   panelOpen: boolean;
@@ -432,6 +435,8 @@ export const useUi = create<UiState>((set) => ({
   sunAzimuthDeg: 220,
   sunElevationDeg: 38,
   verticalExaggeration: 1,
+  cloudsOn: false,
+  contoursOn: false,
   canUndo: false,
   canRedo: false,
   world: null,

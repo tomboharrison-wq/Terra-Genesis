@@ -1,7 +1,8 @@
 import type { WorldState } from '../engine/world';
 import { MATERIALS } from '../terrain/materials';
 import { LandscapeEvolution } from '../sim/geology/landscapeEvolution';
-import type { MeanderState } from '../sim/geology/meander';
+import { floodplainZ, sinuosity, type MeanderState } from '../sim/geology/meander';
+import { section, type ValleySection } from './glacialFeatures';
 
 /**
  * River landforms found in the simulated landscape (for geological-time lessons). Everything is
@@ -334,4 +335,270 @@ export function leveeHeight(w: WorldState, m: MeanderState, awayM = 700): { heig
   hs.sort((p, q) => p.h - q.h);
   const med = hs[Math.floor(hs.length / 2)];
   return { heightM: med.h, at: med.at };
+}
+
+export interface EstuaryMetrics {
+  mouthX: number;
+  mouthY: number;
+  upstreamWidthM: number;
+  mouthWidthM: number;
+  widenFactor: number;
+  mouthBedDepthM: number;
+}
+
+/** Measure the tidal estuary at the downstream end of a meandering river (M13-C05b). */
+export function estuaryMetrics(w: WorldState, m: MeanderState): EstuaryMetrics | null {
+  if (!m.params.estuary || m.xs.length < 4) return null;
+  const last = m.xs.length - 1;
+  const mouthX = m.xs[last];
+  const mouthY = m.ys[last];
+  const upstreamWidthM = m.params.widthM;
+  const mouthWidthM = upstreamWidthM * 2.2;
+  const zBed = heightAt(w, mouthX, mouthY);
+  const mouthBedDepthM = Math.max(0.5, w.seaLevelM - zBed + m.params.depthM);
+  return {
+    mouthX,
+    mouthY,
+    upstreamWidthM,
+    mouthWidthM,
+    widenFactor: mouthWidthM / upstreamWidthM,
+    mouthBedDepthM,
+  };
+}
+
+/**
+ * Live measured labels for an arbitrary-world meandering river & estuary (M13-C05b):
+ * sinuosity, outer-bank river cliff (erosion), inner-bank point bar (deposition),
+ * oxbow lake / meander scar, levees, and tidal estuary at the mouth.
+ */
+export function arbitraryMeanderLabels(
+  w: WorldState,
+  m: MeanderState,
+  lake?: Float32Array | null,
+): { text: string; xM: number; yM: number }[] {
+  if (m.xs.length < 5) return [];
+  const out: { text: string; xM: number; yM: number }[] = [];
+  const mid = Math.floor(m.xs.length * 0.5);
+  const sin = sinuosity(m);
+  out.push({
+    text: `River sinuosity: ${sin.toFixed(2)}× valley length${sin > 1.5 ? ' (meandering)' : ''}`,
+    xM: m.xs[mid],
+    yM: m.ys[mid],
+  });
+
+  const bends = meanderBends(m).filter((b) => b.k > m.xs.length * 0.12 && b.k < m.xs.length * 0.88);
+  const sharpest = bends.sort((a, b) => Math.abs(b.curvature) - Math.abs(a.curvature))[0];
+  if (sharpest) {
+    const cliffH = Math.max(0.5, bankHeight(w, m, sharpest.k, sharpest.outer));
+    out.push({
+      text: `River cliff (outer bend): ${cliffH.toFixed(1)} m high — lateral erosion`,
+      xM: sharpest.outer.xM,
+      yM: sharpest.outer.yM,
+    });
+    out.push({
+      text: 'Slip-off slope / point bar (inner bend) — deposition',
+      xM: sharpest.inner.xM,
+      yM: sharpest.inner.yM,
+    });
+  }
+
+  for (let q = m.oxbows.length - 1; q >= 0; q--) {
+    const o = m.oxbows[q];
+    const k = Math.floor(o.xs.length / 2);
+    const ci = cellAt(w, o.xs[k], o.ys[k]);
+    const water = lake ? lake[ci] - surf(w, ci) : 0;
+    const ago = Math.max(10, Math.round((m.years - o.year) / 10) * 10);
+    const depth = floodplainZ(m, o.xs[k], o.ys[k]) - surf(w, ci);
+    if (water <= 0.2 && depth <= 0.3 && q > 0) continue;
+    out.push({
+      text:
+        water > 0.25
+          ? `Oxbow lake: neck cut-off ${ago.toLocaleString()} yr ago, ${water.toFixed(1)} m deep`
+          : `Meander scar: abandoned loop cut off ${ago.toLocaleString()} yr ago`,
+      xM: o.xs[k],
+      yM: o.ys[k],
+    });
+    break;
+  }
+
+  const lv = leveeHeight(w, m, Math.min(500, m.params.widthM * 8));
+  if (lv.heightM > 0.08) {
+    out.push({
+      text: `Levees: banks +${lv.heightM.toFixed(2)} m above floodplain`,
+      xM: lv.at.xM,
+      yM: lv.at.yM,
+    });
+  }
+
+  const est = estuaryMetrics(w, m);
+  if (est) {
+    out.push({
+      text: `Tidal estuary: mouth widened to ${Math.round(est.mouthWidthM)} m (${est.widenFactor.toFixed(1)}× channel width)`,
+      xM: est.mouthX,
+      yM: est.mouthY,
+    });
+  }
+  return out;
+}
+
+export interface CourseReachMetrics {
+  course: 'upper' | 'middle' | 'lower';
+  label: string;
+  cell: number;
+  xM: number;
+  yM: number;
+  distFromSourceM: number;
+  elevationM: number;
+  gradient: number;
+  gradientDeg: number;
+  drainageAreaKm2: number;
+  valley: ValleySection;
+  sedimentM: number;
+  waterDepthM: number;
+  flowSpeedMS: number;
+  crossProfile: { dM: number; surfaceM: number; bedrockM: number }[];
+}
+
+export interface RiverCourseReport {
+  path: RiverPath;
+  totalLengthM: number;
+  reaches: [CourseReachMetrics, CourseReachMetrics, CourseReachMetrics];
+  longProfile: { distFromSourceM: number; elevationM: number; bedrockM: number; areaKm2: number }[];
+  waterfall: Waterfall | null;
+  spursCount: number;
+  labels: { text: string; xM: number; yM: number }[];
+}
+
+/**
+ * Step 5: Connect the physical landscape model to GCSE Upper, Middle, and Lower course concepts
+ * (Bradshaw model, long profile, cross-profiles, waterfall/gorge, interlocking spurs, floodplain/delta).
+ */
+export function analyzeRiverCourses(
+  w: WorldState,
+  waterVx?: Float32Array,
+  waterVy?: Float32Array,
+): RiverCourseReport | null {
+  const p = mainRiver(w, 20);
+  const N = p.cells.length;
+  if (N < 12) return null;
+  const W = w.width;
+  const H = w.height;
+  const cs = w.cellSizeM;
+  const z = new Float32Array(W * H);
+  for (let i = 0; i < z.length; i++) z[i] = surf(w, i);
+  const totalLengthM = p.distM[N - 1];
+
+  const longProfile: RiverCourseReport['longProfile'] = [];
+  for (let k = N - 1; k >= 0; k--) {
+    const c = p.cells[k];
+    longProfile.push({
+      distFromSourceM: totalLengthM - p.distM[k],
+      elevationM: p.z[k],
+      bedrockM: w.bedrockElevationM[c],
+      areaKm2: p.area[c] / 1e6,
+    });
+  }
+
+  const sampleCourse = (course: 'upper' | 'middle' | 'lower', fracFromMouth: number, label: string): CourseReachMetrics => {
+    const k = Math.max(2, Math.min(N - 3, Math.round(fracFromMouth * (N - 1))));
+    const c = p.cells[k];
+    const cUp = p.cells[Math.min(N - 1, k + 2)];
+    const cDn = p.cells[Math.max(0, k - 2)];
+    const dL = Math.max(cs, p.distM[Math.min(N - 1, k + 2)] - p.distM[Math.max(0, k - 2)]);
+    const grad = Math.max(0, (p.z[Math.min(N - 1, k + 2)] - p.z[Math.max(0, k - 2)]) / dL);
+    const dx = (cDn % W) - (cUp % W) || 1;
+    const dy = ((cDn / W) | 0) - ((cUp / W) | 0);
+    const reachM = Math.min(800, Math.max(240, cs * 12));
+    const vSec = section(w, z, c, dx, dy, reachM);
+
+    // Extract perpendicular cross-section samples for plotting
+    const L = Math.hypot(dx, dy) || 1;
+    const px = -dy / L;
+    const py = dx / L;
+    const cx = c % W;
+    const cy = (c / W) | 0;
+    const crossProfile: { dM: number; surfaceM: number; bedrockM: number }[] = [];
+    const steps = 32;
+    for (let s = -steps; s <= steps; s++) {
+      const dM = (s / steps) * reachM;
+      const sx = Math.max(0, Math.min(W - 1, Math.round(cx + (px * dM) / cs)));
+      const sy = Math.max(0, Math.min(H - 1, Math.round(cy + (py * dM) / cs)));
+      const si = sy * W + sx;
+      crossProfile.push({
+        dM,
+        surfaceM: z[si],
+        bedrockM: w.bedrockElevationM[si],
+      });
+    }
+
+    const xy = cellXY(w, c);
+    const speed = waterVx && waterVy ? Math.hypot(waterVx[c], waterVy[c]) : 0;
+    return {
+      course,
+      label,
+      cell: c,
+      xM: xy.xM,
+      yM: xy.yM,
+      distFromSourceM: totalLengthM - p.distM[k],
+      elevationM: p.z[k],
+      gradient: grad,
+      gradientDeg: (Math.atan(grad) * 180) / Math.PI,
+      drainageAreaKm2: p.area[c] / 1e6,
+      valley: vSec,
+      sedimentM: w.looseSedimentThicknessM[c],
+      waterDepthM: w.waterDepthM[c],
+      flowSpeedMS: speed,
+      crossProfile,
+    };
+  };
+
+  const upper = sampleCourse('upper', 0.8, 'Upper course');
+  const middle = sampleCourse('middle', 0.45, 'Middle course');
+  const lower = sampleCourse('lower', 0.12, 'Lower course');
+  const wf = findWaterfall(w, p, 300, 12);
+  const spurs = findSpurs(w, p, Math.floor(N * 0.25), Math.floor(N * 0.85));
+
+  const labels: { text: string; xM: number; yM: number }[] = [
+    {
+      text: `Upper course: steep gradient (${upper.gradientDeg.toFixed(1)}°), V-shaped valley ${Math.round(upper.valley.depthM)} m deep — vertical erosion`,
+      xM: upper.xM,
+      yM: upper.yM,
+    },
+    {
+      text: `Middle course: gentler gradient (${middle.gradientDeg.toFixed(1)}°), valley floor ${Math.round(middle.valley.floorM)} m wide, catchment ${middle.drainageAreaKm2.toFixed(1)} km²`,
+      xM: middle.xM,
+      yM: middle.yM,
+    },
+    {
+      text: `Lower course: flat floodplain (${lower.gradientDeg.toFixed(2)}°), alluvium ${lower.sedimentM.toFixed(1)} m thick, catchment ${lower.drainageAreaKm2.toFixed(1)} km² — lateral erosion & deposition`,
+      xM: lower.xM,
+      yM: lower.yM,
+    },
+  ];
+  if (wf) {
+    const lxy = cellXY(w, wf.lip);
+    labels.push({
+      text: `Waterfall / knickpoint: ${Math.round(wf.dropM)} m drop over ${wf.lipRock}`,
+      xM: lxy.xM,
+      yM: lxy.yM,
+    });
+  }
+  if (spurs.length > 0) {
+    const sxy = cellXY(w, spurs[0].cell);
+    labels.push({
+      text: `Interlocking spur: ${Math.round(spurs[0].heightM)} m above river bend`,
+      xM: sxy.xM,
+      yM: sxy.yM,
+    });
+  }
+
+  return {
+    path: p,
+    totalLengthM,
+    reaches: [upper, middle, lower],
+    longProfile,
+    waterfall: wf,
+    spursCount: spurs.length,
+    labels,
+  };
 }

@@ -3,6 +3,7 @@ import { useUi } from '../state/uiStore';
 import { engine } from './runtime';
 import { transect, transectCsv, type TransectSample } from '../terrain/measure';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
+import { analyzeRiverCourses } from '../education/geoFeatures';
 
 // Validated (dataviz validator, dark surface #12291f): Scouts orange / pink / blue steps.
 const C_SURFACE = '#d9781c';
@@ -31,24 +32,155 @@ function niceTicks(lo: number, hi: number, n: number): number[] {
 
 const fmtDist = (m: number) => (m >= 1000 ? `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km` : `${Math.round(m)} m`);
 
-/** Elevation transect (spec M09 preview, used for valley/delta cross-sections). */
+/** Elevation transect (spec M09 preview, used for valley/delta cross-sections) + GCSE River Course (Bradshaw) comparator. */
 export function ProfilePanel() {
   const profile = useUi((s) => s.profile);
   const pending = useUi((s) => s.profileStart);
   const tick = useUi((s) => s.stats?.fps); // re-sample at the stats cadence (~2 Hz)
   const simT = useUi((s) => s.sim?.simTimeS);
+  const geoY = useUi((s) => s.geo.years);
   const [hover, setHover] = useState<number | null>(null);
   const [table, setTable] = useState(false);
+  const [mode, setMode] = useState<'transect' | 'courses'>('transect');
 
   const data = useMemo(
     () => (profile ? transect(engine, engine.referenceSurface, profile.ax, profile.ay, profile.bx, profile.by, N) : null),
-    [profile, tick, simT],
+    [profile, tick, simT, geoY],
   );
+
+  const courses = useMemo(
+    () => (mode === 'courses' ? analyzeRiverCourses(engine.world, engine.water.vx, engine.water.vy) : null),
+    [mode, tick, simT, geoY],
+  );
+
+  const modeTabs = (
+    <div className="seg" style={{ marginBottom: 8 }}>
+      <button className={mode === 'transect' ? 'active' : ''} onClick={() => setMode('transect')}>
+        Line transect
+      </button>
+      <button className={mode === 'courses' ? 'active' : ''} onClick={() => setMode('courses')}>
+        River courses
+      </button>
+    </div>
+  );
+
+  if (mode === 'courses') {
+    if (!courses) {
+      return (
+        <section className="profile-panel">
+          <h3>River courses (Bradshaw)</h3>
+          {modeTabs}
+          <p className="hint small">No trunk river found on this terrain yet.</p>
+        </section>
+      );
+    }
+    const lp = courses.longProfile;
+    const zMin = Math.min(...lp.map((p) => p.bedrockM));
+    const zMax = Math.max(...lp.map((p) => p.elevationM), zMin + 10);
+    const L = Math.max(1, courses.totalLengthM);
+    const lpx = (d: number) => M.l + (d / L) * (W - M.l - M.r);
+    const lpy = (z: number) => M.t + (1 - (z - zMin) / (zMax - zMin)) * (H - M.t - M.b);
+    const lpPath = lp.map((p, k) => `${k ? 'L' : 'M'}${lpx(p.distFromSourceM).toFixed(1)},${lpy(p.elevationM).toFixed(1)}`).join('');
+
+    return (
+      <section className="profile-panel">
+        <h3>River courses (Bradshaw)</h3>
+        {modeTabs}
+        <p className="hint small tight">
+          Main river traced from source to mouth ({fmtDist(courses.totalLengthM)}): compare upper, middle and lower course long &amp; cross profiles.
+        </p>
+        <div className="chart-wrap">
+          <svg width={W} height={H} role="img" aria-label="River long profile from source to mouth">
+            <line x1={M.l} x2={W - M.r} y1={H - M.b} y2={H - M.b} className="grid" />
+            <path d={lpPath} fill="none" stroke={C_WATER} strokeWidth={2.2} />
+            {courses.reaches.map((r) => (
+              <g key={r.course}>
+                <circle cx={lpx(r.distFromSourceM)} cy={lpy(r.elevationM)} r={4} fill={C_SURFACE} />
+                <text x={lpx(r.distFromSourceM)} y={Math.max(12, lpy(r.elevationM) - 6)} className="tick" textAnchor="middle">
+                  {r.course[0].toUpperCase()}
+                </text>
+              </g>
+            ))}
+            <text x={M.l} y={H - 5} className="tick" textAnchor="start">
+              Source ({Math.round(lp[0].elevationM)} m)
+            </text>
+            <text x={W - M.r} y={H - 5} className="tick" textAnchor="end">
+              Mouth ({Math.round(lp[lp.length - 1].elevationM)} m)
+            </text>
+          </svg>
+        </div>
+
+        <div className="row" style={{ gap: 4, marginTop: 6 }}>
+          {courses.reaches.map((r) => {
+            const cp = r.crossProfile;
+            const cLo = Math.min(...cp.map((s) => s.surfaceM));
+            const cHi = Math.max(...cp.map((s) => s.surfaceM), cLo + 20);
+            const dMax = Math.max(1, cp[cp.length - 1].dM);
+            const cw = 76;
+            const ch = 54;
+            const dPath = cp
+              .map((s, k) => `${k ? 'L' : 'M'}${(((s.dM + dMax) / (2 * dMax)) * (cw - 8) + 4).toFixed(1)},${(ch - 14 - ((s.surfaceM - cLo) / (cHi - cLo)) * (ch - 20)).toFixed(1)}`)
+              .join('');
+            return (
+              <div key={r.course} style={{ flex: 1, background: 'rgba(0,0,0,0.18)', borderRadius: 4, padding: 3, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, fontWeight: 700 }}>{r.label}</div>
+                <svg width={cw} height={ch}>
+                  <path d={dPath} fill="none" stroke={C_SURFACE} strokeWidth={1.8} />
+                </svg>
+                <div style={{ fontSize: 9, opacity: 0.85 }}>
+                  {Math.round(r.valley.depthM)} m deep · {r.valley.sideDeg.toFixed(0)}° sides
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <table className="values" style={{ marginTop: 6 }}>
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Grad</th>
+              <th>Floor W</th>
+              <th>Alluvium</th>
+              <th>Basin</th>
+            </tr>
+          </thead>
+          <tbody>
+            {courses.reaches.map((r) => (
+              <tr key={r.course}>
+                <td>{r.course}</td>
+                <td>{r.gradientDeg.toFixed(1)}°</td>
+                <td>{Math.round(r.valley.floorM)} m</td>
+                <td>{r.sedimentM.toFixed(1)} m</td>
+                <td>{r.drainageAreaKm2.toFixed(1)} km²</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="row" style={{ marginTop: 6 }}>
+          <button
+            className="small"
+            onClick={() => useUi.getState().set({ lessonLabels: courses.labels })}
+          >
+            Show course labels on map
+          </button>
+          <button
+            className="small ghost"
+            onClick={() => useUi.getState().set({ lessonLabels: [] })}
+          >
+            Hide labels
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   if (!profile || !data) {
     return (
       <section className="profile-panel">
         <h3>Cross-section</h3>
+        {modeTabs}
         <p className="hint small">{pending ? 'Now click the end point.' : 'Click a start point on the terrain, then an end point.'}</p>
       </section>
     );
@@ -120,6 +252,7 @@ export function ProfilePanel() {
   return (
     <section className="profile-panel">
       <h3>Cross-section</h3>
+      {modeTabs}
       <div className="legend-row" aria-label="Series">
         <span>
           <i style={{ background: C_SURFACE }} />

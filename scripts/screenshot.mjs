@@ -1299,6 +1299,36 @@ check(
   coLabels.join(' | '),
 );
 
+// --- M16 visual controls (quality modes, contours, clouds) & GCSE Evidence Layer ---
+await clickLesson('Exit');
+await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const ui = window.__terraGenesis.ui();
+  ui.set({ quality: 'performance', contoursOn: true, cloudsOn: true, verticalExaggeration: 1.5, sunElevationDeg: 28, sunAzimuthDeg: 210 });
+  ui.set({ quality: 'balanced' });
+  ui.set({ quality: 'high' });
+});
+await page.waitForTimeout(400);
+const m16State = await page.evaluate(() => {
+  const ui = window.__terraGenesis.ui();
+  return { q: ui.quality, contours: ui.contoursOn, clouds: ui.cloudsOn, ve: ui.verticalExaggeration };
+});
+check(
+  'M16 visual controls update quality, contours, clouds, and vertical exaggeration in-place without WebGL errors',
+  m16State.q === 'high' && m16State.contours && m16State.clouds && m16State.ve === 1.5,
+  JSON.stringify(m16State),
+);
+await page.click('.topbar button:has-text("Evidence")');
+await page.waitForSelector('.dialog:has-text("GCSE Classroom Investigations")');
+await page.click('button:has-text("Launch preset")');
+await page.waitForTimeout(800);
+await page.click('button:has-text("3. Generate Evidence Sheet")');
+await page.waitForTimeout(600);
+const evHasPara = await page.evaluate(() => /Model GCSE 6-Mark Exam Paragraph/.test(document.querySelector('.dialog')?.textContent ?? ''));
+await shot('85-gcse-evidence-sheet');
+check('GCSE Evidence dialog runs investigation and generates quantitative exam paragraph', evHasPara);
+await page.keyboard.press('Escape');
+
 const fps = await page.textContent('.perf');
 check('no console/page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 console.log(`${results.filter((r) => r.startsWith('PASS')).length}/${results.length} checks passed`);

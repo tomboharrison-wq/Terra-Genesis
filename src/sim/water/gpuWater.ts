@@ -285,21 +285,28 @@ float wetAt(ivec2 j) {
   return min(1.0, max(texelFetch(uPrev, j, 0).r / ${SATURATION_DEPTH.toExponential()}, uRainWet * texelFetch(uClimate, j, 0).r));
 }
 
-// Loose sediment moved from donor across a face with drop dz > 0 (creep + avalanche).
-float looseMove(float dz, float donorLoose, ivec2 donor) {
+// Loose sediment moved from donor across a face with drop dz > 0 (creep + avalanche + outer-bank undercutting).
+float looseMove(float dz, float donorLoose, ivec2 donor, ivec2 recv, vec2 dirToDonor) {
   float a = uKappa * dz;
   if (uSlopeFail == 1) {
-    float excess = dz - uCs * ${TAN_LOOSE.toFixed(6)} * (1.0 - ${WET_LOOSE_WEAKENING.toFixed(3)} * wetAt(donor));
+    vec4 stRecv = texelFetch(uPrev, recv, 0);
+    float dRecv = stRecv.r;
+    float toeWet = max(wetAt(donor), min(1.0, dRecv / 0.15) * 0.85);
+    float excess = dz - uCs * ${TAN_LOOSE.toFixed(6)} * (1.0 - ${WET_LOOSE_WEAKENING.toFixed(3)} * toeWet);
     if (excess > 0.0) a += 0.25 * ${FAILURE_RATE.toFixed(3)} * excess;
+    if (dRecv > 0.02) {
+      float impinge = max(0.0, dot(stRecv.gb, dirToDonor));
+      if (impinge > 0.05) a += 0.12 * uKe * impinge * dz;
+    }
   }
   return min(a, 0.25 * donorLoose);
 }
 
 // Loss of cell c to neighbour j (negative = gain), from start-of-step values.
-float creepFace(ivec2 c, float zi, float li, ivec2 j) {
+float creepFace(ivec2 c, float zi, float li, ivec2 j, vec2 dirCJ) {
   vec4 bj = texelFetch(uBed, j, 0);
   float dz = zi - (bj.r + bj.g);
-  return dz > 0.0 ? looseMove(dz, li, c) : -looseMove(-dz, bj.g, j);
+  return dz > 0.0 ? looseMove(dz, li, c, j, -dirCJ) : -looseMove(-dz, bj.g, j, c, dirCJ);
 }
 
 void main() {
@@ -313,13 +320,13 @@ void main() {
   float zi = bedrock + loose;
   bool sea = zi < uSea;
 
-  // 0a. Hillslope creep + avalanching of loose sediment (conservative pairwise exchange).
+  // 0a. Hillslope creep + avalanching + lateral bank undercutting (conservative pairwise exchange).
   if (uKappa > 0.0 || uSlopeFail == 1) {
     float net = 0.0;
-    if (c.x > 0) net += creepFace(c, zi, B.g, c + ivec2(-1, 0));
-    if (c.x < uSize.x - 1) net += creepFace(c, zi, B.g, c + ivec2(1, 0));
-    if (c.y > 0) net += creepFace(c, zi, B.g, c + ivec2(0, -1));
-    if (c.y < uSize.y - 1) net += creepFace(c, zi, B.g, c + ivec2(0, 1));
+    if (c.x > 0) net += creepFace(c, zi, B.g, c + ivec2(-1, 0), vec2(-1.0, 0.0));
+    if (c.x < uSize.x - 1) net += creepFace(c, zi, B.g, c + ivec2(1, 0), vec2(1.0, 0.0));
+    if (c.y > 0) net += creepFace(c, zi, B.g, c + ivec2(0, -1), vec2(0.0, -1.0));
+    if (c.y < uSize.y - 1) net += creepFace(c, zi, B.g, c + ivec2(0, 1), vec2(0.0, 1.0));
     loose = max(0.0, B.g - net);
   }
   // 0b. Rockfall and weathering (bedrock → loose, exact float32 change).
@@ -387,8 +394,11 @@ void main() {
     ivec2 yd = ivec2(c.x, max(c.y - 1, 0)), yu = ivec2(c.x, min(c.y + 1, uSize.y - 1));
     float sx = (zAt(xr) - zAt(xl)) / (float(xr.x - xl.x) * uCs);
     float sy = (zAt(yu) - zAt(yd)) / (float(yu.y - yd.y) * uCs);
-    float S = clamp(length(vec2(sx, sy)), ${SLOPE_MIN.toExponential()}, ${SLOPE_MAX.toFixed(1)});
-    float C = uCapK * d * length(st.gb) * S;
+    float spd = length(st.gb);
+    float gradMag = length(vec2(sx, sy));
+    float flowSlope = spd > 1e-3 ? abs(sx * st.g + sy * st.b) / spd : gradMag;
+    float S = clamp(0.25 * gradMag + 0.75 * flowSlope, ${SLOPE_MIN.toExponential()}, ${SLOPE_MAX.toFixed(1)});
+    float C = uCapK * d * spd * S;
     if (s < C) {
       float demand = uKe * (C - s) * texelFetch(uClimate, c, 0).a; // a = plant erosion factor
       float fromLoose = min(loose, demand);

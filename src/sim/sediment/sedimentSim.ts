@@ -151,26 +151,37 @@ export class SedimentSim {
     const loose = w.looseSedimentThicknessM;
     const b = w.bedrockElevationM;
     const z = this.surface;
-    const amount = (dz: number, donor: number) => {
+    const d0 = this.water.prevDepth;
+    const vx = this.water.vx;
+    const vy = this.water.vy;
+    const ke = Math.min(1, w.erosion.erodeK * w.erosion.speedup * dt);
+    const amount = (dz: number, donor: number, recv: number, dx: number, dy: number) => {
       let a = kappa * dz;
+      const dRecv = d0[recv];
       if (aval) {
-        const excess = dz - cs * TAN_LOOSE * (1 - WET_LOOSE_WEAKENING * wet[donor]);
+        // Adjacent channel water saturates the bank toe and undercuts outer bends where flow impinges
+        const toeWet = Math.max(wet[donor], Math.min(1, dRecv / 0.15) * 0.85);
+        const excess = dz - cs * TAN_LOOSE * (1 - WET_LOOSE_WEAKENING * toeWet);
         if (excess > 0) a += 0.25 * FAILURE_RATE * excess;
+        if (dRecv > 0.02) {
+          const impinge = Math.max(0, vx[recv] * dx + vy[recv] * dy);
+          if (impinge > 0.05) a += 0.12 * ke * impinge * dz;
+        }
       }
       return Math.min(a, 0.25 * ls[donor]);
     };
-    const face = (i: number, j: number) => {
+    const face = (i: number, j: number, dx: number, dy: number) => {
       const dz = zs[i] - zs[j];
-      return dz > 0 ? amount(dz, i) : -amount(-dz, j);
+      return dz > 0 ? amount(dz, i, j, -dx, -dy) : -amount(-dz, j, i, dx, dy);
     };
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const i = y * W + x;
         let net = 0; // positive = this cell loses
-        if (x > 0) net += face(i, i - 1);
-        if (x < W - 1) net += face(i, i + 1);
-        if (y > 0) net += face(i, i - W);
-        if (y < H - 1) net += face(i, i + W);
+        if (x > 0) net += face(i, i - 1, -1, 0);
+        if (x < W - 1) net += face(i, i + 1, 1, 0);
+        if (y > 0) net += face(i, i - W, 0, -1);
+        if (y < H - 1) net += face(i, i + W, 0, 1);
         if (net !== 0) {
           loose[i] = Math.max(0, ls[i] - net);
           z[i] = b[i] + loose[i];
@@ -355,9 +366,12 @@ export class SedimentSim {
         const yu = y < H - 1 ? y + 1 : y;
         const sx = (zs[y * W + xr] - zs[y * W + xl]) / ((xr - xl) * cs);
         const sy = (zs[yu * W + x] - zs[yd * W + x]) / ((yu - yd) * cs);
-        let S = Math.sqrt(sx * sx + sy * sy);
+        const spd = Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
+        const gradMag = Math.sqrt(sx * sx + sy * sy);
+        const flowSlope = spd > 1e-3 ? Math.abs(sx * vx[i] + sy * vy[i]) / spd : gradMag;
+        let S = 0.25 * gradMag + 0.75 * flowSlope;
         S = S < SLOPE_MIN ? SLOPE_MIN : S > SLOPE_MAX ? SLOPE_MAX : S;
-        const q = di * Math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
+        const q = di * spd;
         const C = p.capacityK * q * S;
         if (si < C) {
           let demand = ke * (C - si) * (1 - shield * veg[i]); // plants protect the soil
