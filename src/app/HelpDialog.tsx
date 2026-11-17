@@ -74,7 +74,14 @@ export function HelpDialog() {
         </li>
       </ul>
       <p className="hint small">
-        Known limits: one sediment size; no isostasy; inland ground below sea level counts as sea; no travelling waves; glaciers are plan-view.
+        Known limits: one sediment size; no isostasy; inland ground below sea level counts as sea; no travelling waves; glaciers are plan-view. For full peer-reviewed equation sources, real-world UK benchmark ranges, and what is simplified vs. physically simulated, open{' '}
+        <button
+          className="small ghost"
+          style={{ display: 'inline', padding: '1px 6px', textDecoration: 'underline', color: 'var(--scouts-yellow)' }}
+          onClick={() => useUi.getState().set({ dialog: 'evidence' })}
+        >
+          📋 Evidence → How Reliable Is This Model?
+        </button>.
       </p>
       <p className="hint small version">Version {__APP_VERSION__}</p>
     </Dialog>

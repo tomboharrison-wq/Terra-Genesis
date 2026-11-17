@@ -1,8 +1,8 @@
 # Project state
 Updated: 2026-11-17, M16 validation & hardening + M13-C05b/C06c/C08c physical realism & GCSE Evidence Layer
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis
-Current milestone: M16 & GCSE Physical/Educational Complete (all 7 reviewer recommendations implemented and tested)
-Current chunk: M16 Hardening, M13-C05b Meanders & Estuaries, GCSE Evidence Layer, M13-C08c Coasts, Bradshaw River Courses, M13-C06c Glaciers, 6 Classroom Investigations — ALL DONE
+Current milestone: M17 GCSE Classroom Readiness, Answer Support, Teacher Mode & Scientific Trust (DONE)
+Current chunk: M17-C01 to M17-C06 verified; production build & 41/41 targeted tests PASS
 Status: READY
 
 Verified working:

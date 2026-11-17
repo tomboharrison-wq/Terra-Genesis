@@ -21,6 +21,8 @@ export type OverlayId =
   | 'slope'
   | 'aspect'
   | 'flow'
+  | 'discharge'
+  | 'velocity'
   | 'groundwater'
   | 'geology'
   | 'ice'
@@ -186,7 +188,9 @@ export function prepareOverlay(id: OverlayId, s: OverlaySource): OverlayData {
     if (v > zMax) zMax = v;
   }
   const d: OverlayData = { zMin, zMax };
-  if (id === 'flow') d.flow = flowAccumulation(s.surface, w.width, w.height, w.cellSizeM, (i) => s.surface[i] < w.seaLevelM);
+  if (id === 'flow' || id === 'discharge' || id === 'velocity') {
+    d.flow = flowAccumulation(s.surface, w.width, w.height, w.cellSizeM, (i) => s.surface[i] < w.seaLevelM);
+  }
   return d;
 }
 
@@ -354,6 +358,67 @@ export const OVERLAYS: OverlayDef[] = [
       };
     },
     colour: (s, i, d, out, o) => flowRamp(d.flow ? logT(d.flow[i] / s.world.cellSizeM ** 2, 1, FLOW_MAX_CELLS) : 0, out, o),
+  },
+  {
+    id: 'discharge',
+    label: 'River discharge (m³/s)',
+    group: 'Water',
+    available: () => true,
+    describe: (s, i, d) => {
+      const f = s.world.waterFluxM3PerS;
+      const qWater = f[4 * i] + f[4 * i + 1] + f[4 * i + 2] + f[4 * i + 3];
+      const rainMPerS = Math.max(5 / 3.6e6, s.world.water.rainMPerS);
+      const qGeo = d.flow ? d.flow[i] * rainMPerS : 0;
+      const q = qWater > 0.01 ? qWater : qGeo;
+      return `${q.toFixed(1)} m³/s discharge`;
+    },
+    legend: () => ({
+      kind: 'ramp',
+      css: css(FLOW),
+      labels: ['0.1 m³/s', '10 m³/s', '≥ 500 m³/s'],
+    }),
+    colour: (s, i, d, out, o) => {
+      const f = s.world.waterFluxM3PerS;
+      const qWater = f[4 * i] + f[4 * i + 1] + f[4 * i + 2] + f[4 * i + 3];
+      const rainMPerS = Math.max(5 / 3.6e6, s.world.water.rainMPerS);
+      const qGeo = d.flow ? d.flow[i] * rainMPerS : 0;
+      const q = qWater > 0.01 ? qWater : qGeo;
+      flowRamp(logT(Math.max(0.05, q), 0.1, 500), out, o);
+    },
+  },
+  {
+    id: 'velocity',
+    label: 'River flow velocity (m/s)',
+    group: 'Water',
+    available: () => true,
+    describe: (s, i, d) => {
+      const f = s.world.waterFluxM3PerS;
+      const qWater = f[4 * i] + f[4 * i + 1] + f[4 * i + 2] + f[4 * i + 3];
+      const h = s.world.waterDepthM[i];
+      const vWater = h > 0.01 ? qWater / (h * s.world.cellSizeM) : 0;
+      if (vWater > 0.01) return `${vWater.toFixed(2)} m/s flow speed`;
+      const areaKm2 = d.flow ? d.flow[i] / 1e6 : 0;
+      const sl = Math.tan((slopeDegAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i) * Math.PI) / 180);
+      const vGeo = areaKm2 > 0.02 ? Math.min(3.5, 0.35 * Math.pow(areaKm2, 0.22) * Math.pow(Math.max(0.0005, sl), 0.18)) : 0;
+      return `${vGeo.toFixed(2)} m/s channel speed`;
+    },
+    legend: () => ({
+      kind: 'ramp',
+      css: css(SLOPE),
+      labels: ['0 m/s', '1.2 m/s', '≥ 2.5 m/s'],
+    }),
+    colour: (s, i, d, out, o) => {
+      const f = s.world.waterFluxM3PerS;
+      const qWater = f[4 * i] + f[4 * i + 1] + f[4 * i + 2] + f[4 * i + 3];
+      const h = s.world.waterDepthM[i];
+      let v = h > 0.01 ? qWater / (h * s.world.cellSizeM) : 0;
+      if (v <= 0.01 && d.flow) {
+        const areaKm2 = d.flow[i] / 1e6;
+        const sl = Math.tan((slopeDegAt(s.surface, s.world.width, s.world.height, s.world.cellSizeM, i) * Math.PI) / 180);
+        v = areaKm2 > 0.02 ? Math.min(3.5, 0.35 * Math.pow(areaKm2, 0.22) * Math.pow(Math.max(0.0005, sl), 0.18)) : 0;
+      }
+      slopeRamp(Math.min(1, v / 2.5), out, o);
+    },
   },
   {
     id: 'change',

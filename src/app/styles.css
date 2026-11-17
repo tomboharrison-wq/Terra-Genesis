@@ -450,7 +450,21 @@ input[type='range'] {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 .dialog.wide {
-  width: min(820px, calc(100vw - 32px));
+  width: min(1040px, calc(100vw - 32px));
+  max-height: calc(100vh - 36px);
+}
+@media (max-width: 1320px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 8px;
+  }
+  .topbar .actions button {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .panel {
+    max-height: calc(100vh - 118px);
+  }
 }
 .dialog-head {
   display: flex;

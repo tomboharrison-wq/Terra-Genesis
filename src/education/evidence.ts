@@ -13,7 +13,18 @@ export interface InvestigationDef {
   title: string;
   question: string;
   setupHint: string;
+  /** M17-C01: Explicit student guidance on which parameter to change and what to observe on the map. */
+  whatToChange: string;
+  whatToObserve: string;
+  estimatedMinutes: string;
+  /** M17-C02: GCSE answer support — prediction prompt, sentence starters, 4-mark & 6-mark questions, and Edexcel command word guidance. */
+  predictionPrompt: string;
   hypotheses: string[];
+  sentenceStarters: string[];
+  question4Mark: string;
+  commandWord4Mark: string;
+  question6Mark: string;
+  commandWord6Mark: string;
   processSequence: string[];
   vocabulary: { term: string; definition: string }[];
 }
@@ -31,14 +42,26 @@ export interface ProfilePoint {
   afterM: number;
 }
 
+export interface EvidenceStudentMeta {
+  studentName?: string;
+  studentClass?: string;
+  predictionWhy?: string;
+  studentExplanation?: string;
+  selectedMark?: 4 | 6;
+  teacherFeedback?: string;
+  teacherMark?: string;
+}
+
 export interface EvidenceReport {
   investigation: InvestigationDef;
   hypothesis: string;
   worldName: string;
   elapsedText: string;
   metrics: MeasuredMetric[];
+  annotatedLandforms: string[];
   processSequence: string[];
   vocabularyUsed: string[];
+  modelAnswer4Mark: string;
   examParagraph: string;
   profileTitle: string;
   profile: ProfilePoint[];
@@ -51,11 +74,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Rivers: Why do meanders move and form estuaries?',
     question: 'How do lateral erosion and deposition cause meanders to migrate across a floodplain, form oxbow lakes, and widen into a tidal estuary at the mouth?',
     setupHint: 'Use the "River to sea" preset or switch to Geological time with "Meandering lowland river & estuary" enabled, then run for 3,000–10,000 years.',
+    whatToChange: 'Adjust the Geological Years to Run (e.g. 5,000 vs 15,000 yr) or Rainfall Rate (mm/h) using the inline control before running.',
+    whatToObserve: 'Watch the river bends swing wider across the floodplain, outer banks cut steep river cliffs, inner bends build point bars, narrow necks cut off into oxbow lakes, and the mouth widen into a funnel-shaped tidal estuary.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'Which bank of a meander bend will erode, which bank will build up sediment, and what will happen when a meander neck narrows?',
     hypotheses: [
       'Faster flow on the outside of bends will erode steep river cliffs while slower inner-bend flow deposits slip-off point bars, increasing sinuosity until a neck cut-off forms an oxbow lake.',
       'Overbank flooding will deposit coarse sediment next to the channel to build raised natural levees while the river mouth widens into a funnel-shaped tidal estuary.',
       'Vertical erosion will dominate in the steep upper course (V-shaped valley), whereas lateral erosion and deposition will dominate on the gentle lower floodplain.',
     ],
+    sentenceStarters: [
+      'As the river enters a bend, the thalweg swings toward the outer bank because...',
+      'On the outside of the meander, hydraulic action and abrasion undercut the bank to form a steep river cliff, whereas on the inside bend...',
+      'In my simulation, channel sinuosity changed from ... to ... and deposited ... of point-bar and floodplain sediment.',
+      'During high discharge, the narrow meander neck was breached, cutting off the loop to leave an oxbow lake while at the river mouth...',
+    ],
+    question4Mark: 'Explain how erosion and deposition cause a river meander to migrate laterally across a floodplain. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks = 2 AO1 knowledge points + 2 AO2 cause-and-effect links): State where fastest flow (thalweg) occurs and link it using "because / therefore / consequently" to outer-bank river cliff erosion and inner-bank point-bar deposition.',
+    question6Mark: 'Assess the relative importance of erosional and depositional processes in shaping landforms in the middle and lower courses of a river. Use measured data from your simulation. (6 marks)',
+    commandWord6Mark: 'Edexcel "Assess" (6 marks = AO1 processes + AO2 application + AO3 judgement backed by evidence): Weigh how lateral erosion (river cliffs, neck cut-offs, estuarine widening) and deposition (point bars, levees, oxbow sealing, mudflats) interact, citing at least two numbers from your Results Table.',
     processSequence: [
       '1. Asymmetric flow in a bend: the thalweg (fastest current) swings toward the outer bank, generating helicoidal (corkscrew) secondary flow.',
       '2. Outer-bank undercutting: hydraulic action and abrasion concentrate on the outer bend, undercutting the bank into a steep river cliff.',
@@ -79,11 +116,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Coasts: Why do headlands and bays retreat differently?',
     question: 'How do rock lithology (geological structure) and wave refraction control differential erosion of headlands, bays, beaches, and wave-cut platforms?',
     setupHint: 'Use the "Coastal headlands" preset or enable Waves in the Coast panel, then run in Water time (Time-lapse) or Geological time.',
+    whatToChange: 'Adjust Significant Wave Height (m) or Geological Time duration (years) using the inline control before running.',
+    whatToObserve: 'Observe soft clay bands retreating rapidly into indented bays with sandy beaches above sea level, while hard chalk/limestone bands remain jutting out as headlands with wave-cut platforms and caves/arches/stacks.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'How will retreat rates differ between hard chalk/limestone and soft clay, and where will wave refraction focus or disperse energy?',
     hypotheses: [
       'Bands of soft clay will erode and slump much faster than resistant chalk/limestone, indenting sheltered bays while hard rock remains jutting out as headlands.',
       'Shallow-water wave refraction will concentrate wave energy onto jutting headlands (carving wave-cut platforms, caves, arches, and stacks) while dispersing energy in bays so sandy beaches build up.',
       'As the wave-cut platform widens in front of a headland, shallow-water wave attenuation will gradually slow down the rate of cliff retreat.',
     ],
+    sentenceStarters: [
+      'On a discordant coastline, alternating bands of hard chalk/limestone and soft clay erode at different rates because...',
+      'In my simulation, the soft-rock bay retreated by ... whereas the resistant headland retreated by ..., leaving headlands jutting out.',
+      'As waves enter shallow water off the headland, wave refraction bends the wave crests and concentrates energy (> 1.35×), forming...',
+      'Conversely, inside the sheltered bay, wave energy is dispersed so constructive swash deposits a sandy beach berm up to ... above sea level.',
+    ],
+    question4Mark: 'Explain how geological structure and rock type lead to the formation of headlands and bays on a discordant coastline. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks): Identify the discordant arrangement of alternating hard and soft rock strata perpendicular to the coast, then explain how differential erosion by hydraulic action and abrasion indents soft clay into bays while resistant rock remains as headlands.',
+    question6Mark: 'Evaluate how wave refraction and marine processes interact with lithology to create both erosional headland landforms and depositional bay beaches. Use data from your simulation. (6 marks)',
+    commandWord6Mark: 'Edexcel "Evaluate" (6 marks): Show how initial lithological differences create headlands and bays, which then trigger seabed wave refraction—focusing destructive energy on headlands (wave-cut platforms, caves, arches, stacks) and low-energy constructive swash in bays (beaches)—quoting your measured retreat and beach height.',
     processSequence: [
       '1. Discordant geology: alternating bands of resistant rock (chalk/limestone) and less resistant rock (clay/mudstone) meet the coast at right angles.',
       '2. Differential marine erosion: destructive waves erode the soft clay rapidly by hydraulic action, abrasion, and rotational slumping, forming indented bays.',
@@ -106,11 +157,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Glaciers: How does ice reshape a valley?',
     question: 'How do glacial accumulation, rotational sliding, plucking, and abrasion transform a V-shaped river valley into a U-shaped glacial trough with corries, hanging valleys, and moraines?',
     setupHint: 'Use the "Alpine glaciers" preset or run Geological time with Climate and Glaciers enabled.',
+    whatToChange: 'Adjust the Ice-Age Temperature Offset (°C) or Glacial Duration (years) before running the cycle.',
+    whatToObserve: 'Compare the steep, flat-floored U-shaped glacial trough against the original V-shaped valley profile, and locate north-east corries, knife-edge arêtes, hanging valleys, moraine ridges, and drumlins.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'How will valley cross-profile shape change after glaciation, and where will erosional vs depositional glacial landforms develop?',
     hypotheses: [
       'Thick valley ice coupled across the channel will scour and widen the valley sides and floor simultaneously, transforming a narrow V-shaped river valley into a steep-sided, flat-floored U-shaped glacial trough.',
       'Rotational ice slip in sheltered north-east-facing mountain hollows will over-deepen armchair-shaped corries (leaving tarns behind rock lips) that intersect at knife-edge arêtes and pyramidal peaks.',
       'When the glacier retreats, unsorted glacial till will be deposited at the snout and margins as terminal, lateral, and recessional moraines and subglacial drumlins.',
     ],
+    sentenceStarters: [
+      'In shaded north-east upland hollows above the snowline, snow compacts into glacial ice and moves by rotational slip, which...',
+      'Freeze-thaw weathering and plucking steepen the backwall while basal abrasion over-deepens the hollow into a corrie because...',
+      'In my simulation, the trunk glacier scoured up to ... of bedrock, transforming the narrow river valley into a U-shaped glacial trough.',
+      'When the climate warmed and the ice melted back, unsorted till was deposited at the snout and lowland plain to form...',
+    ],
+    question4Mark: 'Explain the formation of a corrie (cirque) and a tarn in a glaciated upland area. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks): Sequence snow accumulation in a sheltered NE hollow, firnification into ice, freeze-thaw & plucking on the backwall, rotational slip + basal abrasion over-deepening the rock basin behind a rock lip, and post-glacial meltwater filling a tarn.',
+    question6Mark: 'Assess the roles of glacial erosion and glacial deposition in modifying pre-existing river landscapes. Refer to your measured simulation evidence. (6 marks)',
+    commandWord6Mark: 'Edexcel "Assess" (6 marks): Contrast upland erosional modification (corries, arêtes, pyramidal peaks, truncated spurs, hanging valleys, U-shaped troughs) with valley/lowland depositional landforms (terminal/lateral/recessional moraines, drumlins, erratics), citing your measured trough deepening and moraine volumes.',
     processSequence: [
       '1. Accumulation & firnification: above the equilibrium line altitude (ELA), snowfall exceeds summer ablation, compressing into glacial ice, thickest on shaded NE-facing slopes.',
       '2. Rotational slip in corries: ice rotates downslope in steep upland hollows, plucking the backwall and abrading an over-deepened rock basin behind a raised rock lip.',
@@ -133,11 +198,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Slopes: How does saturation affect landslides?',
     question: 'Why do heavy rainfall, coastal toe undercutting, and earthquakes trigger rapid mass movement (rockfall, debris avalanches, and rotational slumping)?',
     setupHint: 'Use the "Layered plateau" or "River basin" preset, trigger heavy rain / storms or use the Landslide tool on steep slopes.',
+    whatToChange: 'Adjust the Storm Rainfall Intensity (mm/h) before running the slope-stability test.',
+    whatToObserve: 'Watch steep escarpment slopes fail during heavy rain, lowering the upper cliff angle and building a concave talus apron at the base of the slope.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'How does heavy rainfall change pore-water pressure and the critical angle of repose on a steep regolith-covered slope?',
     hypotheses: [
       'Infiltrating rainwater increases pore-water pressure and adds weight to loose regolith, reducing internal friction and lowering the stable angle of repose so saturated slopes fail downhill.',
       'Weak sedimentary rocks (clay and mudstone) fail to much gentler equilibrium angles than resistant crystalline granite.',
       'Material eroded from the upper scarp is conserved and accumulates at the base of the slope as a lower-angle talus apron or slump toe.',
     ],
+    sentenceStarters: [
+      'Sub-aerial weathering breaks down exposed bedrock into loose regolith, which remains stable while dry up to its angle of repose because...',
+      'When heavy storm rainfall infiltrates the slope, water fills the pore spaces and increases pore-water pressure, which...',
+      'In my simulation, slope failure displaced ... of material, lowering maximum escarpment lowers by ... m and depositing up to +... m at the toe.',
+      'Consequently, the collapsed debris came to rest at the base of the cliff as a gentler talus apron, restoring slope equilibrium.',
+    ],
+    question4Mark: 'Explain how heavy rainfall and sub-aerial weathering contribute to mass movement on steep slopes. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks): Link weathering (weakening rock into regolith) and rainwater infiltration (adding weight + raising pore-water pressure) to reduced internal shear strength, causing gravity to exceed friction.',
+    question6Mark: 'Evaluate the importance of water saturation versus rock lithology in triggering rapid mass movement events. Use measured evidence from your simulation. (6 marks)',
+    commandWord6Mark: 'Edexcel "Evaluate" (6 marks): Weigh intrinsic geological factors (weak clay/mudstone vs strong granite, bedding planes) against extrinsic hydrological triggers (intense storm rainfall, pore-water pressure, basal undercutting), citing your measured displaced volume and slope angle changes.',
     processSequence: [
       '1. Sub-aerial weathering: freeze-thaw and chemical weathering break down exposed bedrock into loose regolith on hillslopes.',
       '2. Saturation & pore-water pressure: heavy rain or surface runoff infiltrates the soil/regolith, filling pore spaces, adding mass, and lubricating grain contacts.',
@@ -159,11 +238,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Tectonics: How do plate movements produce relief?',
     question: 'How do convergent, divergent, and transform plate boundaries, earthquakes, and volcanism build mountain belts, rift valleys, trenches, and volcanic cones?',
     setupHint: 'Open the Earth → Plates, Quake, or Volcano tools and run with Tectonics enabled.',
+    whatToChange: 'Adjust the Plate Convergence Speed (mm/yr) or Fault Earthquake Magnitude before running.',
+    whatToObserve: 'Watch compressional plate boundaries uplift fold mountain ridges and deep subduction trenches while coseismic fault slip offsets strata and triggers landslides.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'How will relief and crustal elevation change along a convergent boundary compared to a divergent rift or subduction trench?',
     hypotheses: [
       'Convergent plate boundaries compress and thicken the crust to uplift fold mountain belts and oceanic trenches, while erosion simultaneously wears down the rising peaks.',
       'Divergent boundaries stretch and fault the crust along normal faults to form sunken rift grabens bounded by steep fault scarps.',
       'Repeated basaltic lava eruptions build wide, gently sloping shield volcanoes, whereas alternating viscous andesite lava and explosive tephra build steep composite cones.',
     ],
+    sentenceStarters: [
+      'At a convergent plate boundary, colliding plates generate intense compressional forces that...',
+      'Sedimentary rock strata buckle into anticlines and synclines and ride up along thrust faults, uplifting fold mountains by...',
+      'In my simulation, peak mountain elevation increased from ... to ..., while total relief changed by...',
+      'At the same time, steeper mountain gradients accelerated river incision and slope failures, showing that relief reflects a balance between tectonic uplift and erosion.',
+    ],
+    question4Mark: 'Explain how tectonic plate movement at a convergent boundary forms fold mountains and ocean trenches. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks): Describe plate collision driven by slab pull/convection, crustal compression buckling strata into anticlines/synclines (fold mountains), or dense oceanic lithosphere subducting beneath continental crust to depress a deep ocean trench.',
+    question6Mark: 'Assess how internal tectonic processes and external erosional processes interact to shape major mountain landscapes. Use measured data from your simulation. (6 marks)',
+    commandWord6Mark: 'Edexcel "Assess" (6 marks): Discuss how tectonic uplift, fault rupture, and volcanism build primary relief while fluvial/glacial erosion and mass movement simultaneously dissect the rising range, citing your measured peak elevation and volume changes.',
     processSequence: [
       '1. Lithospheric plate motion: convection and slab pull drive rigid crustal plates to converge, diverge, or slide past one another along plate boundaries.',
       '2. Convergent uplift & subduction: colliding plates compress sedimentary strata into anticlines/synclines and thrust faults (fold mountains), or subduct dense oceanic crust to form a deep ocean trench and volcanic arc.',
@@ -184,11 +277,25 @@ export const INVESTIGATIONS: InvestigationDef[] = [
     title: 'Climate: How do rainfall and temperature change landscapes?',
     question: 'How do altitude temperature lapse rates, orographic rainfall, rain shadows, droughts, and storms control river discharge, snowpacks, and vegetation cover?',
     setupHint: 'Enable Climate and Plants in the Climate panel, or compare Biome presets.',
+    whatToChange: 'Adjust the Prevailing Moisture / Temperature Offset (°C) before running the climate spin-up.',
+    whatToObserve: 'Switch between the Rainfall Pattern, Temperature, and Plant Cover overlays to see wet vegetated windward slopes, cold snow-capped peaks, and dry leeward rain-shadow valleys.',
+    estimatedMinutes: '20–25 min (3 min Predict · 5 min Run & Observe · 5 min Measure · 10 min Explain)',
+    predictionPrompt: 'Why does the windward side of a mountain range receive much more rainfall and vegetation than the leeward side?',
     hypotheses: [
       'Moist prevailing winds forced up a mountain barrier cool at the environmental lapse rate, condensing heavy orographic rainfall on the windward slope while creating an arid rain shadow on the leeward side.',
       'Temperature decreases with altitude (lapse rate ~6.5 °C/km), creating distinct altitudinal zonation: lowland broadleaf forest, upland conifers, a treeline, and permanent snow/ice above the 0 °C isotherm.',
       'Dense vegetation cover shields topsoil from hydraulic erosion, whereas drought or deforestation exposes bare soil to rapid gullying and sheet erosion during storms.',
     ],
+    sentenceStarters: [
+      'When moist prevailing winds blow from the sea toward a mountain range, the air is forced to rise over the high ground and...',
+      'As the air rises, it cools at the environmental lapse rate (~6.5 °C per 1,000 m), causing water vapour to condense into heavy orographic rainfall on the windward slope.',
+      'In my simulation, windward vs leeward rainfall reached ... and vegetation cover changed to ..., demonstrating a pronounced rain shadow.',
+      'Furthermore, denser vegetation on the wet windward slopes increased interception and root binding, which...',
+    ],
+    question4Mark: 'Explain how relief (topography) causes orographic rainfall on windward slopes and a rain shadow on leeward slopes. (4 marks)',
+    commandWord4Mark: 'Edexcel "Explain" (4 marks): Sequence moist air forced up a mountain barrier, adiabatic cooling with altitude, condensation and precipitation on the windward slope, followed by dry air descending and warming on the leeward slope.',
+    question6Mark: 'Evaluate how climate (temperature and precipitation patterns) controls both physical weathering/erosion rates and vegetation distribution across a landscape. Use your simulation data. (6 marks)',
+    commandWord6Mark: 'Edexcel "Evaluate" (6 marks): Link altitudinal temperature lapse rates (snowline, freeze-thaw/glacial processes) and orographic rainfall contrasts (river discharge, vegetation cover, root binding) using your measured temperature, rainfall, and plant cover values.',
     processSequence: [
       '1. Orographic uplift: moist air blowing from the sea encounters a mountain barrier and is forced to rise.',
       '2. Adiabatic cooling & condensation: rising air cools with altitude (~6.5 °C/km), reaching saturation and dropping heavy orographic precipitation on the windward slope.',
@@ -464,7 +571,51 @@ export function buildEvidenceReport(
   }
 
   const vocabTerms = inv.vocabulary.map((v) => v.term);
-  const examParagraph = `${inv.processSequence[0]} ${inv.processSequence[1]} ${evidenceSentence} Therefore, the measured simulator evidence supports the hypothesis: "${hypothesis}"`;
+  const annotatedLandforms: string[] = [];
+  if (inv.topic === 'rivers') {
+    annotatedLandforms.push(
+      'Outer-bend river cliff (hydraulic action & abrasion)',
+      'Inner-bend slip-off slope / point bar (helicoidal deposition)',
+      'Cut-off oxbow lake & raised natural levees',
+      'Funnel-shaped tidal estuary & intertidal mudflats',
+    );
+  } else if (inv.topic === 'coasts') {
+    annotatedLandforms.push(
+      'Hard-rock headland (wave refraction focus > 1.35×)',
+      'Sloping wave-cut platform (< 4° rocky ledge)',
+      'Headland cave / arch / stack / stump sequence',
+      'Sheltered soft-clay bay & constructive sandy beach berm above sea level',
+    );
+  } else if (inv.topic === 'glaciers') {
+    annotatedLandforms.push(
+      'North-east armchair corrie (cirque) & over-deepened tarn',
+      'Knife-edge arête & pyramidal peak',
+      'Steep-sided, flat-floored U-shaped glacial trough & hanging valley',
+      'Terminal, lateral & recessional moraines + lowland drumlins & erratics',
+    );
+  } else if (inv.topic === 'slopes') {
+    annotatedLandforms.push(
+      'Weathered upper escarpment failure scar',
+      'Saturated regolith slip plane (reduced angle of repose)',
+      'Basal concave talus (scree) apron / rotational slump toe lobe',
+    );
+  } else if (inv.topic === 'tectonics') {
+    annotatedLandforms.push(
+      'Compressional fold mountain belt (anticlines & synclines) / fault scarp',
+      'Subduction ocean trench / divergent rift graben',
+      'Volcanic shield / composite stratovolcano cone & river-incised gorges',
+    );
+  } else {
+    annotatedLandforms.push(
+      'Wet windward slope (orographic uplift, condensation & dense vegetation)',
+      'High-altitude snowpack above 0 °C isotherm (environmental lapse rate)',
+      'Dry leeward rain shadow & reduced river discharge',
+    );
+  }
+
+  const cleanStep = (s: string) => s.replace(/^\d+\.\s*/, '');
+  const modelAnswer4Mark = `${cleanStep(inv.processSequence[0])} Consequently, ${cleanStep(inv.processSequence[1]).charAt(0).toLowerCase() + cleanStep(inv.processSequence[1]).slice(1)} ${cleanStep(inv.processSequence[2])}`;
+  const examParagraph = `${cleanStep(inv.processSequence[0])} ${cleanStep(inv.processSequence[1])} ${evidenceSentence} Therefore, the measured simulator evidence directly supports the hypothesis: "${hypothesis}"`;
 
   return {
     investigation: inv,
@@ -472,8 +623,10 @@ export function buildEvidenceReport(
     worldName: w.meta.name,
     elapsedText,
     metrics,
+    annotatedLandforms,
     processSequence: inv.processSequence,
     vocabularyUsed: vocabTerms,
+    modelAnswer4Mark,
     examParagraph,
     profileTitle,
     profile,
@@ -481,33 +634,39 @@ export function buildEvidenceReport(
 }
 
 /**
- * Render a downloadable, self-contained GCSE Evidence Sheet PNG combining Before & After
- * map views, Before vs. After cross-section profile, Measured Data Table, Process Sequence,
- * and the Data-Backed Exam Paragraph.
+ * M17-C04: Render a downloadable, classroom-ready GCSE Evidence Sheet PNG
+ * including Student Name & Class, Enquiry Question, Prediction, Annotated Before & After Maps,
+ * Cross-Section Profile, Measured Evidence Table, Annotated Landforms, Student Explanation,
+ * Model Answer, and Teacher Feedback / Mark Box.
  */
 export async function exportEvidenceSheetPng(
   report: EvidenceReport,
   beforeImgUrl: string | null,
   afterImgUrl: string | null,
+  meta: EvidenceStudentMeta = {},
 ): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = 1400;
-  canvas.height = 1020;
+  canvas.height = 1240;
   const ctx = canvas.getContext('2d')!;
 
   // Background
   ctx.fillStyle = '#10231b';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Header bar
+  // Header bar with Student Name, Class & Enquiry Question
   ctx.fillStyle = '#183529';
-  ctx.fillRect(0, 0, canvas.width, 78);
+  ctx.fillRect(0, 0, canvas.width, 96);
   ctx.fillStyle = '#ffe627';
-  ctx.font = 'bold 24px system-ui, sans-serif';
-  ctx.fillText(`GCSE Geography Evidence Sheet — ${report.investigation.title}`, 32, 36);
-  ctx.fillStyle = '#d3e0d8';
-  ctx.font = '15px system-ui, sans-serif';
-  ctx.fillText(`World: ${report.worldName}  ·  Duration: ${report.elapsedText}  ·  Inquiry: Predict → Run → Observe → Measure → Explain`, 32, 62);
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.fillText(`GCSE Geography Evidence Sheet — ${report.investigation.title}`, 32, 32);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  const studentLine = `Student: ${meta.studentName?.trim() || '____________________'}   ·   Class: ${meta.studentClass?.trim() || '__________'}   ·   World: ${report.worldName} (${report.elapsedText})`;
+  ctx.fillText(studentLine, 32, 56);
+  ctx.fillStyle = '#9fd0ea';
+  ctx.font = 'italic 14px system-ui, sans-serif';
+  ctx.fillText(`Enquiry Question: ${report.investigation.question.slice(0, 125)}`, 32, 80);
 
   const loadImg = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
@@ -517,8 +676,8 @@ export async function exportEvidenceSheetPng(
       img.src = url;
     });
 
-  // 1. Before & After visual frames (top left)
-  const drawFrame = async (url: string | null, x: number, y: number, w: number, h: number, label: string) => {
+  // 1. Before & After visual frames (top left) with landform annotation callouts on After map
+  const drawFrame = async (url: string | null, x: number, y: number, w: number, h: number, label: string, annotations?: string[]) => {
     ctx.fillStyle = '#0b1812';
     ctx.fillRect(x, y, w, h);
     if (url) {
@@ -532,21 +691,38 @@ export async function exportEvidenceSheetPng(
     ctx.strokeStyle = '#2d5342';
     ctx.lineWidth = 2;
     ctx.strokeRect(x, y, w, h);
-    ctx.fillStyle = 'rgba(16, 35, 27, 0.85)';
-    ctx.fillRect(x + 8, y + 8, 170, 26);
+    ctx.fillStyle = 'rgba(16, 35, 27, 0.88)';
+    ctx.fillRect(x + 8, y + 8, 195, 26);
     ctx.fillStyle = '#ffe627';
     ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.fillText(label, x + 16, y + 26);
+    ctx.fillText(label, x + 14, y + 26);
+    if (annotations && annotations.length > 0) {
+      const pts = [
+        [x + 16, y + h - 58],
+        [x + 16, y + h - 30],
+      ];
+      annotations.slice(0, 2).forEach((ann, idx) => {
+        const [bx, by] = pts[idx];
+        ctx.fillStyle = 'rgba(12, 28, 21, 0.88)';
+        ctx.fillRect(bx, by, w - 32, 22);
+        ctx.strokeStyle = '#ffe627';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, by, w - 32, 22);
+        ctx.fillStyle = '#ffe627';
+        ctx.font = 'bold 11px system-ui, sans-serif';
+        ctx.fillText(`📍 ${ann.slice(0, 52)}`, bx + 8, by + 15);
+      });
+    }
   };
 
-  await drawFrame(beforeImgUrl, 32, 98, 410, 250, '1. BEFORE (Baseline)');
-  await drawFrame(afterImgUrl, 458, 98, 410, 250, '2. AFTER (Observed)');
+  await drawFrame(beforeImgUrl, 32, 112, 410, 245, '1. BEFORE (Baseline)');
+  await drawFrame(afterImgUrl, 458, 112, 410, 245, '2. AFTER (Annotated)', report.annotatedLandforms);
 
   // 2. Before vs After Cross-Section Chart (top right)
   const cx = 888;
-  const cy = 98;
+  const cy = 112;
   const cw = 480;
-  const ch = 250;
+  const ch = 245;
   ctx.fillStyle = '#152d23';
   ctx.fillRect(cx, cy, cw, ch);
   ctx.strokeStyle = '#2d5342';
@@ -570,7 +746,6 @@ export async function exportEvidenceSheetPng(
     const px = (d: number) => cx + 44 + (d / dMax) * (cw - 64);
     const py = (z: number) => cy + 44 + (1 - (z - zLo) / (zHi - zLo)) * (ch - 74);
 
-    // Before dashed line
     ctx.beginPath();
     ctx.setLineDash([5, 4]);
     ctx.strokeStyle = '#bf62a8';
@@ -578,7 +753,6 @@ export async function exportEvidenceSheetPng(
     pts.forEach((p, k) => (k === 0 ? ctx.moveTo(px(p.distM), py(p.beforeM)) : ctx.lineTo(px(p.distM), py(p.beforeM))));
     ctx.stroke();
 
-    // After solid line
     ctx.beginPath();
     ctx.setLineDash([]);
     ctx.strokeStyle = '#d9781c';
@@ -593,27 +767,27 @@ export async function exportEvidenceSheetPng(
     ctx.fillText('─── After profile', cx + 170, cy + ch - 10);
   }
 
-  // 3. Hypothesis & Measured Evidence Table (middle)
+  // 3. Hypothesis & Measured Evidence Table (middle left)
   ctx.fillStyle = '#152d23';
-  ctx.fillRect(32, 368, 660, 290);
+  ctx.fillRect(32, 372, 660, 285);
   ctx.strokeStyle = '#2d5342';
-  ctx.strokeRect(32, 368, 660, 290);
+  ctx.strokeRect(32, 372, 660, 285);
   ctx.fillStyle = '#ffe627';
   ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.fillText('4. PREDICT & MEASURE — Quantitative Simulator Evidence', 48, 396);
+  ctx.fillText('4. PREDICT & MEASURE — Quantitative Simulator Evidence', 48, 398);
 
   ctx.fillStyle = '#b9cec3';
-  ctx.font = 'italic 13px system-ui, sans-serif';
-  ctx.fillText(`Hypothesis: "${report.hypothesis.slice(0, 95)}${report.hypothesis.length > 95 ? '…' : ''}"`, 48, 420);
+  ctx.font = 'italic 12px system-ui, sans-serif';
+  ctx.fillText(`Prediction: "${report.hypothesis.slice(0, 96)}${report.hypothesis.length > 96 ? '…' : ''}"`, 48, 420);
 
-  let ty = 452;
+  let ty = 448;
   ctx.fillStyle = '#ffe627';
   ctx.font = 'bold 13px system-ui, sans-serif';
   ctx.fillText('Measured Indicator', 48, ty);
   ctx.fillText('Before', 330, ty);
   ctx.fillText('After', 445, ty);
   ctx.fillText('Change / Significance', 560, ty);
-  ty += 12;
+  ty += 10;
   ctx.strokeStyle = '#2d5342';
   ctx.beginPath();
   ctx.moveTo(48, ty);
@@ -633,14 +807,14 @@ export async function exportEvidenceSheetPng(
     ctx.fillText(m.change.slice(0, 20), 560, ty);
   }
 
-  // 4. Physical Process Sequence (middle right)
+  // 4. Annotated Landforms & Physical Process Sequence (middle right)
   ctx.fillStyle = '#152d23';
-  ctx.fillRect(712, 368, 656, 290);
+  ctx.fillRect(712, 372, 656, 285);
   ctx.strokeStyle = '#2d5342';
-  ctx.strokeRect(712, 368, 656, 290);
+  ctx.strokeRect(712, 372, 656, 285);
   ctx.fillStyle = '#ffe627';
   ctx.font = 'bold 15px system-ui, sans-serif';
-  ctx.fillText('5. PROCESS SEQUENCE & KEY GCSE VOCABULARY', 728, 396);
+  ctx.fillText('5. ANNOTATED LANDFORMS & PROCESS SEQUENCE', 728, 398);
 
   const wrapText = (text: string, x: number, y: number, maxWidth: number, lineHeight: number): number => {
     const words = text.split(' ');
@@ -663,29 +837,184 @@ export async function exportEvidenceSheetPng(
     return curY;
   };
 
-  let pySeq = 424;
+  let pySeq = 422;
+  ctx.fillStyle = '#5ce080';
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  ctx.fillText(`Landforms identified: ${report.annotatedLandforms.slice(0, 2).join(' · ')}`, 728, pySeq);
+  pySeq += 22;
   ctx.fillStyle = '#e8f0ec';
-  ctx.font = '13px system-ui, sans-serif';
+  ctx.font = '12.5px system-ui, sans-serif';
   for (const step of report.processSequence) {
-    pySeq = wrapText(step, 728, pySeq, 624, 18) + 6;
+    pySeq = wrapText(step, 728, pySeq, 624, 17) + 5;
   }
 
-  // 5. Data-Backed Exam Answer Paragraph (bottom)
+  // 5. Student Explanation & Model GCSE Answer (lower band)
   ctx.fillStyle = '#152d23';
-  ctx.fillRect(32, 678, 1336, 310);
+  ctx.fillRect(32, 674, 1336, 360);
   ctx.strokeStyle = '#2d5342';
-  ctx.strokeRect(32, 678, 1336, 310);
+  ctx.strokeRect(32, 674, 1336, 360);
   ctx.fillStyle = '#ffe627';
-  ctx.font = 'bold 16px system-ui, sans-serif';
-  ctx.fillText('6. EXPLAIN — Model GCSE Exam Answer Using Evidence From Your World', 48, 708);
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  const qText = meta.selectedMark === 4 ? report.investigation.question4Mark : report.investigation.question6Mark;
+  ctx.fillText(`6. EXPLAIN — ${qText.slice(0, 115)}`, 48, 702);
 
+  ctx.fillStyle = '#9fd0ea';
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.fillText('Student Written Explanation:', 48, 728);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '14px system-ui, sans-serif';
+  const studentAns =
+    meta.studentExplanation?.trim() ||
+    '(No student explanation entered before export — see Data-Backed Model GCSE Answer below.)';
+  let yAfterStudent = wrapText(studentAns, 48, 750, 1300, 21);
+
+  yAfterStudent = Math.max(yAfterStudent + 14, 860);
   ctx.fillStyle = '#5ce080';
   ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.fillText(`Key Vocabulary Used: ${report.vocabularyUsed.join('  ·  ')}`, 48, 734);
+  ctx.fillText(`Model GCSE Reference Answer (Vocabulary: ${report.vocabularyUsed.join(' · ')}):`, 48, yAfterStudent);
+  ctx.fillStyle = '#e0ece5';
+  ctx.font = '13.5px system-ui, sans-serif';
+  wrapText(meta.selectedMark === 4 ? report.modelAnswer4Mark : report.examParagraph, 48, yAfterStudent + 22, 1300, 20);
 
-  ctx.fillStyle = '#f4f7f5';
-  ctx.font = '15px system-ui, sans-serif';
-  wrapText(report.examParagraph, 48, 768, 1300, 24);
+  // 6. Teacher Feedback & Mark Box (bottom)
+  ctx.fillStyle = '#183529';
+  ctx.fillRect(32, 1050, 1336, 160);
+  ctx.strokeStyle = '#ffe627';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(32, 1050, 1336, 160);
+  ctx.fillStyle = '#ffe627';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  const maxM = meta.selectedMark === 4 ? 4 : 6;
+  ctx.fillText(`7. TEACHER ASSESSMENT & FEEDBACK   [ Mark: ${meta.teacherMark?.trim() || `___ / ${maxM}`} ]`, 48, 1078);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '14px system-ui, sans-serif';
+  if (meta.teacherFeedback?.trim()) {
+    wrapText(meta.teacherFeedback.trim(), 48, 1106, 1300, 22);
+  } else {
+    ctx.fillText('WWW (What Went Well): ___________________________________________________________________________________________', 48, 1112);
+    ctx.fillText('EBI (Even Better If): _____________________________________________________________________________________________', 48, 1150);
+    ctx.fillText('Student Response / Action: _______________________________________________________________________________________', 48, 1188);
+  }
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to encode Evidence Sheet PNG'))), 'image/png'));
+}
+
+/**
+ * M17-C04: Open a clean A4 portrait printable worksheet in a print window (or trigger browser print)
+ * formatted specifically for monochrome/colour school printers and PDF saving.
+ */
+export function printEvidenceSheetA4(
+  report: EvidenceReport,
+  beforeImgUrl: string | null,
+  afterImgUrl: string | null,
+  meta: EvidenceStudentMeta = {},
+): void {
+  const win = window.open('', '_blank', 'width=900,height=1100');
+  if (!win) {
+    window.print();
+    return;
+  }
+  const maxM = meta.selectedMark === 4 ? 4 : 6;
+  const qText = meta.selectedMark === 4 ? report.investigation.question4Mark : report.investigation.question6Mark;
+  const modelText = meta.selectedMark === 4 ? report.modelAnswer4Mark : report.examParagraph;
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  win.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GCSE Geography Evidence Sheet — ${esc(report.investigation.title)}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111; margin: 0; padding: 0; font-size: 11pt; line-height: 1.38; }
+    .header { border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
+    .header h1 { font-size: 15pt; margin: 0 0 4px 0; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; font-size: 10pt; margin-bottom: 6px; }
+    .eq { background: #f3f5f4; border-left: 4px solid #205b41; padding: 6px 10px; font-weight: 600; margin-bottom: 10px; }
+    .maps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .map-box { border: 1px solid #888; padding: 4px; text-align: center; }
+    .map-box img { width: 100%; height: 155px; object-fit: cover; display: block; }
+    .map-box b { display: block; font-size: 9.5pt; margin-bottom: 3px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9.5pt; }
+    th, td { border: 1px solid #666; padding: 4px 6px; text-align: left; }
+    th { background: #eaeaea; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; font-size: 9.5pt; }
+    .box { border: 1px solid #666; padding: 6px 8px; border-radius: 4px; }
+    .box h3 { margin: 0 0 4px 0; font-size: 10.5pt; }
+    .student-ans { min-height: 85px; white-space: pre-wrap; border: 1px solid #444; padding: 8px; margin-bottom: 10px; background: #fafafa; }
+    .teacher-box { border: 2px solid #111; padding: 8px 10px; margin-top: 8px; }
+    .teacher-box h3 { margin: 0 0 6px 0; display: flex; justify-content: space-between; font-size: 11pt; }
+    .line { border-bottom: 1px dotted #777; height: 22px; margin-bottom: 4px; }
+    @media print { .no-print { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="background:#183529;color:#fff;padding:8px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+    <span>Clean A4 Classroom Print View — Ready for Printer or "Save as PDF"</span>
+    <button onclick="window.print()" style="padding:6px 14px;font-weight:bold;cursor:pointer;">🖨 Print / Save PDF</button>
+  </div>
+  <div class="header">
+    <h1>GCSE Geography Investigation Evidence Sheet — ${esc(report.investigation.title)}</h1>
+    <div class="meta-grid">
+      <div><b>Student Name:</b> ${esc(meta.studentName?.trim() || '______________________')}</div>
+      <div><b>Class / Set:</b> ${esc(meta.studentClass?.trim() || '____________')}</div>
+      <div><b>World & Duration:</b> ${esc(report.worldName)} (${esc(report.elapsedText)})</div>
+    </div>
+  </div>
+  <div class="eq">
+    <div>Enquiry Question: ${esc(report.investigation.question)}</div>
+    <div style="font-weight:normal;font-size:9.5pt;margin-top:3px;"><b>Prediction:</b> ${esc(report.hypothesis)} ${meta.predictionWhy?.trim() ? `— <i>Because: ${esc(meta.predictionWhy.trim())}</i>` : ''}</div>
+  </div>
+  <div class="maps">
+    <div class="map-box">
+      <b>1. BEFORE (Baseline Landscape)</b>
+      ${beforeImgUrl ? `<img src="${beforeImgUrl}" alt="Before map" />` : '<div style="height:155px;display:flex;align-items:center;justify-content:center;">Baseline snapshot</div>'}
+    </div>
+    <div class="map-box">
+      <b>2. AFTER (Observed Landscape & Landforms)</b>
+      ${afterImgUrl ? `<img src="${afterImgUrl}" alt="After map" />` : '<div style="height:155px;display:flex;align-items:center;justify-content:center;">Observed snapshot</div>'}
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr><th>Measured Indicator (SI Units)</th><th>Before</th><th>After</th><th>Measured Change (Δ)</th></tr>
+    </thead>
+    <tbody>
+      ${report.metrics.map((m) => `<tr><td><b>${esc(m.label)}</b></td><td>${esc(m.before)}</td><td>${esc(m.after)}</td><td><b>${esc(m.change)}</b></td></tr>`).join('')}
+    </tbody>
+  </table>
+  <div class="two-col">
+    <div class="box">
+      <h3>Annotated Landforms Observed</h3>
+      <ul style="margin:0;padding-left:18px;">
+        ${report.annotatedLandforms.map((l) => `<li>${esc(l)}</li>`).join('')}
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Physical Process Sequence</h3>
+      <ol style="margin:0;padding-left:18px;">
+        ${report.processSequence.map((s) => `<li>${esc(s.replace(/^\d+\.\s*/, ''))}</li>`).join('')}
+      </ol>
+    </div>
+  </div>
+  <div>
+    <b>Exam Question (${maxM} marks):</b> ${esc(qText)}
+  </div>
+  <div class="student-ans">${esc(meta.studentExplanation?.trim() || '')}</div>
+  <div class="box" style="margin-bottom:8px;font-size:9pt;background:#f7faf8;">
+    <b>Model GCSE Reference Answer (Key terms: ${esc(report.vocabularyUsed.join(', '))}):</b><br/>
+    ${esc(modelText)}
+  </div>
+  <div class="teacher-box">
+    <h3><span>Teacher Feedback (WWW / EBI)</span><span>Mark: ${esc(meta.teacherMark?.trim() || `____ / ${maxM}`)}</span></h3>
+    ${
+      meta.teacherFeedback?.trim()
+        ? `<div>${esc(meta.teacherFeedback.trim())}</div>`
+        : `<div class="line"><b>WWW:</b> </div><div class="line"><b>EBI:</b> </div>`
+    }
+  </div>
+</body>
+</html>`);
+  win.document.close();
 }
