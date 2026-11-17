@@ -152,6 +152,22 @@ export class GlacierSim {
   maxSlideMPerYr = 0;
   private qx: Float64Array;
   private qy: Float64Array;
+  private h0Buf: Float64Array;
+  private rhsBuf: Float64Array;
+  private diagBuf: Float64Array;
+  private fqBuf: Float64Array;
+  private outBuf: Float64Array;
+  private qcBuf: Float64Array;
+  private limBuf: Float64Array;
+  private dIceBuf: Float64Array;
+  private dDebBuf: Float64Array;
+  private ubBuf: Float64Array;
+  private coupleTmpBuf: Float64Array;
+  private cgXBuf: Float64Array;
+  private cgRBuf: Float64Array;
+  private cgZvBuf: Float64Array;
+  private cgPvBuf: Float64Array;
+  private cgApBuf: Float64Array;
 
   constructor(
     private world: WorldState,
@@ -161,6 +177,22 @@ export class GlacierSim {
     const n = world.width * world.height;
     this.qx = new Float64Array(n);
     this.qy = new Float64Array(n);
+    this.h0Buf = new Float64Array(n);
+    this.rhsBuf = new Float64Array(n);
+    this.diagBuf = new Float64Array(n);
+    this.fqBuf = new Float64Array(2 * n);
+    this.outBuf = new Float64Array(n);
+    this.qcBuf = new Float64Array(n);
+    this.limBuf = new Float64Array(n);
+    this.dIceBuf = new Float64Array(n);
+    this.dDebBuf = new Float64Array(n);
+    this.ubBuf = new Float64Array(n);
+    this.coupleTmpBuf = new Float64Array(n);
+    this.cgXBuf = new Float64Array(n);
+    this.cgRBuf = new Float64Array(n);
+    this.cgZvBuf = new Float64Array(n);
+    this.cgPvBuf = new Float64Array(n);
+    this.cgApBuf = new Float64Array(n);
     this.ledger = this.emptyLedger();
   }
 
@@ -295,10 +327,11 @@ export class GlacierSim {
         continue;
       }
       // Solve (I − dt·∇·D∇) H' = H + dt·∇·(D∇z)  for H'.
-      const h0 = Float64Array.from(ice);
+      const h0 = this.h0Buf;
+      for (let i = 0; i < n; i++) h0[i] = ice[i];
       void correction;
-      const rhs = new Float64Array(n);
-      const diag = new Float64Array(n);
+      const rhs = this.rhsBuf;
+      const diag = this.diagBuf;
       for (let i = 0; i < n; i++) {
         const x = i % W;
         let r = h0[i];
@@ -319,9 +352,12 @@ export class GlacierSim {
       if (!this.lastSolveConverged) this.unconverged++;
       // Move ice with the fluxes implied by the implicit solution, as pairwise donor-limited
       // transfers: exactly conservative however loosely CG converged, and never negative.
-      const fq = new Float64Array(2 * n); // face volume (m of ice over a cell), + = towards +x / +y
-      const out = new Float64Array(n);
-      const qc = new Float64Array(n); // |q| at cell centres (m²/s), for sliding
+      const fq = this.fqBuf; // face volume (m of ice over a cell), + = towards +x / +y
+      fq.fill(0);
+      const out = this.outBuf;
+      out.fill(0);
+      const qc = this.qcBuf; // |q| at cell centres (m²/s), for sliding
+      qc.fill(0);
       const faceQ = (i: number, j: number, D: number, k: number) => {
         if (D <= 0) return;
         const q = (-D * (z[j] + hNew[j] - z[i] - hNew[i])) / cs; // m²/s, + = i → j
@@ -336,10 +372,12 @@ export class GlacierSim {
         if (x < W - 1) faceQ(i, i + 1, Dx[i], 2 * i);
         if (i + W < n) faceQ(i, i + W, Dy[i], 2 * i + 1);
       }
-      const lim = new Float64Array(n);
+      const lim = this.limBuf;
       for (let i = 0; i < n; i++) lim[i] = out[i] > ice[i] ? ice[i] / out[i] : 1;
-      const dIce = new Float64Array(n);
-      const dDeb = new Float64Array(n);
+      const dIce = this.dIceBuf;
+      dIce.fill(0);
+      const dDeb = this.dDebBuf;
+      dDeb.fill(0);
       const transfer = (from: number, to: number, v: number) => {
         const h = v * lim[from];
         if (h <= 0) return;
@@ -387,7 +425,8 @@ export class GlacierSim {
           edgeOut(y * W + W - 1, y * W + W - 2);
         }
       // Abrasion from the sliding speed u_b = f_s/(1+f_s) · |q| / H (optionally coupled across the glacier).
-      const ubField = new Float64Array(n);
+      const ubField = this.ubBuf;
+      ubField.fill(0);
       for (let i = 0; i < n; i++) if (ice[i] > MIN_SLIDE_ICE_M) ubField[i] = Math.min(MAX_SLIDE_MS, (slideShare * qc[i]) / ice[i]);
       if (p.slidingCoupling && p.slidingCoupling > 0) this.couple(ubField, Math.round(p.slidingCoupling));
       for (let i = 0; i < n; i++) {
@@ -440,7 +479,7 @@ export class GlacierSim {
     const H = w.height;
     const ice = w.iceThicknessM;
     const on = (i: number) => ice[i] > MIN_SLIDE_ICE_M;
-    const tmp = new Float64Array(f.length);
+    const tmp = this.coupleTmpBuf;
     for (let pass = 0; pass < 2; pass++) {
       for (let y = 0; y < H; y++)
         for (let x = 0; x < W; x++) {
@@ -517,11 +556,12 @@ export class GlacierSim {
         out[i] = r;
       }
     };
-    const x = Float64Array.from(x0);
-    const r = new Float64Array(n);
-    const zv = new Float64Array(n);
-    const pv = new Float64Array(n);
-    const ap = new Float64Array(n);
+    const x = this.cgXBuf;
+    for (let i = 0; i < n; i++) x[i] = x0[i];
+    const r = this.cgRBuf;
+    const zv = this.cgZvBuf;
+    const pv = this.cgPvBuf;
+    const ap = this.cgApBuf;
     mul(x, ap);
     let bn = 0;
     for (let i = 0; i < n; i++) {

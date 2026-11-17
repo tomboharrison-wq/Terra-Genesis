@@ -18,6 +18,7 @@ interface SlotRecord extends SlotInfo {
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let metaCache: Map<string, SlotInfo> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
   if (typeof indexedDB === 'undefined') return Promise.reject(new Error('IndexedDB unavailable in this browser'));
@@ -54,6 +55,7 @@ export async function saveSlot(info: Omit<SlotInfo, 'byteLength' | 'savedAtIso'>
   await tx('readwrite', (s) => s.put(rec));
   const { bytes: _omit, ...meta } = rec;
   void _omit;
+  metaCache?.set(meta.id, meta);
   return meta;
 }
 
@@ -63,14 +65,20 @@ export async function loadSlot(id: string): Promise<Uint8Array | null> {
 }
 
 export async function listSlots(): Promise<SlotInfo[]> {
+  if (metaCache) {
+    return Array.from(metaCache.values()).sort((a, b) => b.savedAtIso.localeCompare(a.savedAtIso));
+  }
   const all = (await tx('readonly', (s) => s.getAll())) as SlotRecord[];
-  return all
+  const list = all
     .map(({ bytes: _b, ...m }) => (void _b, m))
     .sort((a, b) => b.savedAtIso.localeCompare(a.savedAtIso));
+  metaCache = new Map(list.map((m) => [m.id, m]));
+  return list;
 }
 
 export async function deleteSlot(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
+  metaCache?.delete(id);
 }
 
 export async function storageEstimate(): Promise<{ usage: number; quota: number } | null> {

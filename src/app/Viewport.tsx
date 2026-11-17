@@ -77,14 +77,13 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
  */
 export function Viewport() {
   const ref = useRef<HTMLDivElement>(null);
-  const quality = useUi((s) => s.quality);
   const tool = useUi((s) => s.tool);
 
   useEffect(() => {
     const el = ref.current!;
     let scene: TerrainScene;
     try {
-      scene = new TerrainScene(el, engine, quality);
+      scene = new TerrainScene(el, engine, useUi.getState().quality);
     } catch (err) {
       useUi.getState().toast(`WebGL unavailable: ${(err as Error).message}`, 'error');
       return;
@@ -93,6 +92,8 @@ export function Viewport() {
     syncSim(); // backend (GPU/CPU) is known once the renderer exists
 
     let client: { x: number; y: number } | null = null;
+    let downClient: { x: number; y: number } | null = null;
+    let lockedHit: { xM: number; yM: number } | null = null;
     let brushing = false;
     let watering = false;
     let spaceHeld = false;
@@ -209,6 +210,8 @@ export function Viewport() {
       }
       el.setPointerCapture(e.pointerId);
       client = { x: e.clientX, y: e.clientY };
+      downClient = { x: e.clientX, y: e.clientY };
+      lockedHit = { xM: hit.xM, yM: hit.yM };
       const p = currentBrush();
       if (p) {
         brushing = true;
@@ -219,12 +222,17 @@ export function Viewport() {
     };
     const onMove = (e: PointerEvent) => {
       client = { x: e.clientX, y: e.clientY };
+      if (downClient && Math.hypot(e.clientX - downClient.x, e.clientY - downClient.y) >= 2) {
+        lockedHit = null;
+      }
     };
     const onUp = (e: PointerEvent) => {
       if (!brushing && !watering) return;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       if (brushing) engine.endStroke();
       brushing = watering = false;
+      downClient = null;
+      lockedHit = null;
     };
     const onLeave = () => {
       if (!brushing && !watering) {
@@ -236,18 +244,19 @@ export function Viewport() {
 
     scene.onFrame = (dt) => {
       const r = ringRadius();
-      const hit = client ? scene.pick(client.x, client.y) : null;
-      if (brushing && hit) engine.strokeStep(hit.xM, hit.yM, dt);
-      if (watering && hit) {
+      const rawHit = client ? scene.pick(client.x, client.y) : null;
+      const activeHit = (brushing || watering) && lockedHit ? lockedHit : rawHit;
+      if (brushing && activeHit) engine.strokeStep(activeHit.xM, activeHit.yM, dt);
+      if (watering && activeHit) {
         const ui = useUi.getState();
         const sign = ui.tool === 'water-drain' ? -1 : 1;
-        engine.addWater(hit.xM, hit.yM, ui.radiusM, sign * ui.waterRate * dt);
+        engine.addWater(activeHit.xM, activeHit.yM, ui.radiusM, sign * ui.waterRate * dt);
       }
-      scene.setBrush(!!(hit && r !== null && !spaceHeld), hit?.xM, hit?.yM, r ?? undefined);
+      scene.setBrush(!!(activeHit && r !== null && !spaceHeld), activeHit?.xM, activeHit?.yM, r ?? undefined);
       hoverTimer += dt;
       if (hoverTimer > 0.1) {
         hoverTimer = 0;
-        useUi.getState().set({ hover: hit ? hoverFrom(hit.xM, hit.yM) : null });
+        useUi.getState().set({ hover: rawHit ? hoverFrom(rawHit.xM, rawHit.yM) : null });
       }
     };
     scene.onStats = (s) => useUi.getState().set({ stats: s });
@@ -259,10 +268,20 @@ export function Viewport() {
         syncSim();
       }
     };
-    scene.setWaterView(useUi.getState().waterView);
-    scene.setTerrainOverlay(useUi.getState().terrainOverlay);
-    scene.setPins(useUi.getState().pins);
+    const initSt = useUi.getState();
+    scene.setWaterView(initSt.waterView);
+    scene.setTerrainOverlay(initSt.terrainOverlay);
+    scene.setPins(initSt.pins);
+    scene.setSun(initSt.sunAzimuthDeg, initSt.sunElevationDeg);
+    scene.setVerticalExaggeration(initSt.verticalExaggeration);
     const unsubView = useUi.subscribe((st, prev) => {
+      if (st.quality !== prev.quality) scene.setQuality(st.quality);
+      if (st.sunAzimuthDeg !== prev.sunAzimuthDeg || st.sunElevationDeg !== prev.sunElevationDeg) {
+        scene.setSun(st.sunAzimuthDeg, st.sunElevationDeg);
+      }
+      if (st.verticalExaggeration !== prev.verticalExaggeration) {
+        scene.setVerticalExaggeration(st.verticalExaggeration);
+      }
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
       if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
       if (st.pins !== prev.pins) scene.setPins(st.pins);
@@ -301,7 +320,7 @@ export function Viewport() {
       attachScene(null);
       scene.dispose();
     };
-  }, [quality]);
+  }, []);
 
   return <div ref={ref} className={`viewport ${tool === 'navigate' ? 'tool-nav' : 'tool-brush'}`} data-testid="viewport" />;
 }

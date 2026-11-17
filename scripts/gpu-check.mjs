@@ -1,10 +1,12 @@
 // Runs the CPU-vs-GPU water solver comparison in headless Chromium.
 // Usage: node scripts/gpu-check.mjs [baseUrl]   (needs `npm run preview` on :4173)
 import { chromium } from 'playwright-core';
+import { existsSync } from 'node:fs';
 
 const base = process.argv[2] ?? 'http://localhost:4173/';
+const customPath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium';
 const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
+  ...(existsSync(customPath) ? { executablePath: customPath } : {}),
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const page = await browser.newPage();

@@ -1,7 +1,7 @@
 # Project state
-Updated: 2026-11-03, M13-C04b
+Updated: 2026-11-17, M16 realism, performance & deployment upgrade
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis (pushed)
-Current milestone: M13 geological time (C04b done)
+Current milestone: M16 Terra Firma 2 visual/physical realism & save-load optimization (done)
 Current chunk: M13-C05b arbitrary-world meanders and estuary
 Status: READY
 

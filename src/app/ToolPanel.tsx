@@ -174,6 +174,42 @@ export function ToolPanel() {
           <button onClick={() => getScene()?.oblique()}>
             <Icon name="oblique" /> Oblique <kbd>O</kbd>
           </button>
+          <label className="field" style={{ marginTop: 8 }}>
+            <span className="field-label">
+              Sun elevation (raking light) <b>{s.sunElevationDeg}°</b>
+            </span>
+            <input
+              type="range"
+              min={8}
+              max={82}
+              value={s.sunElevationDeg}
+              onChange={(e) => s.set({ sunElevationDeg: +e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Sun azimuth <b>{s.sunAzimuthDeg}°</b>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={360}
+              value={s.sunAzimuthDeg}
+              onChange={(e) => s.set({ sunAzimuthDeg: +e.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">
+              Vertical exaggeration <b>{s.verticalExaggeration.toFixed(1)}×</b>
+            </span>
+            <input
+              type="range"
+              min={10}
+              max={30}
+              value={Math.round(s.verticalExaggeration * 10)}
+              onChange={(e) => s.set({ verticalExaggeration: +e.target.value / 10 })}
+            />
+          </label>
           <p className="hint small">Arrow keys / WASD pan. Trackpad: two-finger scroll zooms, pinch zooms, click-drag orbits.</p>
         </div>
       )}

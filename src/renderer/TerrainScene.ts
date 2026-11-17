@@ -145,8 +145,11 @@ export class TerrainScene {
   private hadSnow = false;
   private heightTex: DataTexture | null = null;
   private heightHalf = new Uint16Array(0);
-  private sky: Mesh;
+  private sky: Mesh<SphereGeometry, ReturnType<typeof createSkyMaterial>>;
   private sun: DirectionalLight;
+  private sunAzimuthDeg = 220;
+  private sunElevationDeg = 38;
+  private verticalExaggeration = 1;
   private brushRing: Line;
   private brushVisible = false;
   private profileLine: Line;
@@ -181,7 +184,7 @@ export class TerrainScene {
 
   /** Screen position (CSS px, relative to the canvas) of a point on the ground; null if behind the camera or off screen. */
   project(xM: number, yM: number, liftM = 0): { x: number; y: number } | null {
-    const z = sampleBilinear(this.engine.heightfield, xM, yM) + liftM;
+    const z = (sampleBilinear(this.engine.heightfield, xM, yM) + liftM) * this.verticalExaggeration;
     const v = new Vector3(xM, z, -yM).project(this.camera);
     if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return null;
     const el = this.renderer.domElement;
@@ -236,9 +239,10 @@ export class TerrainScene {
 
     this.terrainMat = new MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.93,
+      roughness: 0.9,
       metalness: 0,
     });
+    addTerrainDetail(this.terrainMat, 30, this.strataUniforms);
 
     const ringGeo = new BufferGeometry();
     ringGeo.setAttribute('position', new BufferAttribute(new Float32Array(129 * 3), 3));
@@ -374,8 +378,8 @@ export class TerrainScene {
     const ey = (H - 1) * cs;
     geo.boundingSphere = new Sphere(new Vector3(ex / 2, (zmin + zmax) / 2, -ey / 2), Math.hypot(ex, ey, zmax - zmin) / 2 + this.reliefM);
     this.strataUniforms.uLineW.value = Math.max(0.3, this.reliefM * 0.0015);
-    addTerrainDetail(this.terrainMat, Math.max(cs * 1.5, 6), this.strataUniforms);
-    this.terrainMat.needsUpdate = true;
+    this.strataUniforms.uDetailScale.value = 1 / Math.max(cs * 1.5, 6);
+    this.strataUniforms.uSeaLevel.value = w.seaLevelM;
     this.terrain = new Mesh(geo, this.terrainMat);
     this.terrain.castShadow = true;
     this.terrain.receiveShadow = true;
@@ -432,7 +436,7 @@ export class TerrainScene {
   }
 
   private updateHeightTexture() {
-    const s = this.engine.surface;
+    const s = this.displayZ.length === this.engine.surface.length ? this.displayZ : this.engine.surface;
     for (let i = 0; i < s.length; i++) this.heightHalf[i] = DataUtils.toHalfFloat(s[i]);
     if (this.heightTex) this.heightTex.needsUpdate = true;
   }
@@ -440,8 +444,9 @@ export class TerrainScene {
   /** Move the sea surface and refresh depth-dependent shading after a sea-level change. */
   private applySeaLevel() {
     const w = this.engine.world;
+    this.strataUniforms.uSeaLevel.value = w.seaLevelM;
     if (this.sea) {
-      this.sea.position.y = w.seaLevelM;
+      this.sea.position.y = w.seaLevelM * this.verticalExaggeration;
       this.sea.material.uniforms.uSeaLevel.value = w.seaLevelM;
     }
     let zmin = Infinity;
@@ -452,18 +457,26 @@ export class TerrainScene {
     this.updateSkirts();
   }
 
-  /** Perimeter cell indices, walked clockwise-agnostic as four edges. */
-  private perimeter(): number[] {
+  /** Perimeter segments split by wall so corners have crisp 90° normals. */
+  private perimeterWalls(): { cells: number[]; normal: [number, number, number] }[] {
     const { width: W, height: H } = this.engine.world;
-    const p: number[] = [];
-    for (let x = 0; x < W; x++) p.push(x); // south edge, y=0
-    for (let y = 1; y < H; y++) p.push(y * W + W - 1); // east
-    for (let x = W - 2; x >= 0; x--) p.push((H - 1) * W + x); // north
-    for (let y = H - 2; y >= 0; y--) p.push(y * W); // west
-    return p;
+    const south: number[] = [];
+    for (let x = 0; x < W; x++) south.push(x);
+    const east: number[] = [];
+    for (let y = 0; y < H; y++) east.push(y * W + W - 1);
+    const north: number[] = [];
+    for (let x = W - 1; x >= 0; x--) north.push((H - 1) * W + x);
+    const west: number[] = [];
+    for (let y = H - 1; y >= 0; y--) west.push(y * W);
+    return [
+      { cells: south, normal: [0, 0, 1] },
+      { cells: east, normal: [1, 0, 0] },
+      { cells: north, normal: [0, 0, -1] },
+      { cells: west, normal: [-1, 0, 0] },
+    ];
   }
 
-  /** Diorama side walls: earth skirt from surface to base, translucent water wall where sea > ground. */
+  /** Diorama side walls: true geological cross-section skirt from surface to base, translucent water wall where sea > ground. */
   private buildSkirts() {
     for (const m of [this.skirt, this.waterSkirt]) {
       if (m) {
@@ -472,35 +485,99 @@ export class TerrainScene {
         m.material.dispose();
       }
     }
-    const per = this.perimeter();
-    const n = per.length;
-    const mk = (withColour: boolean) => {
+    const walls = this.perimeterWalls();
+    const totalCols = walls.reduce((acc, w) => acc + w.cells.length, 0);
+    const mk = (withStrata: boolean) => {
       const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(new Float32Array(n * 2 * 3), 3));
-      if (withColour) g.setAttribute('color', new BufferAttribute(new Float32Array(n * 2 * 3), 3));
+      g.setAttribute('position', new BufferAttribute(new Float32Array(totalCols * 2 * 3), 3));
+      g.setAttribute('normal', new BufferAttribute(new Float32Array(totalCols * 2 * 3), 3));
+      if (withStrata) {
+        g.setAttribute('color', new BufferAttribute(new Float32Array(totalCols * 2 * 3), 3));
+        g.setAttribute('bedrockZ', new BufferAttribute(new Float32Array(totalCols * 2), 1));
+        g.setAttribute('strataB', new BufferAttribute(new Float32Array(totalCols * 2 * 3), 3));
+        g.setAttribute('strataM', new BufferAttribute(new Float32Array(totalCols * 2 * 4), 4));
+      }
       const idx: number[] = [];
-      for (let k = 0; k < n - 1; k++) {
-        const a = k * 2;
-        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      let offset = 0;
+      for (const wall of walls) {
+        const len = wall.cells.length;
+        for (let k = 0; k < len - 1; k++) {
+          const a = (offset + k) * 2;
+          idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        }
+        offset += len;
       }
       g.setIndex(idx);
       return g;
     };
-    this.skirt = new Mesh(
-      mk(true),
-      new MeshStandardMaterial({
-        vertexColors: true,
-        roughness: 1,
-        side: DoubleSide,
-      }),
-    );
+    const skirtMat = new MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.92,
+      side: DoubleSide,
+    });
+    const strataUniforms = this.strataUniforms;
+    skirtMat.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, strataUniforms);
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+attribute float bedrockZ;
+attribute vec3 strataB;
+attribute vec4 strataM;
+varying float vSkirtY;
+varying float vBedrockZ;
+varying vec3 vSkirtStrataB;
+flat varying vec4 vSkirtStrataM;`,
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+vSkirtY = (modelMatrix * vec4(transformed, 1.0)).y;
+vBedrockZ = bedrockZ;
+float baseFloor = -1e5;
+vSkirtStrataB = vec3(
+  strataB.x < -1e6 ? baseFloor : strataB.x,
+  strataB.y < -1e6 ? baseFloor : strataB.y,
+  strataB.z < -1e6 ? baseFloor : strataB.z
+);
+vSkirtStrataM = strataM;`,
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+varying float vSkirtY;
+varying float vBedrockZ;
+varying vec3 vSkirtStrataB;
+flat varying vec4 vSkirtStrataM;
+uniform vec3 uMatCol[8];
+uniform float uLineW;`,
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+{
+  if (vSkirtY <= vBedrockZ && vSkirtStrataM.x < 200.0) {
+    float y = vSkirtY;
+    float m = vSkirtStrataM.x;
+    if (y < vSkirtStrataB.x) { m = vSkirtStrataM.y; if (y < vSkirtStrataB.y) { m = vSkirtStrataM.z; if (y < vSkirtStrataB.z) m = vSkirtStrataM.w; } }
+    vec3 rock = uMatCol[ clamp(int(m + 0.5), 0, 7) ] * 0.78;
+    diffuseColor.rgb = mix(diffuseColor.rgb, rock, 0.85);
+    float dl = min(abs(y - vBedrockZ), min(abs(y - vSkirtStrataB.x), min(abs(y - vSkirtStrataB.y), abs(y - vSkirtStrataB.z))));
+    diffuseColor.rgb *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, uLineW * 1.4, dl));
+  }
+}`,
+        );
+    };
+    this.skirt = new Mesh(mk(true), skirtMat);
     this.waterSkirt = new Mesh(
       mk(false),
       new MeshStandardMaterial({
-        color: 0x1b5a86,
+        color: 0x16537e,
         transparent: true,
-        opacity: 0.72,
-        roughness: 0.2,
+        opacity: 0.76,
+        roughness: 0.18,
         side: DoubleSide,
         depthWrite: false,
       }),
@@ -516,33 +593,71 @@ export class TerrainScene {
     if (!this.skirt || !this.waterSkirt) return;
     const w = this.engine.world;
     const z = this.engine.surface;
+    const bed = w.bedrockElevationM;
     const cs = w.cellSizeM;
-    const per = this.perimeter();
+    const walls = this.perimeterWalls();
     const sp = this.skirt.geometry.getAttribute('position') as BufferAttribute;
+    const sn = this.skirt.geometry.getAttribute('normal') as BufferAttribute;
     const sc = this.skirt.geometry.getAttribute('color') as BufferAttribute;
+    const sbz = this.skirt.geometry.getAttribute('bedrockZ') as BufferAttribute;
+    const ssb = this.skirt.geometry.getAttribute('strataB') as BufferAttribute;
+    const ssm = this.skirt.geometry.getAttribute('strataM') as BufferAttribute;
     const wp = this.waterSkirt.geometry.getAttribute('position') as BufferAttribute;
-    const top = new Color(0x5b4a37);
-    const bottom = new Color(0x2c241c);
-    per.forEach((i, k) => {
-      const x = (i % w.width) * cs;
-      const y = Math.floor(i / w.width) * cs;
-      const g = Math.max(z[i], this.baseM);
-      sp.setXYZ(k * 2, x, g, -y);
-      sp.setXYZ(k * 2 + 1, x, this.baseM, -y);
-      sc.setXYZ(k * 2, top.r, top.g, top.b);
-      sc.setXYZ(k * 2 + 1, bottom.r, bottom.g, bottom.b);
-      const waterTop = Math.max(w.seaLevelM, g);
-      wp.setXYZ(k * 2, x, waterTop, -y);
-      wp.setXYZ(k * 2 + 1, x, g, -y);
-    });
-    sp.needsUpdate = sc.needsUpdate = wp.needsUpdate = true;
-    this.skirt.geometry.computeVertexNormals();
+    const wn = this.waterSkirt.geometry.getAttribute('normal') as BufferAttribute;
+    const top = new Color(0x6e5a42);
+    const bottom = new Color(0x332a21);
+    let k = 0;
+    for (const wall of walls) {
+      const [nx, ny, nz] = wall.normal;
+      for (const i of wall.cells) {
+        const x = (i % w.width) * cs;
+        const y = Math.floor(i / w.width) * cs;
+        const g = Math.max(z[i], this.baseM);
+        const bz = Math.max(bed[i], this.baseM);
+        const v0 = k * 2;
+        const v1 = v0 + 1;
+        sp.setXYZ(v0, x, g, -y);
+        sp.setXYZ(v1, x, this.baseM, -y);
+        sn.setXYZ(v0, nx, ny, nz);
+        sn.setXYZ(v1, nx, ny, nz);
+        sc.setXYZ(v0, top.r, top.g, top.b);
+        sc.setXYZ(v1, bottom.r, bottom.g, bottom.b);
+        sbz.setX(v0, bz);
+        sbz.setX(v1, bz);
+        const b0 = STRATA_BOUNDS > 0 ? w.strataBoundsM[i * STRATA_BOUNDS] : -1e9;
+        const b1 = STRATA_BOUNDS > 1 ? w.strataBoundsM[i * STRATA_BOUNDS + 1] : -1e9;
+        const b2 = STRATA_BOUNDS > 2 ? w.strataBoundsM[i * STRATA_BOUNDS + 2] : -1e9;
+        ssb.setXYZ(v0, b0, b1, b2);
+        ssb.setXYZ(v1, b0, b1, b2);
+        const m0 = w.strataMaterial[i * STRATA_LAYERS];
+        const m1 = w.strataMaterial[i * STRATA_LAYERS + Math.min(1, STRATA_LAYERS - 1)];
+        const m2 = w.strataMaterial[i * STRATA_LAYERS + Math.min(2, STRATA_LAYERS - 1)];
+        const m3 = w.strataMaterial[i * STRATA_LAYERS + Math.min(3, STRATA_LAYERS - 1)];
+        ssm.setXYZW(v0, m0, m1, m2, m3);
+        ssm.setXYZW(v1, m0, m1, m2, m3);
+        const waterTop = Math.max(w.seaLevelM, g);
+        wp.setXYZ(v0, x, waterTop, -y);
+        wp.setXYZ(v1, x, g, -y);
+        wn.setXYZ(v0, nx, ny, nz);
+        wn.setXYZ(v1, nx, ny, nz);
+        k++;
+      }
+    }
+    sp.needsUpdate = sn.needsUpdate = sc.needsUpdate = sbz.needsUpdate = ssb.needsUpdate = ssm.needsUpdate = wp.needsUpdate = wn.needsUpdate = true;
+  }
+
+  private sunDirectionVector(): Vector3 {
+    const az = (this.sunAzimuthDeg * Math.PI) / 180;
+    const el = (this.sunElevationDeg * Math.PI) / 180;
+    const cosEl = Math.cos(el);
+    return new Vector3(Math.sin(az) * cosEl, Math.sin(el), Math.cos(az) * cosEl).normalize();
   }
 
   private configureLightsAndFog(ex: number, ey: number) {
     const size = Math.max(ex, ey);
     const c = new Vector3(ex / 2, 0, -ey / 2);
-    this.sun.position.copy(c).add(new Vector3(-0.55, 0.62, 0.45).normalize().multiplyScalar(size * 1.5));
+    const sunDir = this.sunDirectionVector();
+    this.sun.position.copy(c).addScaledVector(sunDir, size * 1.5);
     this.sun.target.position.copy(c);
     const sc = this.sun.shadow.camera;
     const half = size * 0.75;
@@ -553,20 +668,67 @@ export class TerrainScene {
     sc.near = size * 0.2;
     sc.far = size * 3.5;
     sc.updateProjectionMatrix();
-    this.scene.fog = new Fog(SKY_HORIZON, size * 1.2, size * 5);
+    this.scene.fog = new Fog(SKY_HORIZON, size * 0.85, size * 4.2);
     this.camera.near = Math.max(0.5, size / 4000);
     this.camera.far = size * 20;
     this.camera.updateProjectionMatrix();
     this.controls.minDistance = Math.max(20, this.engine.world.cellSizeM * 3);
     this.controls.maxDistance = size * 4;
     this.sky.scale.setScalar(size * 9);
+    const dirArr = sunDir.toArray() as [number, number, number];
+    this.strataUniforms.uSunDir.value = dirArr;
+    this.sky.material.uniforms.uSunDir.value = dirArr;
     if (this.sea) {
       const u = this.sea.material.uniforms;
-      u.uFogNear.value = size * 1.2;
-      u.uFogFar.value = size * 5;
-      u.uSunDir.value = this.sun.position.clone().sub(c).normalize().toArray();
+      u.uFogNear.value = size * 0.85;
+      u.uFogFar.value = size * 4.2;
+      u.uSunDir.value = dirArr;
     }
-    this.waterLayer?.setFog(size * 1.2, size * 5, this.sun.position.clone().sub(c).normalize().toArray(), Math.max(0.2, this.reliefM * 0.0008));
+    this.waterLayer?.setFog(size * 0.85, size * 4.2, dirArr, Math.max(0.2, this.reliefM * 0.0008));
+  }
+
+  /** Set sun azimuth (degrees clockwise from north/south) and elevation (5°..85°). */
+  setSun(azimuthDeg: number, elevationDeg: number) {
+    this.sunAzimuthDeg = azimuthDeg;
+    this.sunElevationDeg = Math.max(5, Math.min(85, elevationDeg));
+    const w = this.engine.world;
+    this.configureLightsAndFog((w.width - 1) * w.cellSizeM, (w.height - 1) * w.cellSizeM);
+  }
+
+  getSun(): { azimuthDeg: number; elevationDeg: number } {
+    return { azimuthDeg: this.sunAzimuthDeg, elevationDeg: this.sunElevationDeg };
+  }
+
+  /** Set 3D vertical exaggeration (1.0 .. 3.0) without mutating underlying physical elevations. */
+  setVerticalExaggeration(ve: number) {
+    const clamped = Math.max(1, Math.min(3, ve));
+    if (Math.abs(clamped - this.verticalExaggeration) < 1e-3) return;
+    this.verticalExaggeration = clamped;
+    for (const m of [this.terrain, this.skirt, this.waterSkirt, this.waterLayer?.mesh, this.trees?.group]) {
+      if (m) m.scale.y = clamped;
+    }
+    if (this.sea) this.sea.position.y = this.engine.world.seaLevelM * clamped;
+  }
+
+  getVerticalExaggeration(): number {
+    return this.verticalExaggeration;
+  }
+
+  /** Update rendering quality in-place without destroying the WebGL2 context or losing camera pose. */
+  setQuality(quality: Quality) {
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'high' ? 2 : quality === 'balanced' ? 1.5 : 1));
+    const wantShadows = quality !== 'performance';
+    if (this.renderer.shadowMap.enabled !== wantShadows) {
+      this.renderer.shadowMap.enabled = wantShadows;
+      this.terrainMat.needsUpdate = true;
+    }
+    const mapSz = quality === 'high' ? 4096 : 2048;
+    if (this.sun.shadow.mapSize.x !== mapSz) {
+      this.sun.shadow.mapSize.set(mapSz, mapSz);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.resize();
   }
 
   /** Recompute positions, normals and colours for cells in rect (plus 1-cell normal halo). */
@@ -626,6 +788,14 @@ export class TerrainScene {
           this.col,
           o,
         );
+        if (this.terrainOverlay === 'none') {
+          // Topographic cavity / curvature ambient occlusion: concave gullies & cliff bases darken, convex ridges brighten slightly
+          const lap = (z[y * W + xl] + z[y * W + xr] + z[yd * W + x] + z[yu * W + x]) * 0.25 - z[i];
+          const ao = lap > 0 ? 1 - 0.22 * Math.tanh(lap / (cs * 0.22)) : 1 + 0.06 * Math.tanh(-lap / (cs * 0.35));
+          this.col[o] *= ao;
+          this.col[o + 1] *= ao;
+          this.col[o + 2] *= ao;
+        }
         const ash = Math.min(w.tephraM[i], w.looseSedimentThicknessM[i]);
         if (ash > 0.005) {
           // Ash / cinder cover from the tephra share of the loose sediment (thin ash lets ground show).
@@ -928,8 +1098,10 @@ export class TerrainScene {
     const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     const o = new Vector3().setFromMatrixPosition(this.camera.matrixWorld);
     const d = new Vector3(ndc.x, ndc.y, 0.5).unproject(this.camera).sub(o).normalize();
-    // three → world: (x, -z, y)
-    return raycastHeightfield(this.engine.heightfield, [o.x, -o.z, o.y], [d.x, -d.z, d.y], this.camera.far);
+    const ve = this.verticalExaggeration;
+    // three → world: (x, -z, y / ve)
+    const dir = new Vector3(d.x, -d.z, d.y / ve).normalize();
+    return raycastHeightfield(this.engine.heightfield, [o.x, -o.z, o.y / ve], [dir.x, dir.y, dir.z], this.camera.far);
   }
 
   setBrush(visible: boolean, xM = 0, yM = 0, radiusM = this.brushRadius) {
@@ -943,11 +1115,12 @@ export class TerrainScene {
     const a = this.brushRing.geometry.getAttribute('position') as BufferAttribute;
     const hf = this.engine.heightfield;
     const lift = Math.max(0.5, this.reliefM * 0.004);
+    const ve = this.verticalExaggeration;
     for (let k = 0; k <= 128; k++) {
       const th = (k / 128) * Math.PI * 2;
       const x = this.brushCentre.x + Math.cos(th) * this.brushRadius;
       const y = this.brushCentre.y + Math.sin(th) * this.brushRadius;
-      a.setXYZ(k, x, sampleBilinear(hf, x, y) + lift, -y);
+      a.setXYZ(k, x, (sampleBilinear(hf, x, y) + lift) * ve, -y);
     }
     a.needsUpdate = true;
   }
@@ -1014,8 +1187,9 @@ export class TerrainScene {
     const hf = this.engine.heightfield;
     const h = Math.max(4, this.reliefM * 0.06);
     const size = Math.max(this.engine.world.cellSizeM * 3, this.camera.position.distanceTo(this.controls.target) * 0.035);
+    const ve = this.verticalExaggeration;
     for (const p of this.pins) {
-      const z = sampleBilinear(hf, p.xM, p.yM);
+      const z = sampleBilinear(hf, p.xM, p.yM) * ve;
       const a = p.stick.geometry.getAttribute('position') as BufferAttribute;
       a.setXYZ(0, p.xM, z, -p.yM);
       a.setXYZ(1, p.xM, z + h, -p.yM);
@@ -1030,11 +1204,12 @@ export class TerrainScene {
     const a = this.profileLine.geometry.getAttribute('position') as BufferAttribute;
     const hf = this.engine.heightfield;
     const lift = Math.max(0.5, this.reliefM * 0.004);
+    const ve = this.verticalExaggeration;
     for (let k = 0; k <= 128; k++) {
       const t = k / 128;
       const x = ax + (bx - ax) * t;
       const y = ay + (by - ay) * t;
-      a.setXYZ(k, x, sampleBilinear(hf, x, y) + lift, -y);
+      a.setXYZ(k, x, (sampleBilinear(hf, x, y) + lift) * ve, -y);
     }
     a.needsUpdate = true;
   }

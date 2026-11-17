@@ -342,6 +342,9 @@ interface UiState {
   rates: Record<BrushKind, number>;
   paintMaterialId: number;
   quality: Quality;
+  sunAzimuthDeg: number;
+  sunElevationDeg: number;
+  verticalExaggeration: number;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel?: string;
@@ -426,6 +429,9 @@ export const useUi = create<UiState>((set) => ({
   rates: { ...DEFAULT_RATES },
   paintMaterialId: 4,
   quality: 'balanced',
+  sunAzimuthDeg: 220,
+  sunElevationDeg: 38,
+  verticalExaggeration: 1,
   canUndo: false,
   canRedo: false,
   world: null,

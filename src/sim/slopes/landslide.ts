@@ -56,25 +56,32 @@ export function triggerLandslide(w: WorldState, surface: Float32Array, o: Landsl
     }
   const factor = (x: number, y: number) => (zone[(y - rect.y0) * rw + (x - rect.x0)] ? o.weakening : 1);
   let failed = 0;
-  const NB = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
+  const NB: readonly [number, number, number][] = [
+    [1, 0, 1],
+    [-1, 0, 1],
+    [0, 1, 1],
+    [0, -1, 1],
+    [1, 1, Math.SQRT2],
+    [-1, 1, Math.SQRT2],
+    [1, -1, Math.SQRT2],
+    [-1, -1, Math.SQRT2],
   ];
   for (let it = 0; it < o.iterations; it++) {
-    // Rock failure inside the zone.
+    // Rock failure inside the zone (8-neighbour isotropic check).
     for (let y = rect.y0; y < rect.y1; y++)
       for (let x = rect.x0; x < rect.x1; x++) {
         if (!zone[(y - rect.y0) * rw + (x - rect.x0)]) continue;
         const i = y * W + x;
-        let low = b[i];
-        for (const [dx, dy] of NB) {
+        const tc = (tanCliff[w.materialId[i]] ?? 1) * o.weakening;
+        let excess = 0;
+        for (const [dx, dy, dist] of NB) {
           const nx = x + dx;
           const ny = y + dy;
-          if (nx >= 0 && ny >= 0 && nx < W && ny < H) low = Math.min(low, b[ny * W + nx]);
+          if (nx >= 0 && ny >= 0 && nx < W && ny < H) {
+            const ex = b[i] - b[ny * W + nx] - cs * dist * tc;
+            if (ex > excess) excess = ex;
+          }
         }
-        const excess = b[i] - low - cs * (tanCliff[w.materialId[i]] ?? 1) * o.weakening;
         if (excess > 0) {
           const nb = Math.fround(b[i] - 0.25 * excess);
           const act = b[i] - nb;
@@ -85,20 +92,20 @@ export function triggerLandslide(w: WorldState, surface: Float32Array, o: Landsl
           refreshExposed(w, i);
         }
       }
-    // Debris slides: Gauss–Seidel pairwise transfers (each exactly conservative).
+    // Debris slides: 8-neighbour Gauss–Seidel pairwise transfers (each exactly conservative).
     for (let y = rect.y0; y < rect.y1; y++)
       for (let x = rect.x0; x < rect.x1; x++) {
         const i = y * W + x;
-        for (const [dx, dy] of NB) {
+        for (const [dx, dy, dist] of NB) {
           const nx = x + dx;
           const ny = y + dy;
           if (nx < rect.x0 || ny < rect.y0 || nx >= rect.x1 || ny >= rect.y1) continue;
           const j = ny * W + nx;
           const dz = surface[i] - surface[j];
           if (dz <= 0 || loose[i] <= 0) continue;
-          const excess = dz - cs * TAN_LOOSE * factor(x, y);
+          const excess = dz - cs * dist * TAN_LOOSE * factor(x, y);
           if (excess <= 0) continue;
-          const amt = Math.min(0.25 * excess, loose[i]);
+          const amt = Math.min((0.2 / dist) * excess, loose[i]);
           loose[i] -= amt;
           loose[j] += amt;
           surface[i] = b[i] + loose[i];

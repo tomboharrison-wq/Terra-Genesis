@@ -1,5 +1,22 @@
 # Changelog
 
+## M16 — Visual realism, coupled geomorphology, save/load speedup & Cloudflare/GitHub deployment
+
+- **3D Terrain, Water & Atmosphere Rendering**:
+  - Triplanar rock/soil micro-detail, analytical fragment normal mapping, and per-material PBR roughness (wet shoreline darkening/sheen, glacier ice speculars).
+  - Smooth noise-warped stratigraphy (`varying vec3 vTgStrataB`) eliminating sawtooth cliff triangle artifacts.
+  - Continuous diagonal river ribbons (fixing underground dry-vertex triangle clipping), Beer-Lambert spectral depth absorption, shallow caustics, and persistent lake capillary ripples.
+  - True 4-layer geological cross-section + soil horizon rendered on the 4 diorama block walls with crisp 90° corner normals.
+  - Topographic cavity/ridge ambient occlusion, Mie solar aureole sky shader, and interactive Sun Elevation, Sun Azimuth, and Vertical Exaggeration (1×–3×) sliders.
+  - Bilinear ground-clamped multi-tier trees + instanced talus boulders on steep scree slopes.
+- **Simulation Physics & Process Coupling**:
+  - 8-neighbour isotropic slope relaxation in generation settling (`settle.ts`) and landslides (`landslide.ts`), plus softened C0 ridged-noise alpine summits (`generate.ts`).
+  - Pre-allocated 16 `Float64Array` solver scratch buffers in `GlacierSim` (eliminating per-substep GC churn) and coupled glacial, coastal, and meander processes in Geological Time (`run.ts`).
+- **Performance & Cloudflare / GitHub Pages Deployment**:
+  - Eliminated save/load stalls by skipping `gl.readPixels` on discarded worlds (`detachGpu(false)`), caching compiled WebGL2 solver programs per GL context, attaching `addTerrainDetail` once at scene creation, updating `setQuality` in-place, and caching IndexedDB slot metadata.
+  - Locked stationary brush clicks against ray-intersection drift on deforming terrain.
+  - Added `CF_PAGES_COMMIT_SHA` and `GITHUB_SHA` build provenance, code-split `three` into a dedicated vendor chunk, and added `public/_headers` and `public/_redirects` for Cloudflare Pages and Netlify.
+
 ## M13-C04b — transport-limited geological deposition
 
 - Added an opt-in reduced ξ–q sediment-capacity law to ordinary geological-time rivers.

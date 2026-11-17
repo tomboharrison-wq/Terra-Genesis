@@ -65,8 +65,10 @@ export function runGeologic(
   glacial: GlacialGeo | null = null,
   coastal: CoastalGeo | null = null,
 ): GeoStepStats {
-  if (glacial && glacial.sim.params.enabled && geo.w.climate.enabled) return runGlacial(geo, years, p, maxStepYears, glacial);
-  if (coastal && geo.w.coast.wavesOn) return runCoastal(geo, years, p, maxStepYears, coastal);
+  if (glacial && glacial.sim.params.enabled && geo.w.climate.enabled) {
+    return runGlacial(geo, years, p, maxStepYears, glacial, coastal && geo.w.coast.wavesOn ? coastal : null);
+  }
+  if (coastal && geo.w.coast.wavesOn) return runCoastal(geo, years, p, maxStepYears, coastal, meander);
   if (!meander) return geo.run(years, p, maxStepYears);
   const w = geo.w;
   const tot = emptyGeoStats();
@@ -136,7 +138,14 @@ function mouthSeaCell(geo: LandscapeEvolution, m: MeanderState): number {
  * step ÷ ice time run). Rivers do not cut down under ice; hillslope processes (frost weathering,
  * creep, rockfall of over-steep walls) carry on everywhere.
  */
-function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxStepYears: number, g: GlacialGeo): GeoStepStats {
+function runGlacial(
+  geo: LandscapeEvolution,
+  years: number,
+  p: GeoParams,
+  maxStepYears: number,
+  g: GlacialGeo,
+  coastal: CoastalGeo | null = null,
+): GeoStepStats {
   const w = geo.w;
   const n = w.width * w.height;
   const tot = emptyGeoStats();
@@ -145,10 +154,15 @@ function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
   const outwash = new Float64Array(n);
   const sedimentIn = new Float64Array(n);
   const A = w.cellSizeM * w.cellSizeM;
+  const origCoupling = g.sim.params.slidingCoupling;
+  const origMaxErosion = g.sim.params.maxErosionMmYr;
+  if (origCoupling === undefined) g.sim.params.slidingCoupling = 3;
+  if (origMaxErosion === undefined) g.sim.params.maxErosionMmYr = 10;
   g.sim.outwash = outwash;
   g.sim.meltwaterShare = MELTWATER_SHARE;
   g.sim.moraine = g.moraine;
   g.sim.erosionRecord = g.eroded;
+  if (coastal) coastal.sim.coarseFraction = COARSE_FRACTION;
   while (left > 1e-9) {
     const dt = Math.min(left, GLACIAL_STEP_YEARS, maxStepYears);
     computeSurface(w, g.surface);
@@ -183,8 +197,26 @@ function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
     geo.fixed = null;
     geo.ice = null;
     geo.sedimentIn = null;
+    if (coastal) {
+      computeSurface(w, coastal.surface);
+      const L = coastal.sim.ledger;
+      const e0 = L.cliffEroded;
+      const f0 = L.exportedFines;
+      const coastYears = Math.min(dt, 200);
+      for (let t = 0; t < coastYears - 1e-9; ) {
+        const d = Math.min(COAST_STEP_YEARS, coastYears - t);
+        coastal.sim.run(d * YEAR_S, COAST_GEO_RATE * (dt / coastYears), 1);
+        coastal.sim.wearPlatform(d * (dt / coastYears), PLATFORM_WEAR_M_YR);
+        t += d;
+      }
+      tot.coastEroded += L.cliffEroded - e0;
+      tot.exported += L.exportedFines - f0;
+    }
     left -= dt;
   }
+  if (coastal) coastal.sim.coarseFraction = 1;
+  g.sim.params.slidingCoupling = origCoupling;
+  g.sim.params.maxErosionMmYr = origMaxErosion;
   g.sim.outwash = null;
   g.sim.meltwaterShare = 0;
   g.sim.moraine = null;
@@ -198,19 +230,51 @@ function runGlacial(geo: LandscapeEvolution, years: number, p: GeoParams, maxSte
  * Geological time on a coast: the landscape model (rivers, weathering, cliff-top collapse — over-steep
  * cliffs fail down to sea level) every few decades, and the coast model (wave attack down to a
  * wave-cut platform, foreshore attenuation, longshore drift, platform down-wearing) in short sub-steps
- * at its geological rate.
- * Only the coarse share of eroded cliff stays as beach / nearshore sediment; the fines are carried
- * offshore (off the map).
+ * at its geological rate, plus optional lowland river meandering.
  */
-function runCoastal(geo: LandscapeEvolution, years: number, p: GeoParams, maxStepYears: number, c: CoastalGeo): GeoStepStats {
+function runCoastal(
+  geo: LandscapeEvolution,
+  years: number,
+  p: GeoParams,
+  maxStepYears: number,
+  c: CoastalGeo,
+  meander: MeanderState | null = null,
+): GeoStepStats {
   const w = geo.w;
   const tot = emptyGeoStats();
   const L = c.sim.ledger;
   c.sim.coarseFraction = COARSE_FRACTION;
+  const fixed = meander ? new Uint8Array(w.width * w.height) : null;
   let left = years;
   while (left > 1e-9) {
     const dt = Math.min(left, COAST_LANDSCAPE_STEP, maxStepYears);
+    if (meander && fixed) {
+      fixed.fill(0);
+      for (const i of meander.mask) fixed[i] = 1;
+      geo.fixed = fixed;
+    }
     addGeoStats(tot, geo.run(dt, p, dt));
+    geo.fixed = null;
+    if (meander) {
+      let mt = 0;
+      while (mt < dt - 1e-9) {
+        const d = Math.min(MIGRATION_STEP_YEARS, dt - mt);
+        migrate(w, meander, d);
+        mt += d;
+        meander.sinceCarve += d;
+        if (meander.sinceCarve >= CARVE_EVERY_YEARS - 1e-9) {
+          const cv = carve(w, meander, meander.sinceCarve);
+          meander.sinceCarve = 0;
+          tot.supplied += cv.suppliedM3;
+          tot.bankEroded += cv.cutM3;
+          tot.pointBars += cv.barM3;
+          tot.overbank += cv.overbankM3;
+          const mouth = mouthSeaCell(geo, meander);
+          if (mouth >= 0) geo.depositAtSea(mouth, cv.exportM3, tot);
+          else tot.exported += cv.exportM3;
+        }
+      }
+    }
     computeSurface(w, c.surface);
     const e0 = L.cliffEroded;
     const f0 = L.exportedFines;

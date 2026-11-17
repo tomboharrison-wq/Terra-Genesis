@@ -407,9 +407,9 @@ export class Engine {
   }
 
   /** Sync GPU state to the CPU mirror and drop the GPU backend (e.g. renderer disposal). */
-  detachGpu(): void {
+  detachGpu(sync = true): void {
     if (this.gpu) {
-      if (!this.gpu.disposed) this.syncWater();
+      if (sync && !this.gpu.disposed) this.syncWater();
       this.gpu.dispose();
     }
     this.gpu = null;
@@ -871,7 +871,7 @@ export class Engine {
   replaceWorld(world: WorldState, keepCamera = false): void {
     this.stroke = null;
     const gl = this.gpuContext;
-    this.detachGpu();
+    this.detachGpu(false);
     this.gpuContext = gl;
     this.setWorld(world);
     this.history.clear();

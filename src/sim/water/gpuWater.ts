@@ -420,6 +420,8 @@ interface Prog {
   u: Map<string, WebGLUniformLocation | null>;
 }
 
+const programCache = new WeakMap<WebGL2RenderingContext, Map<string, Prog>>();
+
 type Pair = [WebGLTexture, WebGLTexture];
 
 export class GpuWater implements Stepper {
@@ -535,6 +537,13 @@ export class GpuWater implements Stepper {
 
   private program(fs: string): Prog {
     const gl = this.gl;
+    let map = programCache.get(gl);
+    if (!map) {
+      map = new Map();
+      programCache.set(gl, map);
+    }
+    const cached = map.get(fs);
+    if (cached && gl.isProgram(cached.p)) return cached;
     const sh = (type: number, src: string) => {
       const s = gl.createShader(type)!;
       gl.shaderSource(s, src);
@@ -543,11 +552,17 @@ export class GpuWater implements Stepper {
       return s;
     };
     const p = gl.createProgram()!;
-    gl.attachShader(p, sh(gl.VERTEX_SHADER, VS));
-    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    const vs = sh(gl.VERTEX_SHADER, VS);
+    const fsh = sh(gl.FRAGMENT_SHADER, fs);
+    gl.attachShader(p, vs);
+    gl.attachShader(p, fsh);
     gl.linkProgram(p);
+    gl.deleteShader(vs);
+    gl.deleteShader(fsh);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`Water program: ${gl.getProgramInfoLog(p)}`);
-    return { p, u: new Map() };
+    const prog: Prog = { p, u: new Map() };
+    map.set(fs, prog);
+    return prog;
   }
 
   private uni(pr: Prog, name: string) {
@@ -939,7 +954,6 @@ export class GpuWater implements Stepper {
     ])
       gl.deleteTexture(t);
     for (const fb of [...this.fbStateAcc, ...this.fbFlux, ...this.fbBed, ...this.fbPeak]) gl.deleteFramebuffer(fb);
-    for (const pr of [this.forcing, this.fluxProg, this.update, this.sediment, this.peakProg]) gl.deleteProgram(pr.p);
     gl.deleteVertexArray(this.vao);
   }
 }

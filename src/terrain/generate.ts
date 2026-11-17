@@ -223,14 +223,15 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
 
   'mountain-range': (c) => {
     const [wu, wv] = warp(c, 0.1);
-    // Range runs SW→NE.
+    // Range runs SW→NE. Soften C0 ridged-noise needle tips so summits form natural alpine crests.
     const along = (wu + wv) * 0.7071;
     const across = (wu - wv) * 0.7071 + 0.12 * c.n.fbm(along * 2, 0.5, 3);
     const band = Math.exp(-((across / 0.2) ** 2));
-    const ridge = c.n.ridged(wu * 3.5, wv * 3.5, 6);
+    const rawRidge = c.n.ridged(wu * 3.5, wv * 3.5, 5);
+    const ridge = rawRidge / (1 + 0.18 * rawRidge * rawRidge);
     const foot = 0.18 * smoothstep(-0.7, 0.2, across) * (0.5 + 0.5 * c.n.fbm(wu * 3, wv * 3, 4));
-    const e = 0.03 + foot + band * (0.35 + 0.75 * ridge) + 0.03 * c.n.fbm(wu * 12, wv * 12, 3) - 0.05 * smoothstep(0.2, 0.7, -across);
-    const mat = band > 0.55 ? CRYSTALLINE : band > 0.2 ? SANDSTONE : ridge > 0.6 ? SANDSTONE : MUDSTONE;
+    const e = 0.03 + foot + band * (0.35 + 0.78 * ridge) + 0.03 * c.n.fbm(wu * 12, wv * 12, 3) - 0.05 * smoothstep(0.2, 0.7, -across);
+    const mat = band > 0.55 ? CRYSTALLINE : band > 0.2 ? SANDSTONE : rawRidge > 0.6 ? SANDSTONE : MUDSTONE;
     return { e, mat };
   },
 
@@ -238,9 +239,10 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
     const [wu, wv] = warp(c, 0.12, 1.8);
     const d = Math.hypot(wu - 0.5, wv - 0.5);
     const mask = smoothstep(0.46, 0.08, d);
-    const ridge = c.n.ridged(wu * 3, wv * 3, 6);
-    const e = -0.3 + 0.38 * mask + mask * mask * (0.25 + 0.7 * ridge) + 0.04 * c.n.fbm(wu * 10, wv * 10, 4);
-    const mat = mask > 0.75 && ridge > 0.4 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
+    const rawRidge = c.n.ridged(wu * 3, wv * 3, 5);
+    const ridge = rawRidge / (1 + 0.16 * rawRidge * rawRidge);
+    const e = -0.3 + 0.38 * mask + mask * mask * (0.25 + 0.75 * ridge) + 0.04 * c.n.fbm(wu * 10, wv * 10, 4);
+    const mat = mask > 0.75 && rawRidge > 0.4 ? CRYSTALLINE : e > 0.15 ? SANDSTONE : MUDSTONE;
     return { e, mat };
   },
 
@@ -292,8 +294,9 @@ const shapes: Partial<Record<PresetId, ShapeFn>> = {
   continental: (c) => {
     const [wu, wv] = warp(c, 0.15, 1.5);
     const cont = c.n.fbm(wu * 1.6, wv * 1.6, 6) + 0.15;
-    const mount = c.n.ridged(wu * 2.5, wv * 2.5, 6) * smoothstep(0.1, 0.45, cont);
-    const e = cont < 0 ? cont * 0.8 : cont * 0.35 + mount * 0.75;
+    const rawMount = c.n.ridged(wu * 2.5, wv * 2.5, 5);
+    const mount = (rawMount / (1 + 0.16 * rawMount * rawMount)) * smoothstep(0.1, 0.45, cont);
+    const e = cont < 0 ? cont * 0.8 : cont * 0.35 + mount * 0.78;
     const mat = mount > 0.35 ? CRYSTALLINE : cont > 0.25 ? SANDSTONE : cont > 0.05 ? MUDSTONE : CLAY;
     return { e, mat };
   },

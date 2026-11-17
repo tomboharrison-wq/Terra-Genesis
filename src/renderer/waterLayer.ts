@@ -57,8 +57,8 @@ export class WaterLayer {
         uTime: { value: 0 },
         uMode: { value: 0 },
         uSunDir: { value: [0.5, 0.7, 0.3] },
-        uShallow: { value: new Color(0x5aa7a0) },
-        uDeep: { value: new Color(0x0f4a7a) },
+        uShallow: { value: new Color(0x4eb8ae) },
+        uDeep: { value: new Color(0x0b3d69) },
         uFogColor: { value: new Color(0xd2e2ee) },
         uFogNear: { value: 1e4 },
         uFogFar: { value: 1e5 },
@@ -162,30 +162,43 @@ varying vec3 vNormal2;
 varying vec3 vWorld;
 varying float vHide;
 
+float depthAt(ivec2 c) {
+  c = clamp(c, ivec2(0), uSize - 1);
+  return texelFetch(uState, c, 0).r;
+}
+
 float headAt(ivec2 c, float fallback) {
   c = clamp(c, ivec2(0), uSize - 1);
   vec4 g = texelFetch(uGround, c, 0);
   float z = g.r + g.g;
   float d = texelFetch(uState, c, 0).r;
-  return d > 0.01 && z >= uSea ? z + d : fallback;
+  return d > 0.004 && z >= uSea ? z + d : fallback;
 }
 
 void main() {
   ivec2 c = ivec2(int(round(position.x / uCs)), int(round(-position.z / uCs)));
   vec4 g = texelFetch(uGround, c, 0);
   vec4 s = texelFetch(uState, c, 0);
-  float d = s.r;
+  float d = max(s.r, 0.0);
   float z = g.r + g.g;
-  bool isSea = z < uSea;
-  bool wet = d > 0.01 && !isSea;
+  bool isSea = z < uSea && d <= 0.004;
+  bool wet = d > 0.004 && !isSea;
+  // Check 8-neighbourhood so dry bank vertices bordering a wet channel stay above the ground surface
+  // instead of diving underground and clipping diagonal river triangles into beaded diamonds.
+  float maxNbD = max(
+    max(max(depthAt(c + ivec2(1, 0)), depthAt(c - ivec2(1, 0))), max(depthAt(c + ivec2(0, 1)), depthAt(c - ivec2(0, 1)))),
+    max(max(depthAt(c + ivec2(1, 1)), depthAt(c + ivec2(-1, 1))), max(depthAt(c + ivec2(1, -1)), depthAt(c + ivec2(-1, -1))))
+  );
+  bool nearWet = wet || (maxNbD > 0.004 && !isSea);
+  float lift = max(0.05, uLift * 0.35);
   float h;
-  if (uMode == 0) h = wet ? z + d : z - max(0.3, uLift);
-  else h = z + max(d, 0.0) + uLift; // overlays drape over the ground
+  if (uMode == 0) h = nearWet ? z + d + lift : z - max(0.3, uLift);
+  else h = z + d + uLift;
   vDepth = isSea ? -1.0 : d;
-  vHide = isSea ? 1.0 : 0.0;
-  vConc = d > 0.01 ? g.b / d : 0.0;
+  vHide = (isSea || (!nearWet && uMode == 0)) ? 1.0 : 0.0;
+  vConc = d > 0.008 ? g.b / d : 0.0;
   vVel = s.gb;
-  float H = wet ? z + d : h;
+  float H = wet ? z + d : z;
   float hx = headAt(c + ivec2(1, 0), H) - headAt(c - ivec2(1, 0), H);
   float hy = headAt(c + ivec2(0, 1), H) - headAt(c - ivec2(0, 1), H);
   // world (x east, y north, z up) → three (x, z, -y)
@@ -214,13 +227,28 @@ float vnoise(vec2 p) {
 }
 vec3 ramp(float t, vec3 a, vec3 b, vec3 c) { return t < 0.5 ? mix(a, b, t * 2.0) : mix(b, c, t * 2.0 - 1.0); }
 
+float flowField(vec2 p, vec2 flow, float speed, float t) {
+  float ph0 = fract(t * 0.25);
+  float ph1 = fract(t * 0.25 + 0.5);
+  vec2 dir = speed > 1e-4 ? flow / speed : vec2(1.0, 0.0);
+  mat2 rot = mat2(dir.x, -dir.y, dir.y, dir.x);
+  vec2 q0 = rot * (p - flow * ph0 * 1.2) * vec2(0.35, 2.4);
+  vec2 q1 = rot * (p - flow * ph1 * 1.2) * vec2(0.35, 2.4);
+  float w0 = abs(ph0 - 0.5) * 2.0;
+  float adv = mix(vnoise(q0), vnoise(q1), w0);
+  // Isotropic capillary ripples so standing lakes and slow pools also shimmer
+  float cap = vnoise(p * 1.8 + vec2(t * 0.14, -t * 0.11)) * 0.55
+            + vnoise(p * 4.1 - vec2(t * 0.19, t * 0.16)) * 0.45;
+  float moving = smoothstep(0.03, 0.55, speed);
+  return mix(cap, adv * 0.7 + cap * 0.3, moving);
+}
+
 void main() {
   if (vHide > 0.5) discard;
   float d = vDepth;
   float speed = length(vVel);
   if (uMode == 1) {
     if (d < 0.005) discard;
-    // log depth 1 cm … 10 m
     float t = clamp(log(d / 0.01) / log(1e3), 0.0, 1.0);
     gl_FragColor = vec4(ramp(t, vec3(0.80, 0.93, 1.0), vec3(0.20, 0.55, 0.95), vec3(0.04, 0.12, 0.45)), 0.85);
     #include <colorspace_fragment>
@@ -233,39 +261,51 @@ void main() {
     #include <colorspace_fragment>
     return;
   }
-  if (d < 0.01) discard;
+  if (d < 0.005) discard;
+
   vec3 n = normalize(vNormal2);
-  // Flow streaks advected by the simulated velocity (world x east, y north → three x, -z).
   vec2 flow = vec2(vVel.x, -vVel.y);
   vec2 p = vWorld.xz * 0.08;
-  float ph0 = fract(uTime * 0.25);
-  float ph1 = fract(uTime * 0.25 + 0.5);
-  vec2 dir = speed > 1e-4 ? flow / speed : vec2(1.0, 0.0);
-  mat2 rot = mat2(dir.x, -dir.y, dir.y, dir.x);
-  vec2 q0 = rot * (p - flow * ph0 * 1.2) * vec2(0.35, 2.5);
-  vec2 q1 = rot * (p - flow * ph1 * 1.2) * vec2(0.35, 2.5);
-  float w0 = abs(ph0 - 0.5) * 2.0;
-  float streak = mix(vnoise(q0), vnoise(q1), w0);
-  float moving = smoothstep(0.05, 0.6, speed);
-  n = normalize(n + vec3((streak - 0.5) * 0.25 * moving, 0.0, (vnoise(q0.yx) - 0.5) * 0.25 * moving));
+  float eps = 0.25;
+  float h0 = flowField(p, flow, speed, uTime);
+  float hx = flowField(p + vec2(eps, 0.0), flow, speed, uTime) - h0;
+  float hz = flowField(p + vec2(0.0, eps), flow, speed, uTime) - h0;
+  float rippleAmp = mix(0.16, 0.34, smoothstep(0.05, 1.2, speed));
+  n = normalize(n + vec3(-hx / eps, 0.0, -hz / eps) * rippleAmp);
 
-  float depthT = smoothstep(0.0, 4.0, d);
-  vec3 col = mix(uShallow, uDeep, depthT);
-  // Turbidity from the simulated suspended-sediment concentration (volume fraction s/d).
-  float turb = smoothstep(0.0003, 0.01, vConc);
-  col = mix(col, vec3(0.55, 0.43, 0.28), turb * 0.85);
+  // Beer-Lambert exponential depth absorption
+  vec3 transmittance = exp(-vec3(0.55, 0.18, 0.07) * clamp(d, 0.0, 12.0));
+  vec3 col = mix(uDeep, uShallow, transmittance);
+
+  // Turbidity from simulated suspended-sediment concentration (volume fraction s/d)
+  float turb = smoothstep(0.0002, 0.009, vConc);
+  col = mix(col, vec3(0.56, 0.44, 0.29), turb * 0.86);
+
+  // Subtle caustics in clear shallow water
+  if (d < 2.5 && turb < 0.5) {
+    float c = smoothstep(0.58, 0.85, h0);
+    col += vec3(0.12, 0.18, 0.16) * c * (1.0 - turb * 2.0) * (1.0 - d / 2.5);
+  }
+
   vec3 v = normalize(cameraPosition - vWorld);
   vec3 l = normalize(uSunDir);
-  float diff = 0.55 + 0.45 * max(dot(n, l), 0.0);
-  float spec = pow(max(dot(reflect(-l, n), v), 0.0), 90.0) * 0.7;
-  float fres = pow(1.0 - max(dot(n, v), 0.0), 4.0);
-  col = col * diff + vec3(spec) + fres * vec3(0.55, 0.68, 0.8) * 0.3;
-  // Foam/whitewater where flow is fast relative to depth (Froude-like proxy).
+  vec3 hVec = normalize(l + v);
+  float diff = 0.56 + 0.44 * max(dot(n, l), 0.0);
+  float spec = pow(max(dot(n, hVec), 0.0), 140.0) * 0.85;
+  float fres = 0.02 + 0.98 * pow(1.0 - max(dot(n, v), 0.0), 4.5);
+  vec3 skyRefl = mix(vec3(0.48, 0.68, 0.86), vec3(0.82, 0.90, 0.96), pow(1.0 - max(n.y, 0.0), 2.0));
+  col = mix(col * diff, skyRefl, fres * 0.38) + vec3(1.0, 0.97, 0.90) * spec;
+
+  // Foam/whitewater where flow is supercritical/fast (Froude proxy) or breaking along shallow banks
   float froude = speed / sqrt(9.81 * max(d, 0.01));
-  float foam = smoothstep(0.8, 1.8, froude) * smoothstep(0.45, 0.85, streak) * smoothstep(0.5, 1.5, speed) * smoothstep(0.05, 0.3, d);
-  col = mix(col, vec3(0.93, 0.96, 0.97), foam * 0.8);
-  float alpha = mix(0.12, 0.92, smoothstep(0.01, 1.0, d));
-  alpha = max(alpha, foam * 0.9);
+  float foam = smoothstep(0.75, 1.7, froude) * smoothstep(0.42, 0.82, h0) * smoothstep(0.35, 1.3, speed) * smoothstep(0.01, 0.15, d);
+  col = mix(col, vec3(0.94, 0.97, 0.98), foam * 0.82);
+
+  // Feathered shoreline alpha so diagonal channels never look jagged
+  float edgeFeather = smoothstep(0.005, 0.032, d);
+  float depthOpacity = mix(0.28, 0.93, smoothstep(0.01, 1.2, d));
+  float alpha = edgeFeather * max(depthOpacity, foam * 0.9);
+
   float fogF = smoothstep(uFogNear, uFogFar, length(cameraPosition - vWorld));
   col = mix(col, uFogColor, fogF);
   gl_FragColor = vec4(col, alpha);

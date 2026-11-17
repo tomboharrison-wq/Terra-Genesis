@@ -1,11 +1,13 @@
 // Headless Chromium end-to-end check of the first functional demonstration (spec L).
 // Usage: node scripts/screenshot.mjs [baseUrl] [outDir]   (needs `npm run preview` running)
 import { chromium } from 'playwright-core';
+import { existsSync } from 'node:fs';
 
 const base = process.argv[2] ?? 'http://localhost:4173/';
 const out = process.argv[3] ?? 'tests/screenshots';
+const customPath = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium';
 const browser = await chromium.launch({
-  executablePath: process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium',
+  ...(existsSync(customPath) ? { executablePath: customPath } : {}),
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 const page = await browser.newPage({
