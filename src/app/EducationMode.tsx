@@ -191,6 +191,7 @@ export function LessonPanel() {
 export function LessonLabels() {
   const ed = useUi((s) => s.education);
   const labels = useUi((s) => s.lessonLabels);
+  const mapLabelsVisible = useUi((s) => s.mapLabelsVisible);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const scene = getScene();
@@ -201,20 +202,23 @@ export function LessonLabels() {
       // Place labels bottom-up; a label that would overlap one already placed is lifted on a longer
       // stem, so every label stays readable and still points at its exact spot.
       const placed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-      const items = labels.map((l, k) => ({
-        k,
-        p: scene.project(l.xM, l.yM, 0),
-        w: (kids[k] as HTMLElement | undefined)?.firstElementChild?.clientWidth ?? 120,
-      }));
+      const items = labels.map((l, k) => {
+        const span = (kids[k] as HTMLElement | undefined)?.firstElementChild as HTMLElement | undefined;
+        return {
+          k,
+          p: scene.project(l.xM, l.yM, 0),
+          w: span?.clientWidth ?? 120,
+          h: span?.clientHeight ?? (ed ? 36 : 32),
+        };
+      });
       items.sort((a, b) => (b.p?.y ?? 0) - (a.p?.y ?? 0));
-      for (const { k, p, w } of items) {
+      for (const { k, p, w, h } of items) {
         const el = kids[k] as HTMLElement | undefined;
         if (!el) continue;
         if (!p) {
           el.style.display = 'none';
           continue;
         }
-        const h = 36;
         let lift = 0;
         const box = () => ({
           x0: p.x - w / 2 - 4,
@@ -229,7 +233,7 @@ export function LessonLabels() {
             return b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0;
           })
         )
-          lift += h + 4;
+          lift += h + 6;
         placed.push(box());
         el.style.display = '';
         el.style.setProperty('--lift', `${lift}px`);
@@ -238,10 +242,10 @@ export function LessonLabels() {
     };
     place();
     return scene.addFrameListener(place);
-  }, [labels]);
-  if (ed ? !ed.labels : labels.length === 0) return null;
+  }, [labels, ed]);
+  if (ed ? !ed.labels : !mapLabelsVisible || labels.length === 0) return null;
   return (
-    <div className="lesson-labels" ref={ref} aria-hidden="false">
+    <div className={`lesson-labels ${ed ? 'classroom-labels' : 'sandbox-labels'}`} ref={ref} aria-hidden="false">
       {labels.map((l, k) => {
         const hideAns = l.answer && ed && !ed.answer;
         return (

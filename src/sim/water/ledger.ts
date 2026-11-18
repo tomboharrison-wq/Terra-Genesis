@@ -61,7 +61,7 @@ export function closureError(l: WaterLedger, stored: number): number {
 
 /** Correct tiny float32 depth drift while preserving the input/output ledger. */
 export function reconcileDepthMass(
-  depth: Float32Array,
+  depth: Float32Array | Float64Array,
   sea: Uint8Array,
   cellArea: number,
   expectedStoredM3: number,

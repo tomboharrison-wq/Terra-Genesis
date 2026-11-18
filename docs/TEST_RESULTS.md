@@ -1,5 +1,70 @@
 # Test results (latest first)
 
+## 2026-11-18 - M18-C11 full validation
+
+- Full unit suite: 318 tests across 58 files PASS after repairing one boreal ash-recovery threshold.
+- Strict typecheck and production build PASS.
+- Real Chrome GPU comparison: 12/12 PASS, including water, erosion, climate, snow, vegetation and hazards.
+- Full browser run: 62/64 checks initially passed. The two presentation failures were fixed, then focused Chrome reruns confirmed waterfall/gorge text, animated landforms and no console errors.
+- New export browser smoke: GLB had valid `glTF` magic and 3.9 MB payload; ten-second WebM was 1.5 MB; both Minecraft files downloaded; fixed-seed lesson link copied correctly.
+
+## 2026-11-18 - M18-C10 extended exports and lesson sharing
+
+- Export suite: 5 tests PASS, including mesh dimensions/axes/indices and Minecraft north-up height mapping.
+- GLB terrain payload uses every current world cell and real metre coordinates.
+- Strict typecheck and production build PASS.
+
+## 2026-11-18 - M18-C09 audio and classroom mute
+
+- Audio and accessibility suites: 4 tests PASS.
+- Master, effects, music, opt-in silence and classroom mute behaviour are regression-tested.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C08 camera exploration modes
+
+- Camera-path and M16 renderer suites: 15 tests PASS.
+- Flyover bounds, terrain clearance, look-ahead and cinematic path movement are regression-tested.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C07 classroom before and after view
+
+- Checkpoint suite: 4 tests PASS, including exact north-up comparison pixels and authoritative change summary.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C06 distinct physical biomes
+
+- Vegetation, biome and overlay suites: 16 tests PASS.
+- Dedicated classification fixture verifies all ten named biome classes.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C05 advanced landform sculpting
+
+- Brush suite: 14 tests PASS, covering all seven profiles, altitude limits, geology masks, undo and existing tools.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C04 interactive 3D waterfall
+
+- Guided river suite: 4 tests PASS, including solid overhang, pool, collapse-block and gorge geometry.
+- Strict typecheck and production build PASS.
+
+## 2026-11-17 - M18-C03 world-coupled detailed shoreline
+
+- Detailed shoreline, guided shoreline and main coast suites: 18 tests across 3 files PASS.
+- Synthetic bay test confirms real terrain cells both erode and build while loose-sediment volume is conserved.
+- Strict typecheck PASS.
+
+## 2026-11-17 - M18-C02 compensated long-run water precision
+
+- Water forcing, routing and engine integration: 27 tests across 3 files PASS.
+- Deep 1,000 m closed-lake fixture retained repeated 0.1 micrometre additions and closed the ledger below 1e-10.
+- Strict typecheck PASS.
+
+## 2026-11-17 - M18-C01 compact labels and scientific honesty
+
+- Targeted label, reliability and accessibility suite: 19 tests across 3 files PASS.
+- Strict typecheck and production build PASS.
+- Live visual check before the change confirmed that four 20 px one-line meander labels obscured most of the usable map.
+
 ## 2026-11-03 — M13-C04b transport-limited geological deposition
 
 - Added deterministic ordinary-world fan/floodplain acceptance: finite sediment capacity deposits excess load

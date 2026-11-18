@@ -106,6 +106,29 @@ describe('sculpt tools via Engine', () => {
     stroke(e, { kind: 'remove-sediment', radiusM: 60, rate: 10, hardness: 1 }, 1, 3);
     expect(e.world.looseSedimentThicknessM[idxC(e)]).toBe(0);
   });
+
+  it('advanced landform brush builds all seven authoritative terrain profiles', () => {
+    const kinds = ['ridge', 'valley', 'plateau', 'depression', 'slope', 'channel', 'embankment'] as const;
+    for (const kind of kinds) {
+      const e = flatEngine();
+      if (kind === 'plateau') stroke(e, { kind: 'raise', radiusM: 40, rate: 20, hardness: 0.8 }, 1, 4);
+      const before = e.world.bedrockElevationM.slice();
+      stroke(e, { kind: 'landform', landformKind: kind, directionDeg: 25, slopeDeg: 15, radiusM: 100, rate: 20, hardness: 0.2 }, 1, 10);
+      expect(e.world.bedrockElevationM.some((v, i) => Math.abs(v - before[i]) > 1e-4), kind).toBe(true);
+      expect(validateWorld(e.world), kind).toEqual([]);
+    }
+  });
+
+  it('landform altitude and geology masks limit edits', () => {
+    const e = flatEngine();
+    const c = idxC(e);
+    stroke(e, { kind: 'landform', landformKind: 'ridge', radiusM: 100, rate: 20, hardness: 0, minElevationM: 200 }, 1, 4);
+    expect(e.surface[c]).toBe(102);
+    stroke(e, { kind: 'landform', landformKind: 'ridge', radiusM: 100, rate: 20, hardness: 0, materialMask: 5 }, 1, 4);
+    expect(e.surface[c]).toBe(102);
+    stroke(e, { kind: 'landform', landformKind: 'ridge', radiusM: 100, rate: 20, hardness: 0, minElevationM: 0, maxElevationM: 150, materialMask: 0 }, 1, 4);
+    expect(e.surface[c]).toBeGreaterThan(102);
+  });
 });
 
 describe('undo / redo', () => {

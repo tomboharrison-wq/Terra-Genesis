@@ -9,11 +9,29 @@ import type { BrushParams } from '../tools/brush';
 import { slopeAt } from '../terrain/heightfield';
 import { materialById } from '../terrain/materials';
 import { MM_PER_H } from '../engine/world';
+import { BIOME_NAMES } from '../sim/vegetation/vegetationSim';
+import { playSfx } from './audio';
 
 function currentBrush(): BrushParams | null {
   const s = useUi.getState();
   if (!isBrushTool(s.tool)) return null;
-  return { kind: s.tool, radiusM: s.radiusM, rate: s.rates[s.tool], hardness: s.hardness, materialId: s.paintMaterialId };
+  return {
+    kind: s.tool,
+    radiusM: s.radiusM,
+    rate: s.rates[s.tool],
+    hardness: s.hardness,
+    materialId: s.paintMaterialId,
+    ...(s.tool === 'landform'
+      ? {
+          landformKind: s.landform.kind,
+          directionDeg: s.landform.directionDeg,
+          slopeDeg: s.landform.slopeDeg,
+          minElevationM: s.landform.minElevationM,
+          maxElevationM: s.landform.maxElevationM,
+          materialMask: s.landform.materialMask,
+        }
+      : {}),
+  };
 }
 
 /** Radius of the cursor ring for the active tool, or null if no ring. */
@@ -65,6 +83,7 @@ function hoverFrom(xM: number, yM: number): HoverInfo {
     ...(w.lavaDepthM[i] > 0 ? { lavaM: w.lavaDepthM[i], lavaC: w.lavaTempC[i] } : {}),
     ...(w.tephraM[i] > 0.001 ? { ashM: Math.min(w.tephraM[i], w.looseSedimentThicknessM[i]) } : {}),
     ...(w.vegCover[i] > 0.005 ? { vegPct: 100 * w.vegCover[i] } : {}),
+    ...(w.vegetation.enabled ? { biome: BIOME_NAMES[engine.vegetation.biome[i]] } : {}),
     ...(w.climate.enabled ? { temperatureC: engine.climate.temperatureC[i], rainHereMmH: (w.water.rainMPerS / MM_PER_H) * engine.climate.rainFactor[i] } : {}),
     isSea: engine.water.sea[i] === 1,
     ...overlayAt(i),
@@ -97,6 +116,7 @@ export function Viewport() {
     let brushing = false;
     let watering = false;
     let spaceHeld = false;
+    let pressure = 1;
     let hoverTimer = 0;
 
     const toolAllowed = (e?: { altKey: boolean }) => !spaceHeld && !(e?.altKey ?? false) && ringRadius() !== null;
@@ -108,6 +128,8 @@ export function Viewport() {
       e.stopPropagation();
       e.preventDefault();
       const ui = useUi.getState();
+      pressure = e.pointerType === 'pen' ? Math.max(0.05, e.pressure) : 1;
+      playSfx(ui.tool === 'water-add' || ui.tool === 'water-drain' || ui.tool === 'spring' ? 'water' : ui.tool === 'earthquake' || ui.tool === 'volcano' || ui.tool === 'meteor' || ui.tool === 'landslide' ? 'event' : 'tool');
       if (ui.tool === 'volcano') {
         const v = ui.volcano;
         if (v.mode === 'caldera') {
@@ -222,6 +244,7 @@ export function Viewport() {
     };
     const onMove = (e: PointerEvent) => {
       client = { x: e.clientX, y: e.clientY };
+      pressure = e.pointerType === 'pen' ? Math.max(0.05, e.pressure) : 1;
       if (downClient && Math.hypot(e.clientX - downClient.x, e.clientY - downClient.y) >= 2) {
         lockedHit = null;
       }
@@ -246,7 +269,7 @@ export function Viewport() {
       const r = ringRadius();
       const rawHit = client ? scene.pick(client.x, client.y) : null;
       const activeHit = (brushing || watering) && lockedHit ? lockedHit : rawHit;
-      if (brushing && activeHit) engine.strokeStep(activeHit.xM, activeHit.yM, dt);
+      if (brushing && activeHit) engine.strokeStep(activeHit.xM, activeHit.yM, dt * pressure);
       if (watering && activeHit) {
         const ui = useUi.getState();
         const sign = ui.tool === 'water-drain' ? -1 : 1;
@@ -276,6 +299,7 @@ export function Viewport() {
     scene.setVerticalExaggeration(initSt.verticalExaggeration);
     scene.setClouds(initSt.cloudsOn);
     scene.setContours(initSt.contoursOn);
+    scene.setCameraMode(initSt.cameraMode);
     const unsubView = useUi.subscribe((st, prev) => {
       if (st.quality !== prev.quality) scene.setQuality(st.quality);
       if (st.sunAzimuthDeg !== prev.sunAzimuthDeg || st.sunElevationDeg !== prev.sunElevationDeg) {
@@ -286,6 +310,7 @@ export function Viewport() {
       }
       if (st.cloudsOn !== prev.cloudsOn) scene.setClouds(st.cloudsOn);
       if (st.contoursOn !== prev.contoursOn) scene.setContours(st.contoursOn);
+      if (st.cameraMode !== prev.cameraMode) scene.setCameraMode(st.cameraMode);
       if (st.waterView !== prev.waterView) scene.setWaterView(st.waterView);
       if (st.terrainOverlay !== prev.terrainOverlay) scene.setTerrainOverlay(st.terrainOverlay);
       if (st.pins !== prev.pins) scene.setPins(st.pins);
@@ -330,7 +355,9 @@ export function Viewport() {
 }
 
 function labelFor(p: BrushParams): string {
-  return p.kind === 'paint' ? `Paint ${materialById(p.materialId ?? 0).name}` : p.kind.replace('-', ' ');
+  if (p.kind === 'paint') return `Paint ${materialById(p.materialId ?? 0).name}`;
+  if (p.kind === 'landform') return `Build ${p.landformKind ?? 'ridge'}`;
+  return p.kind.replace('-', ' ');
 }
 
 export function isTyping(e: KeyboardEvent): boolean {

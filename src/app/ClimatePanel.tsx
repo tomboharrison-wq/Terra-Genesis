@@ -111,7 +111,7 @@ export function ClimatePanel() {
           <input type="range" min={0} max={100} value={Math.round(Math.log10(v.yearsPerSimHour) * 33.3)} onChange={(e) => engine.setVegetationParams({ yearsPerSimHour: Math.max(1, Math.round(Math.pow(10, +e.target.value / 33.3))) })} />
         </label>
         <p className="hint small tight">
-          Plants cover {v.coverPct.toFixed(0)}% of the land ({v.forestPct.toFixed(0)}% forest). Treeline {Math.round(v.treelineM)} m (warmest month 6 °C).
+          Plants cover {v.coverPct.toFixed(0)}% of the land ({v.forestPct.toFixed(0)}% forest). Dominant biome: {v.dominantBiome}. Treeline {Math.round(v.treelineM)} m (warmest month 6 °C).
           They need soil, gentle slopes and over 150 mm of rain a year, and cut soil erosion by up to {Math.round(v.erosionShield * 100)}%.
           Trees are drawn as symbols, larger than life on coarse maps.
         </p>

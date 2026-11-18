@@ -62,11 +62,11 @@
 | M06-C04 | Vegetation: suitability, growth/dieback, erosion shield, trees | DONE |
 | M06-C03b | Guided U-shaped valley / corrie / arête cross-sections | DONE (as M10-C04 guided glacial lessons) |
 | M06-C03 | Glaciers: mass balance, implicit SIA flow, abrasion, debris + moraines, meltwater | DONE |
-| M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | TODO |
+| M02-C07 | Float64 (or compensated) water-depth accumulation: deep closed lakes drift ~% over simulated years | DONE - M18-C02 compensated CPU-authoritative mirror; Float32 render/save/GPU contract preserved |
 | M06-C02 | Snowpack (SWE) below 0 °C, degree-day melt, snow cover rendering | DONE |
 | M01-C08 | Mountain preset: soften needle peaks (pre-erosion / slope cap) | TODO |
 | M06-C01 | Climate: temperature, season, lapse rate, rain shadow, spatial rainfall/evaporation | DONE |
-| M05-C04c | Couple shoreline model to the world heightfield (bars/spits as real terrain) | TODO |
+| M05-C04c | Couple shoreline model to the world heightfield (bars/spits as real terrain) | DONE - M18-C03 samples a real sandy coast and conservatively redistributes authoritative loose sediment |
 | M05-C04b | One-line shoreline lab: spits, bay-mouth bars, lagoons, recurves | DONE |
 | M05-C06b | Arch lab rock types, wave climate, world coast, classroom scenarios | DONE |
 | M05-C06a | Coastal slump cycle (toe debris buttress, waves unload toe, repeat slumps) | DONE |

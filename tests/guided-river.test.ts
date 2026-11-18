@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { waterfallAt, waterfallGeometry, WATERFALL_DEFAULTS } from '../src/local/waterfall/model';
+import { waterfallAt, waterfallGeometry, waterfallSolidGeometry, WATERFALL_DEFAULTS } from '../src/local/waterfall/model';
 import { bendSection, CHANNEL_WIDTH_M, CUTOFF_Q, meanderAt, MEANDER_LENGTH_M } from '../src/local/meander/model';
 
 describe('M10-C02 guided river models', () => {
@@ -24,6 +24,17 @@ describe('M10-C02 guided river models', () => {
     expect(collapses).toBeGreaterThan(5);
     const g = waterfallGeometry(300);
     expect(g.gorge!.x1 - g.gorge!.x0).toBeCloseTo(g.state.retreatM, 6);
+  });
+
+  it('waterfall: the 3D model contains a real overhang, plunge pool, detached blocks and gorge walls', () => {
+    const growing = waterfallSolidGeometry(20);
+    expect(growing.cap.x1).toBeGreaterThan(growing.soft.x1);
+    expect(growing.cap.x1 - growing.soft.x1).toBeCloseTo(growing.state.overhangM, 8);
+    expect(growing.pool.depthM).toBeGreaterThan(0);
+    const mature = waterfallSolidGeometry(300);
+    expect(mature.state.blocks.length).toBeGreaterThan(0);
+    expect(mature.gorge).not.toBeNull();
+    expect(mature.gorge!.x1 - mature.gorge!.x0).toBeCloseTo(mature.state.retreatM, 8);
   });
 
   it('meander: bends grow and the neck narrows until it is cut off, leaving an oxbow and a shorter channel', () => {

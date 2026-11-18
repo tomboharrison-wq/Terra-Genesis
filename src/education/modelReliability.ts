@@ -18,9 +18,9 @@ export const MODEL_RELIABILITY: readonly ProcessReliability[] = [
   {
     topic: 'Surface Water & River Hydraulics',
     simulated:
-      '2D depth-averaged Shallow-Water Equations (virtual-pipe gravity flux + Manning bottom friction) running on WebGL2 GPU or CPU Float64 reference. Conserves volume to < 0.01% across rainfall, springs, infiltration, evaporation, and sea outfall.',
+      'A 2D depth-averaged local-inertial virtual-pipe solver with Manning bottom friction, running on WebGL2 GPU or the CPU reference path. Water inputs, outputs and stored volume are recorded in an explicit ledger.',
     simplified:
-      'Depth-averaged plan-view grid (no 3D vertical secondary/helicoidal velocity vectors inside the water column; sub-grid turbulence is represented by Manning roughness n = 0.035 s·m⁻¹/³).',
+      'Depth is rendered, saved and processed on the GPU as Float32. The CPU path keeps a compensated Float64 mirror so sub-Float32 changes in deep lakes are retained. This is not full 3D fluid dynamics; vertical secondary flow and turbulence are parameterised.',
     unitsAndTimescale: 'Depth h (m), flux Q (m³/s), speed v (m/s), rainfall (mm/h). Real-time seconds to days.',
     realWorldRange:
       'UK storm river speeds: 0.5–3.0 m/s; upland flash-flood discharge: 15–400 m³/s (e.g. River Tees at Barnard Castle / Boscastle 2004 ~180 m³/s).',
@@ -72,16 +72,15 @@ export const MODEL_RELIABILITY: readonly ProcessReliability[] = [
     equationSource: 'Culling (1960) diffusive hillslope creep; Heimsath et al. (1997) exponential soil production; Mohr–Coulomb pore-pressure slope stability.',
   },
   {
-    topic: 'Tectonics, Earthquakes, Volcanoes & Isostasy',
+    topic: 'Tectonics, Earthquakes & Volcanoes',
     simulated:
-      'Convergent, divergent, and transform plate boundaries, crustal folding of stratigraphic layers, Wells & Coppersmith (1994) fault rupture & slip scaling by moment magnitude M_w, Bingham viscoplastic lava flows (basalt vs andesite yield strength), Mastin (2009) explosive eruption columns & wind-advected tephra fallout, caldera ring-fault collapse, and flexural lithospheric isostatic rebound.',
+      'Convergent, divergent, and transform plate boundaries, crustal folding of stratigraphic layers, Wells & Coppersmith (1994) fault rupture and slip scaling, Bingham viscoplastic lava flows, explosive eruption columns, tephra fallout and caldera collapse.',
     simplified:
-      'Kinematic plate velocities prescribed by the user (mantle convection is not solved in 3D); volcanic eruptions use time-compressed rest intervals between eruptive pulses when building whole shield/composite cones.',
-    unitsAndTimescale: 'Convergence (mm/yr), magnitude M_w (4.0–8.5), lava viscosity (Pa·s), eruption rate (m³/s), isostatic rebound (m).',
+      'Plate velocities are prescribed and mantle convection is not solved in 3D. Lithospheric isostasy, flexure and thermal subsidence are not implemented. Whole-volcano builds compress the rest intervals between eruptive pulses.',
+    unitsAndTimescale: 'Convergence (mm/yr), magnitude M_w (4.0–8.5), lava viscosity (Pa·s), eruption rate (m³/s).',
     realWorldRange:
       'Hawaiian / Icelandic shield slopes: 2°–8°; Andean / Japanese composite stratovolcano slopes: 22°–33°; post-glacial isostatic uplift in Scotland: +1.0 to +2.0 mm/yr.',
-    equationSource:
-      'Wells & Coppersmith (1994) fault scaling; Mei et al. / Balmforth Bingham lava rheology; Mastin et al. (2009) volcanic plume-height scaling; Airy–Heiskanen / flexural isostasy.',
+    equationSource: 'Wells & Coppersmith (1994) fault scaling; Mei et al. / Balmforth Bingham lava rheology; Mastin et al. (2009) volcanic plume-height scaling.',
   },
 ];
 

@@ -86,6 +86,44 @@ export interface WaterfallGeometry {
   state: WaterfallState;
 }
 
+export interface WaterfallSolidGeometry {
+  /** Model width across the valley. */
+  widthM: number;
+  /** Resistant cap that projects beyond the undercut soft-rock face. */
+  cap: { x0: number; x1: number; z0: number; z1: number };
+  /** Main soft-rock mass below the cap. */
+  soft: { x0: number; x1: number; z0: number; z1: number };
+  /** Steep gorge walls left behind between the current and original fall positions. */
+  gorge: { x0: number; x1: number; channelWidthM: number; wallTopM: number } | null;
+  /** Plunge-pool hollow and water surface. */
+  pool: { x: number; lengthM: number; widthM: number; depthM: number };
+  state: WaterfallState;
+}
+
+/**
+ * Solid dimensions used by the interactive Three.js teaching view. This is deliberately derived
+ * from the same authoritative kinematic state as the long profile, so the visible overhang,
+ * detached blocks, plunge pool and gorge all change when the model advances.
+ */
+export function waterfallSolidGeometry(years: number, p: WaterfallParams = WATERFALL_DEFAULTS): WaterfallSolidGeometry {
+  const state = waterfallAt(years, p);
+  const face = state.lipX - state.overhangM;
+  const poolLengthM = 0.6 * p.heightM;
+  return {
+    widthM: 42,
+    cap: { x0: -120, x1: state.lipX, z0: p.heightM - p.capThicknessM, z1: p.heightM },
+    soft: { x0: -120, x1: face, z0: -0.9 * p.heightM, z1: p.heightM - p.capThicknessM },
+    gorge: state.retreatM > 1 ? { x0: state.lipX, x1: 0, channelWidthM: 15, wallTopM: p.heightM } : null,
+    pool: {
+      x: state.lipX + 0.15 * p.heightM,
+      lengthM: poolLengthM,
+      widthM: 13,
+      depthM: state.poolDepthM,
+    },
+    state,
+  };
+}
+
 export function waterfallGeometry(years: number, p: WaterfallParams = WATERFALL_DEFAULTS, xMin = -120, xMax = 60): WaterfallGeometry {
   const s = waterfallAt(years, p);
   const H = p.heightM;

@@ -154,6 +154,15 @@ input[type='range'] {
   width: 100%;
   accent-color: var(--scouts-yellow);
 }
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.landform-controls {
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--panel-border);
+}
 
 /* Top bar */
 .topbar {
@@ -371,6 +380,18 @@ input[type='range'] {
 .cam-buttons kbd {
   margin-left: auto;
 }
+.camera-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin: 5px 0;
+}
+.camera-modes button {
+  min-width: 0;
+  justify-content: center;
+  white-space: normal;
+  text-align: center;
+}
 .world-facts dl {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -488,6 +509,61 @@ input[type='range'] {
   justify-content: space-between;
   gap: 16px;
   margin-top: 8px;
+}
+.compare-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.compare-map {
+  position: relative;
+  margin: 0;
+  min-width: 0;
+  background: #0b1812;
+  border: 2px solid var(--panel-border);
+}
+.compare-map figcaption {
+  padding: 8px 10px;
+  background: var(--scouts-purple);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+.compare-map canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.compare-map > span {
+  position: absolute;
+  top: 46px;
+  right: 9px;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #111;
+  font-weight: 800;
+}
+.compare-facts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.compare-facts span {
+  padding: 8px;
+  border-radius: 7px;
+  background: rgba(255, 230, 39, 0.1);
+  color: var(--muted);
+}
+.compare-facts b {
+  display: block;
+  color: var(--scouts-yellow);
+}
+@media (max-width: 760px) {
+  .compare-split { grid-template-columns: 1fr; }
+  .compare-facts { grid-template-columns: repeat(2, 1fr); }
 }
 .preset-grid {
   display: grid;
@@ -1483,7 +1559,10 @@ table.summary td:last-child {
   left: 0;
   bottom: calc(18px + var(--lift, 0px));
   transform: translateX(-50%);
-  white-space: nowrap;
+  max-width: min(340px, 44vw);
+  white-space: normal;
+  text-align: center;
+  line-height: 1.18;
   background: rgba(12, 22, 17, 0.92);
   color: #fff;
   border: 2px solid var(--scouts-yellow);
@@ -1492,6 +1571,14 @@ table.summary td:last-child {
   font-size: 20px;
   font-weight: 700;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+.sandbox-labels .lesson-label span {
+  max-width: min(240px, 32vw);
+  border-width: 1px;
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 14px;
+  font-weight: 650;
 }
 .lesson-label::after {
   content: '';
@@ -1536,6 +1623,59 @@ table.summary td:last-child {
   flex: 1;
   width: 100%;
   height: 100%;
+}
+.waterfall-3d {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.waterfall-3d-host,
+.waterfall-3d-host canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.waterfall-legend {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  display: grid;
+  gap: 5px;
+  max-width: min(300px, 46%);
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: rgba(12, 22, 17, 0.86);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  pointer-events: none;
+}
+.waterfall-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.waterfall-legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: var(--scouts-yellow);
+}
+.waterfall-legend i.hard { background: #8c8984; }
+.waterfall-legend i.soft { background: #c8aa79; }
+.waterfall-legend i.water { background: #5ca3df; }
+.waterfall-status {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.84);
+  color: #1d1a16;
+  font-size: 13px;
+  font-weight: 650;
+  pointer-events: none;
 }
 .guided-note {
   font-size: 13px;

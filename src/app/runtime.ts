@@ -191,6 +191,7 @@ function syncSimInner() {
           erosionShield: v.erosionShield,
           coverPct: st.coverPct,
           forestPct: st.forestPct,
+          dominantBiome: st.dominantBiome,
           treelineM: w.seaLevelM + ((c.seaLevelTempC + c.seasonalAmpC - 6) / c.lapseRateCPerKm) * 1000,
         };
       })(),

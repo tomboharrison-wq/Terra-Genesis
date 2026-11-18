@@ -75,6 +75,16 @@ export const TOOLS: ToolDef[] = [
     rateMax: 50,
   },
   {
+    group: 'terrain',
+    id: 'landform',
+    label: 'Landform',
+    key: 'B',
+    hint: 'Builds oriented ridges, valleys, plateaux, depressions, slopes, channels and embankments into the real terrain.',
+    rateLabel: 'Strength (m/s)',
+    rateMin: 0.2,
+    rateMax: 300,
+  },
+  {
     group: 'water',
     id: 'water-add',
     label: 'Add water',

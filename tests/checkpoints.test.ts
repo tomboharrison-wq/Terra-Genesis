@@ -3,6 +3,7 @@ import { createWorld, setUniformStrata, MM_PER_H } from '../src/engine/world';
 import { Engine } from '../src/engine/engine';
 import { diffSummary, MAX_CHECKPOINTS } from '../src/engine/checkpoints';
 import { OVERLAYS, overlayById, prepareOverlay } from '../src/renderer/overlays';
+import { comparisonPixels } from '../src/app/BeforeAfterDialog';
 
 function engine() {
   const w = createWorld({ width: 40, height: 30, cellSizeM: 10, seed: 3, seaLevelM: -100 });
@@ -99,5 +100,18 @@ describe('M09-C03 checkpoints', () => {
     e.deleteCheckpoint(b.id);
     expect(e.compareCheckpoint).toBeNull();
     expect(OVERLAYS.find((o) => o.id === 'cp-ground')!.available(e)).toBe(false);
+  });
+
+  it('renders exact north-up before and after landscape pixels', () => {
+    const e = engine();
+    const cp = e.takeCheckpoint('before');
+    const before = comparisonPixels(cp.world, cp.surface);
+    e.world.bedrockElevationM[0] += 50;
+    e.surface[0] += 50;
+    const after = comparisonPixels(e.world, e.surface);
+    expect(before).toHaveLength(e.world.width * e.world.height * 4);
+    // Cell zero is the south-west cell and therefore appears in the final image row.
+    const o = ((e.world.height - 1) * e.world.width) * 4;
+    expect(Array.from(after.slice(o, o + 3))).not.toEqual(Array.from(before.slice(o, o + 3)));
   });
 });

@@ -1,11 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import { defaultOptions, generateWorld } from '../src/terrain/generate';
 import { compareClimate, spinUp } from '../src/terrain/biomes';
+import { BIOME_NAMES, classifyBiome, type BiomeClimate } from '../src/sim/vegetation/vegetationSim';
 
 const gen = (id: Parameters<typeof defaultOptions>[0], seed = 7) => generateWorld(defaultOptions(id, seed, 96));
 const stats = (w: ReturnType<typeof gen>) => spinUp(w, 0); // re-measure without adding ice
 
 describe('M06-C05 biome presets and "what if?" comparisons', () => {
+  it('classifies ten physically distinct climate and terrain biomes', () => {
+    const base: BiomeClimate = { meanTempC: 12, warmestTempC: 18, annualPrecipMm: 900, elevationM: 100, seaLevelM: 0, waterDepthM: 0, groundwaterM: 0, adjacentSea: false, iceM: 0 };
+    const samples: Partial<BiomeClimate>[] = [
+      { meanTempC: 25, warmestTempC: 30, annualPrecipMm: 2200 },
+      { meanTempC: 12, warmestTempC: 18, annualPrecipMm: 1000 },
+      { meanTempC: 12, warmestTempC: 18, annualPrecipMm: 500 },
+      { meanTempC: 24, warmestTempC: 30, annualPrecipMm: 900 },
+      { meanTempC: 25, warmestTempC: 32, annualPrecipMm: 100 },
+      { meanTempC: 4, warmestTempC: 14, annualPrecipMm: 600 },
+      { meanTempC: -4, warmestTempC: 8, annualPrecipMm: 400 },
+      { meanTempC: -2, warmestTempC: 2, elevationM: 1500, annualPrecipMm: 1000 },
+      { waterDepthM: 0.1 },
+      { meanTempC: 23, warmestTempC: 28, annualPrecipMm: 1200, elevationM: 2, adjacentSea: true },
+    ];
+    const ids = samples.map((s) => classifyBiome({ ...base, ...s }));
+    expect(ids).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(ids.map((id) => BIOME_NAMES[id])).toEqual([
+      'Tropical rainforest', 'Temperate forest', 'Grassland', 'Savanna', 'Desert', 'Boreal forest', 'Tundra', 'Alpine', 'Wetland', 'Mangrove / coastal',
+    ]);
+  });
   it('temperate valley: climate on, extensive forest, no ice', () => {
     const w = gen('temperate-valley');
     expect(w.climate.enabled).toBe(true);

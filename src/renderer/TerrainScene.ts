@@ -45,6 +45,8 @@ import { overlayById, prepareOverlay, type OverlayData, type OverlayId } from '.
 import { TreeLayer } from './treeLayer';
 import { CloudLayer } from './cloudLayer';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
+import { BIOME_COLOURS } from '../sim/vegetation/vegetationSim';
+import { automaticCameraPose, type CameraMode } from './cameraPaths';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
@@ -69,13 +71,11 @@ export const GEO_LAKE_MIN_M = 0.5;
 /** A channel starts where this much ground drains through a cell (m²; channel heads are typically 0.01–0.1 km²). */
 export const GEO_CHANNEL_AREA_M2 = 5e4;
 const ICE = new Color(0xcfe2ee);
-const GRASS = new Color(0x7f9a4a);
 const CMP_MORE = new Color(0x25b755);
 const B_CONV = new Color(0xed3f23);
 const B_DIV = new Color(0x006ddf);
 const B_TRANS = new Color(0xffe627);
 const CMP_LESS = new Color(0xa0522d);
-const FOREST = new Color(0x34552c);
 const ICE_DIRTY = new Color(0x8d8f8c);
 // Lava by temperature: cooled crust → dull red → orange → yellow-orange (eruption heat).
 const LAVA_CRUST = new Color(0x2a2422);
@@ -176,6 +176,8 @@ export class TerrainScene {
   private unsub: () => void;
   private stats: FrameStats = { fps: 0, frameMs: 0, triangles: 0 };
   private reliefM = 1;
+  private cameraMode: CameraMode = 'orbit';
+  private cameraPathTime = 0;
   /** Called every frame with clamped dt (s), before rendering. */
   onFrame: ((dt: number) => void) | null = null;
   private frameListeners = new Set<() => void>();
@@ -825,8 +827,8 @@ uniform float uLineW;`,
         }
         const vc = w.vegCover[i];
         if (vc > 0.02 && this.terrainOverlay === 'none' && z[i] >= sea) {
-          // Plant cover: grassland → forest green.
-          tmp.copy(GRASS).lerp(FOREST, vc);
+          // Climate-derived biome colour, blended by the physically simulated cover fraction.
+          tmp.setHex(BIOME_COLOURS[this.engine.vegetation.biome[i]] ?? BIOME_COLOURS[0]);
           const a = 0.8 * Math.min(1, vc * 1.5);
           this.col[o] += (tmp.r - this.col[o]) * a;
           this.col[o + 1] += (tmp.g - this.col[o + 1]) * a;
@@ -1060,6 +1062,7 @@ uniform float uLineW;`,
     if (this.brushVisible) this.updateBrushRing();
     if (this.profileEnds) this.updateProfileLine();
     if (this.pins.length) this.updatePins();
+    this.updateCameraPath(rawDt);
     this.controls.update();
     let shook: Vector3 | null = null;
     if (this.shakeT < 1.6) {
@@ -1106,6 +1109,25 @@ uniform float uLineW;`,
   captureView(): Promise<Blob> {
     this.renderer.render(this.scene, this.camera);
     return new Promise((resolve, reject) => this.renderer.domElement.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas capture failed'))), 'image/png'));
+  }
+
+  /** Record the live rendered canvas as a browser-native WebM video. */
+  recordVideo(seconds = 10, fps = 30): Promise<Blob> {
+    if (typeof MediaRecorder === 'undefined' || !this.renderer.domElement.captureStream) throw new Error('Video recording is not supported by this browser');
+    const stream = this.renderer.domElement.captureStream(fps);
+    const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((m) => MediaRecorder.isTypeSupported(m)) ?? '';
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType, videoBitsPerSecond: 8_000_000 } : { videoBitsPerSecond: 8_000_000 });
+    const chunks: BlobPart[] = [];
+    return new Promise((resolve, reject) => {
+      recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      recorder.onerror = () => reject(new Error('Video recording failed'));
+      recorder.onstop = () => {
+        for (const track of stream.getTracks()) track.stop();
+        resolve(new Blob(chunks, { type: recorder.mimeType || 'video/webm' }));
+      };
+      recorder.start(250);
+      setTimeout(() => recorder.state === 'recording' && recorder.stop(), Math.max(1, seconds) * 1000);
+    });
   }
 
   /** Reserve `px` CSS pixels on the left for an overlay panel (0 = none). */
@@ -1255,6 +1277,8 @@ uniform float uLineW;`,
 
   fitWorld(_animate = true) {
     void _animate;
+    this.cameraMode = 'orbit';
+    this.controls.enabled = true;
     const c = this.worldCentre();
     const s = this.worldSize();
     c.y = Math.max(c.y, this.engine.world.seaLevelM);
@@ -1263,8 +1287,56 @@ uniform float uLineW;`,
     this.controls.update();
   }
 
+  setCameraMode(mode: CameraMode) {
+    this.cameraMode = mode;
+    this.cameraPathTime = 0;
+    this.controls.enabled = mode === 'orbit' || mode === 'first-person';
+    if (mode === 'orbit') return;
+    if (mode === 'first-person') {
+      const c = this.controls.target.clone();
+      const w = this.engine.world;
+      c.x = Math.max(0, Math.min((w.width - 1) * w.cellSizeM, c.x));
+      const north = Math.max(0, Math.min((w.height - 1) * w.cellSizeM, -c.z));
+      c.z = -north;
+      const eye = Math.max(2, w.cellSizeM * 0.08);
+      const ground = this.engine.sampleSurface(c.x, north) * this.verticalExaggeration;
+      const fwd = new Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
+      if (fwd.lengthSq() < 0.1) fwd.set(0, 0, -1);
+      this.camera.position.set(c.x, ground + eye, c.z);
+      this.controls.target.copy(this.camera.position).add(fwd.multiplyScalar(Math.max(12, w.cellSizeM)));
+      this.controls.target.y = this.camera.position.y;
+      this.controls.update();
+    }
+  }
+
+  private updateCameraPath(dt: number) {
+    if (this.cameraMode !== 'flyover' && this.cameraMode !== 'cinematic') return;
+    this.cameraPathTime += dt;
+    const w = this.engine.world;
+    const ex = (w.width - 1) * w.cellSizeM;
+    const ey = (w.height - 1) * w.cellSizeM;
+    const p = automaticCameraPose(this.cameraMode, this.cameraPathTime, ex, ey, this.reliefM, (x, y) => this.engine.sampleSurface(x, y) * this.verticalExaggeration);
+    this.camera.position.fromArray(p.position);
+    this.controls.target.fromArray(p.target);
+  }
+
+  focusPoint(xM: number, yM: number) {
+    const w = this.engine.world;
+    const x = Math.max(0, Math.min((w.width - 1) * w.cellSizeM, xM));
+    const y = Math.max(0, Math.min((w.height - 1) * w.cellSizeM, yM));
+    const z = this.engine.sampleSurface(x, y) * this.verticalExaggeration;
+    const distance = Math.max(w.cellSizeM * 8, this.worldSize() * 0.14);
+    this.cameraMode = 'orbit';
+    this.controls.enabled = true;
+    this.controls.target.set(x, z, -y);
+    this.camera.position.set(x + distance * 0.72, z + distance * 0.55, -y + distance * 0.72);
+    this.controls.update();
+  }
+
   /** Look straight down at the whole map; `height` × map size above it (larger = more margin). */
   topDown(height = 1.25) {
+    this.cameraMode = 'orbit';
+    this.controls.enabled = true;
     const c = this.worldCentre();
     const s = this.worldSize();
     this.controls.target.copy(c);
@@ -1273,6 +1345,8 @@ uniform float uLineW;`,
   }
 
   oblique() {
+    this.cameraMode = 'orbit';
+    this.controls.enabled = true;
     const t = this.controls.target.clone();
     const s = this.worldSize();
     this.camera.position.set(t.x, t.y + s * 0.35, t.z + s * 0.75);
@@ -1287,6 +1361,16 @@ uniform float uLineW;`,
     const move = right.multiplyScalar(dx * scale).add(fwd.multiplyScalar(dz * scale));
     this.camera.position.add(move);
     this.controls.target.add(move);
+    if (this.cameraMode === 'first-person') {
+      const w = this.engine.world;
+      const maxX = (w.width - 1) * w.cellSizeM;
+      const maxY = (w.height - 1) * w.cellSizeM;
+      this.camera.position.x = Math.max(0, Math.min(maxX, this.camera.position.x));
+      this.camera.position.z = Math.max(-maxY, Math.min(0, this.camera.position.z));
+      const eye = Math.max(2, w.cellSizeM * 0.08);
+      this.camera.position.y = this.engine.sampleSurface(this.camera.position.x, -this.camera.position.z) * this.verticalExaggeration + eye;
+      this.controls.target.y = this.camera.position.y;
+    }
   }
 
   getPose(): CameraPose {

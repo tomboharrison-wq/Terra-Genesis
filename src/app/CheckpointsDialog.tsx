@@ -174,6 +174,9 @@ export function CheckpointsDialog() {
             </tbody>
           </table>
           <div className="row wrap">
+            <button className="small primary" onClick={() => set({ dialog: 'compare' })}>
+              Open before / after split view
+            </button>
             <button className="small" onClick={() => show('cp-ground')}>
               Map ground change
             </button>

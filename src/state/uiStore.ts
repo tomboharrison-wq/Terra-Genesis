@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import type { BrushKind } from '../tools/brush';
+import type { BrushKind, LandformKind } from '../tools/brush';
 import type { FrameStats, Quality, TerrainOverlay } from '../renderer/TerrainScene';
 import type { WaterView } from '../renderer/waterLayer';
+import type { CameraMode } from '../renderer/cameraPaths';
+import type { AudioSettings } from '../app/audio';
 
 export type WaterToolId = 'water-add' | 'water-drain' | 'spring';
 export type ToolId =
@@ -177,6 +179,7 @@ export interface SimInfo {
     coverPct: number;
     forestPct: number;
     treelineM: number;
+    dominantBiome: string;
   };
   glacier: {
     enabled: boolean;
@@ -227,6 +230,7 @@ export interface HoverInfo {
   lavaC?: number;
   ashM?: number;
   vegPct?: number;
+  biome?: string;
   rainHereMmH?: number;
   isSea: boolean;
   /** Value of the active map overlay at the cursor. */
@@ -258,6 +262,7 @@ export const DEFAULT_RATES: Record<BrushKind, number> = {
   paint: 1,
   'add-sediment': 2,
   'remove-sediment': 2,
+  landform: 20,
 };
 
 export interface QuakeSettings {
@@ -305,6 +310,8 @@ interface UiState {
   } | null;
   /** Labels of the current lesson stage, at world positions. */
   lessonLabels: { text: string; xM: number; yM: number; answer?: boolean }[];
+  /** Independent visibility switch for measured labels shown outside Education Mode. */
+  mapLabelsVisible: boolean;
   /** Active challenge (spec F6) and its live score. */
   challenge: {
     id: string;
@@ -341,12 +348,22 @@ interface UiState {
   hardness: number;
   rates: Record<BrushKind, number>;
   paintMaterialId: number;
+  landform: {
+    kind: LandformKind;
+    directionDeg: number;
+    slopeDeg: number;
+    minElevationM: number;
+    maxElevationM: number;
+    materialMask: number;
+  };
   quality: Quality;
   sunAzimuthDeg: number;
   sunElevationDeg: number;
   verticalExaggeration: number;
   cloudsOn: boolean;
   contoursOn: boolean;
+  cameraMode: CameraMode;
+  audio: AudioSettings;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel?: string;
@@ -369,7 +386,8 @@ interface UiState {
     | 'lessons'
     | 'evidence'
     | 'export'
-    | 'landforms';
+    | 'landforms'
+    | 'compare';
   panelOpen: boolean;
   toasts: Toast[];
   lastSavedIso: string | null;
@@ -407,6 +425,7 @@ export const useUi = create<UiState>((set) => ({
   challenge: null,
   education: null,
   lessonLabels: [],
+  mapLabelsVisible: true,
   quake: {
     type: 'reverse',
     mw: 7,
@@ -431,12 +450,15 @@ export const useUi = create<UiState>((set) => ({
   hardness: 0.3,
   rates: { ...DEFAULT_RATES },
   paintMaterialId: 4,
+  landform: { kind: 'ridge', directionDeg: 0, slopeDeg: 12, minElevationM: -10000, maxElevationM: 10000, materialMask: -1 },
   quality: 'balanced',
   sunAzimuthDeg: 220,
   sunElevationDeg: 38,
   verticalExaggeration: 1,
   cloudsOn: false,
   contoursOn: false,
+  cameraMode: 'orbit',
+  audio: { enabled: false, master: 0.65, sfx: 0.7, music: 0.35, classroomMute: true },
   canUndo: false,
   canRedo: false,
   world: null,

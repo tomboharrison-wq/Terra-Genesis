@@ -10,6 +10,7 @@ import { GpuWater } from '../sim/water/gpuWater';
 import { SedimentSim } from '../sim/sediment/sedimentSim';
 import { triggerLandslide, type LandslideResult } from '../sim/slopes/landslide';
 import { CoastSim, type CoastParams } from '../sim/coast/coastSim';
+import { evolveDetailedShoreline, type DetailedShorelineResult } from '../sim/coast/detailedShoreline';
 import { SimClock, type Stepper } from './clock';
 import { ClimateField, YEAR_S, type ClimateParams } from '../sim/climate/climate';
 import { GlacierSim, type GlacierParams } from '../sim/glacier/glacierSim';
@@ -767,6 +768,27 @@ export class Engine {
     this.emit({ type: 'water-params-changed' });
   }
 
+  /** Run the detailed shoreline model on the sandiest real coast and apply its conserved sand movement. */
+  evolveDetailedShoreline(days = 3650): DetailedShorelineResult | null {
+    this.setPlaying(false);
+    this.syncWater();
+    const all = { x0: 0, y0: 0, x1: this.world.width, y1: this.world.height };
+    const rec = new StrokeRecorder(this.world, 'Detailed shoreline evolution');
+    rec.capture(all);
+    const result = evolveDetailedShoreline(this.world, undefined, days);
+    if (!result) return null;
+    computeSurface(this.world, this.surface);
+    const cmd = rec.finish();
+    if (cmd) {
+      this.history.push(cmd);
+      this.emit({ type: 'history-changed' });
+    }
+    this.coast.ledger.drifted += result.movedM3;
+    this.water.refreshSea();
+    this.markDirty(all);
+    return result;
+  }
+
   private flushGround() {
     if (!this.groundDirty) return;
     this.groundDirty = false;
@@ -954,7 +976,8 @@ export class Engine {
   beginStroke(params: BrushParams, xM: number, yM: number, label: string = params.kind): void {
     this.syncIfGpuErodes();
     const p = { ...params };
-    if (p.kind === 'flatten' && p.targetM === undefined) p.targetM = this.sampleSurface(xM, yM);
+    if ((p.kind === 'flatten' || (p.kind === 'landform' && (p.landformKind === 'plateau' || p.landformKind === 'slope'))) && p.targetM === undefined)
+      p.targetM = this.sampleSurface(xM, yM);
     this.stroke = { rec: new StrokeRecorder(this.world, label), params: p };
   }
 

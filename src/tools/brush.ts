@@ -1,7 +1,8 @@
 import { layerAt, refreshExposed, STRATA_LAYERS, type WorldState } from '../engine/world';
 import { clampRect, type CellRect } from '../utils/rect';
 
-export type BrushKind = 'raise' | 'lower' | 'smooth' | 'flatten' | 'paint' | 'add-sediment' | 'remove-sediment';
+export type LandformKind = 'ridge' | 'valley' | 'plateau' | 'depression' | 'slope' | 'channel' | 'embankment';
+export type BrushKind = 'raise' | 'lower' | 'smooth' | 'flatten' | 'paint' | 'add-sediment' | 'remove-sediment' | 'landform';
 
 export interface BrushParams {
   kind: BrushKind;
@@ -17,6 +18,15 @@ export interface BrushParams {
   targetM?: number;
   /** paint: bedrock material id. */
   materialId?: number;
+  /** Advanced landform stamp and its orientation. */
+  landformKind?: LandformKind;
+  directionDeg?: number;
+  slopeDeg?: number;
+  /** Only edit cells whose current surface lies inside this range. */
+  minElevationM?: number;
+  maxElevationM?: number;
+  /** Only edit this exposed bedrock material. -1 or undefined means all. */
+  materialMask?: number;
 }
 
 /** Called before cells in `rect` are modified so undo can capture originals. */
@@ -90,6 +100,8 @@ export function applyBrush(
       const wgt = brushWeight(Math.hypot(x * cs - xM, y * cs - yM) * invR, p.hardness);
       if (wgt <= 0) continue;
       const i = y * W + x;
+      if (surface[i] < (p.minElevationM ?? -Infinity) || surface[i] > (p.maxElevationM ?? Infinity)) continue;
+      if (p.materialMask !== undefined && p.materialMask >= 0 && w.materialId[i] !== p.materialMask) continue;
       switch (p.kind) {
         case 'raise':
           applySurfaceDelta(w, i, p.rate * dt * wgt);
@@ -117,6 +129,28 @@ export function applyBrush(
         case 'remove-sediment': {
           const s = w.looseSedimentThicknessM[i];
           w.looseSedimentThicknessM[i] = Math.max(0, s - p.rate * dt * wgt);
+          break;
+        }
+        case 'landform': {
+          const dx = x * cs - xM;
+          const dy = y * cs - yM;
+          const a = ((p.directionDeg ?? 0) * Math.PI) / 180;
+          const along = (dx * Math.cos(a) + dy * Math.sin(a)) / p.radiusM;
+          const across = (-dx * Math.sin(a) + dy * Math.cos(a)) / p.radiusM;
+          const narrow = Math.exp(-Math.pow(across / 0.22, 2)) * Math.max(0, 1 - along * along);
+          const kind = p.landformKind ?? 'ridge';
+          if (kind === 'ridge') applySurfaceDelta(w, i, p.rate * dt * narrow);
+          else if (kind === 'valley') applySurfaceDelta(w, i, -p.rate * dt * narrow);
+          else if (kind === 'channel') applySurfaceDelta(w, i, -p.rate * dt * Math.pow(narrow, 2));
+          else if (kind === 'embankment') applySurfaceDelta(w, i, p.rate * dt * Math.pow(narrow, 2));
+          else if (kind === 'depression') applySurfaceDelta(w, i, -p.rate * dt * wgt * (0.35 + 0.65 * (1 - Math.hypot(dx, dy) * invR)));
+          else if (kind === 'plateau') {
+            const target = p.targetM ?? surface[i];
+            applySurfaceDelta(w, i, (target - surface[i]) * Math.min(1, p.rate * dt * wgt));
+          } else {
+            const target = (p.targetM ?? surface[i]) + Math.tan(((p.slopeDeg ?? 12) * Math.PI) / 180) * (dx * Math.cos(a) + dy * Math.sin(a));
+            applySurfaceDelta(w, i, (target - surface[i]) * Math.min(1, p.rate * dt * wgt));
+          }
           break;
         }
       }

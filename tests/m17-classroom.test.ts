@@ -116,6 +116,13 @@ describe('M17: GCSE Classroom Usability, Answer Support, Teacher Mode, Scientifi
     expect(WHY_TIME_ACCELERATION.length).toBe(3);
     expect(MEASURED_VS_TEXTBOOK.measuredBadge).toMatch(/Measured/);
     expect(MEASURED_VS_TEXTBOOK.textbookBadge).toMatch(/Curriculum/);
+    const tectonics = MODEL_RELIABILITY.find((row) => row.topic.startsWith('Tectonics'))!;
+    expect(tectonics.simulated).not.toMatch(/isostas|flexur/i);
+    expect(tectonics.simplified).toMatch(/not implemented/);
+    const water = MODEL_RELIABILITY.find((row) => row.topic.startsWith('Surface Water'))!;
+    expect(water.simulated).not.toMatch(/Float64/);
+    expect(water.simplified).toMatch(/Float32/);
+    expect(water.simplified).toMatch(/compensated Float64 mirror/);
   });
 
   it('M17-C06: Classroom mode 128² sustains 60 simulation steps cleanly without NaNs and round-trips through save/load', () => {

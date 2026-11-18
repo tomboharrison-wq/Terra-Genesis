@@ -381,7 +381,7 @@ export function arbitraryMeanderLabels(
   const mid = Math.floor(m.xs.length * 0.5);
   const sin = sinuosity(m);
   out.push({
-    text: `River sinuosity: ${sin.toFixed(2)}× valley length${sin > 1.5 ? ' (meandering)' : ''}`,
+    text: `Sinuosity ${sin.toFixed(2)}×${sin > 1.5 ? ' • meandering' : ''}`,
     xM: m.xs[mid],
     yM: m.ys[mid],
   });
@@ -391,12 +391,12 @@ export function arbitraryMeanderLabels(
   if (sharpest) {
     const cliffH = Math.max(0.5, bankHeight(w, m, sharpest.k, sharpest.outer));
     out.push({
-      text: `River cliff (outer bend): ${cliffH.toFixed(1)} m high — lateral erosion`,
+      text: `Outer bend • ${cliffH.toFixed(1)} m river cliff`,
       xM: sharpest.outer.xM,
       yM: sharpest.outer.yM,
     });
     out.push({
-      text: 'Slip-off slope / point bar (inner bend) — deposition',
+      text: 'Inner bend • point-bar deposition',
       xM: sharpest.inner.xM,
       yM: sharpest.inner.yM,
     });
@@ -424,7 +424,7 @@ export function arbitraryMeanderLabels(
   const lv = leveeHeight(w, m, Math.min(500, m.params.widthM * 8));
   if (lv.heightM > 0.08) {
     out.push({
-      text: `Levees: banks +${lv.heightM.toFixed(2)} m above floodplain`,
+      text: `Levees • +${lv.heightM.toFixed(2)} m`,
       xM: lv.at.xM,
       yM: lv.at.yM,
     });
@@ -433,7 +433,7 @@ export function arbitraryMeanderLabels(
   const est = estuaryMetrics(w, m);
   if (est) {
     out.push({
-      text: `Tidal estuary: mouth widened to ${Math.round(est.mouthWidthM)} m (${est.widenFactor.toFixed(1)}× channel width)`,
+      text: `Estuary mouth • ${Math.round(est.mouthWidthM)} m wide (${est.widenFactor.toFixed(1)}× channel)`,
       xM: est.mouthX,
       yM: est.mouthY,
     });

@@ -47,12 +47,15 @@ export function useShortcuts() {
           return ui.set({ radiusM: ui.radiusM * 1.15 });
         case 'f':
         case 'F':
+          ui.set({ cameraMode: 'orbit' });
           return s?.fitWorld();
         case 't':
         case 'T':
+          ui.set({ cameraMode: 'orbit' });
           return s?.topDown();
         case 'o':
         case 'O':
+          ui.set({ cameraMode: 'orbit' });
           return s?.oblique();
         case 'p':
         case 'P': {

@@ -16,8 +16,41 @@ import type { ClimateField } from '../climate/climate';
  * Dynamics: c relaxes exponentially towards S — growth (including colonisation of bare ground)
  *   at growthPerYr, dieback at diebackPerYr (faster): c' = S + (c − S)·exp(−k·Δt).
  * Effect: hydraulic erosion is scaled by (1 − erosionShield · c) — roots and litter protect soil.
- * Simplifications: one generic plant type; no competition, fire, grazing or seed dispersal.
+ * Biome classes change the equilibrium cover and renderer. Competition, fire, grazing and seed
+ * dispersal remain outside the model.
  */
+export const BIOME_NAMES = ['Bare', 'Tropical rainforest', 'Temperate forest', 'Grassland', 'Savanna', 'Desert', 'Boreal forest', 'Tundra', 'Alpine', 'Wetland', 'Mangrove / coastal'] as const;
+export type BiomeClass = (typeof BIOME_NAMES)[number];
+export const BIOME_COLOURS = [0x8c806b, 0x164f2c, 0x35682f, 0x7b9b45, 0xa49a45, 0xc9ae70, 0x274b3b, 0x87916e, 0x8c8c79, 0x3c775b, 0x235f4f] as const;
+
+export interface BiomeClimate {
+  meanTempC: number;
+  warmestTempC: number;
+  annualPrecipMm: number;
+  elevationM: number;
+  seaLevelM: number;
+  waterDepthM: number;
+  groundwaterM: number;
+  adjacentSea: boolean;
+  iceM: number;
+}
+
+/** Deterministic Whittaker-style climate class with explicit highland and wet-coast zones. */
+export function classifyBiome(v: BiomeClimate): number {
+  if (v.elevationM < v.seaLevelM || v.iceM > 1) return 0;
+  if (v.adjacentSea && v.elevationM <= v.seaLevelM + 4 && v.meanTempC >= 18 && v.annualPrecipMm >= 800) return 10;
+  if ((v.waterDepthM >= 0.03 && v.waterDepthM <= 0.5) || v.groundwaterM >= 0.35) return 9;
+  if (v.warmestTempC < TREELINE_WARM_C && v.elevationM > v.seaLevelM + 300) return 8;
+  if (v.meanTempC < 1 && v.warmestTempC <= 12) return 7;
+  if (v.annualPrecipMm < 250) return 5;
+  if (v.meanTempC < 7 && v.annualPrecipMm >= 300) return 6;
+  if (v.meanTempC >= 20 && v.annualPrecipMm >= 1800) return 1;
+  if (v.meanTempC >= 18 && v.annualPrecipMm < 1500) return 4;
+  if (v.annualPrecipMm >= 700) return 2;
+  return 3;
+}
+
+const BIOME_COVER = [0, 1, 0.95, 0.75, 0.55, 0.08, 1, 0.25, 0.12, 0.9, 0.95] as const;
 export interface VegetationParams {
   enabled: boolean;
   /** Annual precipitation of the climate (mm/yr), scaled per cell by the rain factor. */
@@ -41,6 +74,8 @@ export class VegetationSim {
   private sinceLast = 0;
   /** Suitability at the last update (for display). */
   readonly suitability: Float32Array;
+  /** Climate-derived biome class at each cell, indexed into BIOME_NAMES. */
+  readonly biome: Uint8Array;
 
   constructor(
     private world: WorldState,
@@ -48,6 +83,8 @@ export class VegetationSim {
     private climate: ClimateField,
   ) {
     this.suitability = new Float32Array(world.width * world.height);
+    this.biome = new Uint8Array(world.width * world.height);
+    this.computeSuitability();
   }
 
   get params(): VegetationParams {
@@ -84,8 +121,10 @@ export class VegetationSim {
         const i = y * W + x;
         if (z[i] < w.seaLevelM || w.iceThicknessM[i] > 1 || w.waterDepthM[i] > 0.5) {
           S[i] = 0;
+          this.biome[i] = 0;
           continue;
         }
+        const tMean = c.seaLevelTempC - lapse * Math.max(0, z[i] - w.seaLevelM);
         const tWarm = c.seaLevelTempC + c.seasonalAmpC - lapse * Math.max(0, z[i] - w.seaLevelM);
         const sT = clamp01((tWarm - TREELINE_WARM_C) / 8);
         const precip = p.annualPrecipMm * (c.enabled ? this.climate.rainFactor[i] : 1);
@@ -98,7 +137,24 @@ export class VegetationSim {
         const sx = (z[y * W + xr] - z[y * W + xl]) / ((xr - xl) * cs);
         const sy = (z[yu * W + x] - z[yd * W + x]) / ((yu - yd) * cs);
         const sSlope = clamp01(1 - Math.hypot(sx, sy));
-        S[i] = sT * sW * sSoil * sSlope;
+        const adjacentSea =
+          (x > 0 && z[i - 1] < w.seaLevelM) ||
+          (x < W - 1 && z[i + 1] < w.seaLevelM) ||
+          (y > 0 && z[i - W] < w.seaLevelM) ||
+          (y < H - 1 && z[i + W] < w.seaLevelM);
+        const biome = classifyBiome({
+          meanTempC: tMean,
+          warmestTempC: tWarm,
+          annualPrecipMm: precip,
+          elevationM: z[i],
+          seaLevelM: w.seaLevelM,
+          waterDepthM: w.waterDepthM[i],
+          groundwaterM: w.groundwaterDepthM[i],
+          adjacentSea,
+          iceM: w.iceThicknessM[i],
+        });
+        this.biome[i] = biome;
+        S[i] = sT * sW * sSoil * sSlope * BIOME_COVER[biome];
       }
     return S;
   }
@@ -118,18 +174,22 @@ export class VegetationSim {
   }
 
   /** Total covered area (m², cover-weighted) and forest share (cells with c > 0.6). */
-  stats(): { coverPct: number; forestPct: number } {
+  stats(): { coverPct: number; forestPct: number; dominantBiome: BiomeClass } {
     const w = this.world;
     let land = 0;
     let cov = 0;
     let forest = 0;
+    const counts = new Uint32Array(BIOME_NAMES.length);
     for (let i = 0; i < w.vegCover.length; i++) {
       if (this.surface[i] < w.seaLevelM) continue;
       land++;
+      counts[this.biome[i]]++;
       cov += w.vegCover[i];
       if (w.vegCover[i] > 0.6) forest++;
     }
-    return { coverPct: land ? (100 * cov) / land : 0, forestPct: land ? (100 * forest) / land : 0 };
+    let dominant = 0;
+    for (let k = 1; k < counts.length; k++) if (counts[k] > counts[dominant]) dominant = k;
+    return { coverPct: land ? (100 * cov) / land : 0, forestPct: land ? (100 * forest) / land : 0, dominantBiome: BIOME_NAMES[dominant] };
   }
 }
 

@@ -14,6 +14,18 @@ import { toolById } from './tools';
 import { BEDROCK_MATERIALS } from '../terrain/materials';
 import { getScene } from './runtime';
 import { Icon } from './icons';
+import type { LandformKind } from '../tools/brush';
+import { enableAudio, playSfx } from './audio';
+
+const LANDFORMS: { id: LandformKind; label: string }[] = [
+  { id: 'ridge', label: 'Ridge' },
+  { id: 'valley', label: 'Valley' },
+  { id: 'plateau', label: 'Plateau' },
+  { id: 'depression', label: 'Depression' },
+  { id: 'slope', label: 'Graded slope' },
+  { id: 'channel', label: 'Channel' },
+  { id: 'embankment', label: 'Embankment' },
+];
 
 /** Log-scale slider helper: position 0..1000 ↔ value in [min, max]. */
 function LogSlider(props: { label: string; value: number; min: number; max: number; unit: string; onChange: (v: number) => void; digits?: number }) {
@@ -109,6 +121,44 @@ export function ToolPanel() {
             </div>
           )}
           {s.tool === 'flatten' && <p className="hint small">Target elevation is sampled where each stroke starts.</p>}
+          {s.tool === 'landform' && (
+            <div className="landform-controls">
+              <label className="field">
+                <span className="field-label">Landform profile</span>
+                <select value={s.landform.kind} onChange={(e) => s.set({ landform: { ...s.landform, kind: e.target.value as LandformKind } })}>
+                  {LANDFORMS.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}
+                </select>
+              </label>
+              <label className="field">
+                <span className="field-label">Direction <b>{s.landform.directionDeg}°</b></span>
+                <input type="range" min={0} max={359} value={s.landform.directionDeg} onChange={(e) => s.set({ landform: { ...s.landform, directionDeg: +e.target.value } })} />
+              </label>
+              {s.landform.kind === 'slope' && (
+                <label className="field">
+                  <span className="field-label">Slope angle <b>{s.landform.slopeDeg}°</b></span>
+                  <input type="range" min={1} max={45} value={s.landform.slopeDeg} onChange={(e) => s.set({ landform: { ...s.landform, slopeDeg: +e.target.value } })} />
+                </label>
+              )}
+              <div className="field-row">
+                <label className="field">
+                  <span className="field-label">Minimum height (m)</span>
+                  <input type="number" value={s.landform.minElevationM} onChange={(e) => s.set({ landform: { ...s.landform, minElevationM: +e.target.value } })} />
+                </label>
+                <label className="field">
+                  <span className="field-label">Maximum height (m)</span>
+                  <input type="number" value={s.landform.maxElevationM} onChange={(e) => s.set({ landform: { ...s.landform, maxElevationM: +e.target.value } })} />
+                </label>
+              </div>
+              <label className="field">
+                <span className="field-label">Geology mask</span>
+                <select value={s.landform.materialMask} onChange={(e) => s.set({ landform: { ...s.landform, materialMask: +e.target.value } })}>
+                  <option value={-1}>All exposed rocks</option>
+                  {BEDROCK_MATERIALS.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </label>
+              <p className="hint small">Plateaux and slopes use the height at the start of the stroke. A pressure-sensitive pen controls strength.</p>
+            </div>
+          )}
           <button
             className="ghost small"
             onClick={() => {
@@ -165,14 +215,32 @@ export function ToolPanel() {
 
       {!brush && !water && !measure && !events && !coastTool && !climateTool && !platesTool && !quakeTool && (
         <div className="cam-buttons">
-          <button onClick={() => getScene()?.fitWorld()}>
+          <button onClick={() => { s.set({ cameraMode: 'orbit' }); getScene()?.fitWorld(); }}>
             <Icon name="fit" /> Fit world <kbd>F</kbd>
           </button>
-          <button onClick={() => getScene()?.topDown()}>
+          <button onClick={() => { s.set({ cameraMode: 'orbit' }); getScene()?.topDown(); }}>
             <Icon name="top" /> Top-down <kbd>T</kbd>
           </button>
-          <button onClick={() => getScene()?.oblique()}>
+          <button onClick={() => { s.set({ cameraMode: 'orbit' }); getScene()?.oblique(); }}>
             <Icon name="oblique" /> Oblique <kbd>O</kbd>
+          </button>
+          <div className="camera-modes">
+            <button className={s.cameraMode === 'orbit' ? 'active-toggle' : ''} onClick={() => s.set({ cameraMode: 'orbit' })}>Orbit</button>
+            <button className={s.cameraMode === 'first-person' ? 'active-toggle' : ''} onClick={() => s.set({ cameraMode: 'first-person' })}>Explore on foot</button>
+            <button className={s.cameraMode === 'flyover' ? 'active-toggle' : ''} onClick={() => s.set({ cameraMode: 'flyover' })}>Fly over</button>
+            <button className={s.cameraMode === 'cinematic' ? 'active-toggle' : ''} onClick={() => s.set({ cameraMode: 'cinematic' })}>Cinematic orbit</button>
+          </div>
+          <button
+            disabled={s.pins.length === 0 && !s.hover}
+            onClick={() => {
+              const p = s.pins[s.pins.length - 1] ?? (s.hover ? { xM: s.hover.xM, yM: s.hover.yM } : null);
+              if (p) {
+                s.set({ cameraMode: 'orbit' });
+                getScene()?.focusPoint(p.xM, p.yM);
+              }
+            }}
+          >
+            Focus selected point
           </button>
           <label className="field" style={{ marginTop: 8 }}>
             <span className="field-label">
@@ -210,7 +278,39 @@ export function ToolPanel() {
               onChange={(e) => s.set({ verticalExaggeration: +e.target.value / 10 })}
             />
           </label>
-          <p className="hint small">Arrow keys / WASD pan. Trackpad: two-finger scroll zooms, pinch zooms, click-drag orbits.</p>
+          <p className="hint small">Arrow keys / WASD move. In Explore on foot the camera follows the ground. Trackpad: two-finger scroll zooms, pinch zooms, click-drag orbits.</p>
+          <h3>Sound</h3>
+          <button
+            className={s.audio.enabled ? 'active-toggle' : ''}
+            onClick={() => {
+              const audio = { ...s.audio, enabled: !s.audio.enabled };
+              s.set({ audio });
+              if (audio.enabled) void enableAudio(audio, s.classroom).then(() => playSfx('success'));
+            }}
+          >
+            {s.audio.enabled ? 'Sound on' : 'Turn sound on'}
+          </button>
+          {s.audio.enabled && (
+            <>
+              <label className="field">
+                <span className="field-label">Master <b>{Math.round(s.audio.master * 100)}%</b></span>
+                <input type="range" min={0} max={100} value={Math.round(s.audio.master * 100)} onChange={(e) => s.set({ audio: { ...s.audio, master: +e.target.value / 100 } })} />
+              </label>
+              <label className="field">
+                <span className="field-label">Effects <b>{Math.round(s.audio.sfx * 100)}%</b></span>
+                <input type="range" min={0} max={100} value={Math.round(s.audio.sfx * 100)} onChange={(e) => s.set({ audio: { ...s.audio, sfx: +e.target.value / 100 } })} />
+              </label>
+              <label className="field">
+                <span className="field-label">Music and ambience <b>{Math.round(s.audio.music * 100)}%</b></span>
+                <input type="range" min={0} max={100} value={Math.round(s.audio.music * 100)} onChange={(e) => s.set({ audio: { ...s.audio, music: +e.target.value / 100 } })} />
+              </label>
+              <label className="field check">
+                <input type="checkbox" checked={s.audio.classroomMute} onChange={(e) => s.set({ audio: { ...s.audio, classroomMute: e.target.checked } })} />
+                <span>Mute automatically in Classroom mode</span>
+              </label>
+            </>
+          )}
+          <p className="hint small">Sound is off by default and starts only after you turn it on.</p>
         </div>
       )}
 

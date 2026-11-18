@@ -3,6 +3,9 @@ import { useUi } from '../state/uiStore';
 import { overlayById, prepareOverlay, type Legend, type OverlayId } from '../renderer/overlays';
 import { encodePng, heightmap16, heightmapMeta, rawFloat32 } from '../persistence/exports';
 import { fmtSimTime } from './TimeBar';
+import { BufferAttribute, BufferGeometry, Mesh, MeshStandardMaterial, Scene } from 'three';
+import { terrainMeshData } from '../persistence/terrainMesh';
+import { minecraftHeightmap, minecraftMetadata } from '../persistence/minecraft';
 
 /** Exports (spec F7): view image, top-down map image with legend, heightmaps. Project file: runtime.exportWorldFile. */
 
@@ -23,6 +26,54 @@ export async function exportViewImage() {
   const name = `${baseName()}-view.png`;
   download(await sc.captureView(), name);
   useUi.getState().toast(`Exported ${name}`, 'success');
+}
+
+/** Full-resolution coloured terrain mesh in metres for Blender, GIS and game engines. */
+export async function exportTerrainGlb() {
+  engine.syncWater();
+  const w = engine.world;
+  const d = terrainMeshData(w, engine.surface);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(d.positions, 3));
+  geometry.setAttribute('color', new BufferAttribute(d.colours, 3));
+  geometry.setIndex(new BufferAttribute(d.indices, 1));
+  geometry.computeVertexNormals();
+  const material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
+  const mesh = new Mesh(geometry, material);
+  mesh.name = w.meta.name;
+  mesh.userData = { units: 'metres', cellSizeM: w.cellSizeM, seaLevelM: w.seaLevelM, source: 'Terra Genesis' };
+  const scene = new Scene();
+  scene.add(mesh);
+  const { GLTFExporter } = await import('three/examples/jsm/exporters/GLTFExporter.js');
+  const result = await new GLTFExporter().parseAsync(scene, { binary: true, onlyVisible: true });
+  if (!(result instanceof ArrayBuffer)) throw new Error('Binary GLB export did not return an ArrayBuffer');
+  download(new Blob([result], { type: 'model/gltf-binary' }), `${baseName()}-terrain.glb`);
+  geometry.dispose();
+  material.dispose();
+  useUi.getState().toast('Exported coloured terrain GLB', 'success');
+}
+
+export async function exportViewVideo() {
+  const sc = getScene();
+  if (!sc) return;
+  useUi.getState().toast('Recording the next 10 seconds of the live view', 'info');
+  const blob = await sc.recordVideo(10, 30);
+  download(blob, `${baseName()}-view.webm`);
+  useUi.getState().toast('Exported 10 second WebM video', 'success');
+}
+
+export async function exportMinecraftTerrain() {
+  engine.syncWater();
+  const w = engine.world;
+  const meta = minecraftMetadata(w);
+  const bytes = await encodePng(w.width, w.height, 'grey16', minecraftHeightmap(w, engine.surface), {
+    Software: 'Terra Genesis',
+    Description: 'WorldPainter height map for Minecraft Java 1.18+',
+    Mapping: 'black=-64; white=319; sea level=63',
+  });
+  download(new Blob([bytes as BlobPart], { type: 'image/png' }), `${baseName()}-minecraft-worldpainter.png`);
+  setTimeout(() => download(new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' }), `${baseName()}-minecraft-import.json`), 400);
+  useUi.getState().toast('Exported WorldPainter height map and import settings', 'success');
 }
 
 const toSrgb = (c: number) => Math.round(255 * Math.min(1, Math.max(0, c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)));

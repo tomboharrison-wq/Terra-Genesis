@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useUi } from '../state/uiStore';
 import { Dialog } from './Dialog';
 import { exportWorldFile } from './runtime';
-import { exportHeightmapPng, exportMapImage, exportRawElevation, exportViewImage } from './exportImages';
+import { exportHeightmapPng, exportMapImage, exportMinecraftTerrain, exportRawElevation, exportTerrainGlb, exportViewImage, exportViewVideo } from './exportImages';
 import { overlayById } from '../renderer/overlays';
+import { TEACHER_SETUPS } from '../education/teacherSetups';
+import { teacherSetupLink } from './teacherSetupRunner';
 
 /** Export choices (spec F7): every item writes a real file from the current world. */
 export function ExportDialog() {
   const set = useUi((s) => s.set);
   const overlay = useUi((s) => s.terrainOverlay);
   const [busy, setBusy] = useState(false);
+  const [setupId, setSetupId] = useState(TEACHER_SETUPS[0].id);
   const close = () => set({ dialog: null });
   const run = (fn: () => unknown) => async () => {
     setBusy(true);
@@ -49,6 +52,24 @@ export function ExportDialog() {
       text: 'Exact heights in metres as 32-bit floats, with a .json file giving the size, cell size and row order.',
       fn: exportRawElevation,
     },
+    {
+      id: 'glb',
+      title: '3D terrain model (GLB)',
+      text: 'Full-resolution coloured triangle mesh in real metres for Blender, GIS viewers and game engines.',
+      fn: exportTerrainGlb,
+    },
+    {
+      id: 'video',
+      title: 'Record live view (10 second WebM)',
+      text: 'Records the next ten seconds from the current camera. Start Fly over or Cinematic orbit first for a moving presentation shot.',
+      fn: exportViewVideo,
+    },
+    {
+      id: 'minecraft',
+      title: 'Minecraft terrain (WorldPainter)',
+      text: 'A 16-bit north-up height map plus exact Java 1.18+ import settings, with model sea level mapped to Minecraft Y=63.',
+      fn: exportMinecraftTerrain,
+    },
   ];
   return (
     <Dialog title="Export" onClose={close}>
@@ -65,6 +86,22 @@ export function ExportDialog() {
           </li>
         ))}
       </ul>
+      <h3>Share a fixed lesson preset</h3>
+      <p className="hint small tight">The link recreates the same terrain, seed and starting processes on any device running this deployed version.</p>
+      <div className="row">
+        <select value={setupId} onChange={(e) => setSetupId(e.target.value as typeof setupId)} aria-label="Lesson preset">
+          {TEACHER_SETUPS.map((setup) => <option key={setup.id} value={setup.id}>{setup.title} · seed {setup.seed}</option>)}
+        </select>
+        <button
+          className="small"
+          onClick={run(async () => {
+            await navigator.clipboard.writeText(teacherSetupLink(setupId));
+            useUi.getState().toast('Lesson preset link copied', 'success');
+          })}
+        >
+          Copy link
+        </button>
+      </div>
     </Dialog>
   );
 }

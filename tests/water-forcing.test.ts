@@ -25,6 +25,20 @@ describe('M02-C01 water forcing and ledger', () => {
     expect(closureError(sim.ledger, sim.storedVolume())).toBeLessThan(1e-5);
   });
 
+  it('compensates sub-Float32 additions in a deep closed lake over long runs', () => {
+    const { w, s } = world(2, 10, 5);
+    w.seaLevelM = -1e6;
+    w.water.boundary = 'closed';
+    w.waterDepthM.fill(1000);
+    w.water.rainMPerS = 1e-8;
+    const sim = new WaterSim(w, s);
+    sim.resetLedger();
+    for (let k = 0; k < 10_000; k++) sim.applyForcing(10);
+    expect(sim.surfaceVolume()).toBeCloseTo(1000.001 * 4 * 100, 6);
+    expect(w.waterDepthM[0]).toBeGreaterThan(1000);
+    expect(closureError(sim.ledger, sim.storedVolume())).toBeLessThan(1e-10);
+  });
+
   it('dry world with no forcing stays dry', () => {
     const { w, s } = world();
     const sim = new WaterSim(w, s);

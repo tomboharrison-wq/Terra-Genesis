@@ -67,14 +67,14 @@ export function HelpDialog() {
           <b>Coasts, climate, snow, glaciers, plants, plates, lava and ash</b> run on their own clocks with stated time compression.
         </li>
         <li>
-          <b>Hazards</b>: storms, droughts and sea surges run through the water model; the sea surge is a level rise, not a travelling wave.
+          <b>Hazards</b>: storms and droughts run through the water model. Sea surge is a temporary level rise; Tsunami is a separate travelling long-wave reference model with bathymetry-aware run-up.
         </li>
         <li>
           <b>Guided models</b> (labs and some lessons, always badged) are teaching models drawn from rules, not the map simulation.
         </li>
       </ul>
       <p className="hint small">
-        Known limits: one sediment size; no isostasy; inland ground below sea level counts as sea; no travelling waves; glaciers are plan-view. For full peer-reviewed equation sources, real-world UK benchmark ranges, and what is simplified vs. physically simulated, open{' '}
+        Known limits: one sediment size; no isostasy; inland ground below sea level counts as sea; ordinary wind waves are phase-averaged rather than crest-by-crest; glaciers are plan-view. For equation sources, real-world benchmark ranges, and what is simplified vs. physically simulated, open{' '}
         <button
           className="small ghost"
           style={{ display: 'inline', padding: '1px 6px', textDecoration: 'underline', color: 'var(--scouts-yellow)' }}

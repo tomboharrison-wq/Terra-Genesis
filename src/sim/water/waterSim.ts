@@ -24,6 +24,12 @@ const G = 9.81;
 export class WaterSim implements Stepper {
   ledger: WaterLedger;
   /**
+   * Float64 CPU-authoritative surface-water depth. The persisted/rendered world field stays Float32,
+   * but sub-Float32 forcing and routing changes accumulate here instead of disappearing in deep lakes.
+   * External edits are detected from the Float32 field and adopted before the next CPU operation.
+   */
+  private depth64: Float64Array;
+  /**
    * Float64 mirror of world.snowSweM: tiny per-step snowfall/melt on a deep pack would be lost to
    * float32 round-off. Re-seeded from the world field wherever that was changed externally.
    */
@@ -66,6 +72,7 @@ export class WaterSim implements Stepper {
     this.vy = new Float32Array(n);
     this.sea = new Uint8Array(n);
     this.prevDepth = new Float32Array(n);
+    this.depth64 = Float64Array.from(world.waterDepthM);
     this.snow64 = Float64Array.from(world.snowSweM);
     this.refreshSea();
     this.ledger = emptyLedger(this.storedVolume());
@@ -80,13 +87,15 @@ export class WaterSim implements Stepper {
     const z = this.surface;
     const sl = this.world.seaLevelM;
     const d = this.world.waterDepthM;
+    if (this.depth64) this.syncDepth();
     if (this.snow64) this.syncSnow();
     const snow = this.world.snowSweM;
     for (let i = 0; i < z.length; i++) {
       const s = z[i] < sl ? 1 : 0;
       this.sea[i] = s;
       if (s && d[i] > 0) {
-        this.ledger && (this.ledger.seaOut += d[i] * this.cellArea);
+        this.ledger && (this.ledger.seaOut += this.depth64[i] * this.cellArea);
+        this.depth64[i] = 0;
         d[i] = 0;
       }
       if (s && snow[i] > 0) {
@@ -107,7 +116,8 @@ export class WaterSim implements Stepper {
   }
 
   surfaceVolume(): number {
-    const d = this.world.waterDepthM;
+    this.syncDepth();
+    const d = this.depth64;
     let v = 0;
     for (let i = 0; i < d.length; i++) v += d[i];
     return v * this.cellArea;
@@ -133,6 +143,20 @@ export class WaterSim implements Stepper {
     const f = this.world.snowSweM;
     const s = this.snow64;
     for (let i = 0; i < f.length; i++) if (Math.fround(s[i]) !== f[i]) s[i] = f[i];
+  }
+
+  /** Adopt external changes to the persisted/rendered Float32 water field. */
+  private syncDepth() {
+    const f = this.world.waterDepthM;
+    const d = this.depth64;
+    for (let i = 0; i < f.length; i++) if (Math.fround(d[i]) !== f[i]) d[i] = f[i];
+  }
+
+  /** Set the CPU-authoritative value and publish its Float32 representation for rendering/saving. */
+  private setDepth(i: number, value: number) {
+    const v = Math.max(0, value);
+    this.depth64[i] = v;
+    this.world.waterDepthM[i] = v;
   }
 
   /** Set a cell's snowpack exactly (GPU sync folds deltas in float64 through this). */
@@ -178,13 +202,14 @@ export class WaterSim implements Stepper {
     this.stepGroundwater(dt);
     this.route(dt);
     this.massCorrectionM3 += reconcileDepthMass(
-      this.world.waterDepthM,
+      this.depth64,
       this.sea,
       this.cellArea,
       expectedStored(this.ledger),
       this.snowVolume() + this.groundwaterVolume(),
       1e-7,
     );
+    for (let i = 0; i < this.depth64.length; i++) this.world.waterDepthM[i] = this.depth64[i];
     this.refreshStats();
     if (this.peakDepth) (this.recordLow ? updateLow : updatePeak)(this.peakDepth, this.world.waterDepthM);
   }
@@ -192,7 +217,8 @@ export class WaterSim implements Stepper {
   /** Rain, sources, infiltration and evaporation for one step. */
   applyForcing(dt: number): void {
     const w = this.world;
-    const d = w.waterDepthM;
+    this.syncDepth();
+    const d = this.depth64;
     const p = w.water;
     const A = this.cellArea;
     const n = d.length;
@@ -215,7 +241,7 @@ export class WaterSim implements Stepper {
           snow[i] += a;
           snow32[i] = snow[i];
           fell += a;
-        } else d[i] += a;
+        } else this.setDepth(i, d[i] + a);
         total += a;
       }
       this.ledger.rainIn += total * A;
@@ -232,7 +258,7 @@ export class WaterSim implements Stepper {
         const m = Math.min(s, k * t);
         snow[i] = s - m;
         snow32[i] = snow[i];
-        d[i] += m;
+        this.setDepth(i, d[i] + m);
         melted += m;
       }
       this.ledger.snowmelt += melted * A;
@@ -243,7 +269,7 @@ export class WaterSim implements Stepper {
       const vol = s.rateM3PerS * dt;
       this.ledger.sourceIn += vol;
       if (sea[i]) this.ledger.seaOut += vol;
-      else d[i] += vol / A;
+      else this.setDepth(i, d[i] + vol / A);
     }
     if (p.infiltrationMPerS + p.evaporationMPerS > 0) {
       let inf = 0;
@@ -259,7 +285,7 @@ export class WaterSim implements Stepper {
         const rate = p.infiltrationMPerS + ev;
         if (rate <= 0) continue;
         const l = Math.min(di, rate * dt);
-        d[i] = di - l;
+        this.setDepth(i, di - l);
         const infDepth = l * (p.infiltrationMPerS / rate);
         if (gwOn && infDepth > 0) {
           const accepted = Math.min(infDepth * recharge, Math.max(0, gwMax - gw[i]));
@@ -327,7 +353,7 @@ export class WaterSim implements Stepper {
       const base = Math.min(g[i], Math.max(0, p.groundwaterBaseflowMPerS) * dt);
       if (base > 0) {
         g[i] -= base;
-        w.waterDepthM[i] += base;
+        this.setDepth(i, this.depth64[i] + base);
       }
     }
   }
@@ -335,11 +361,12 @@ export class WaterSim implements Stepper {
   /** Pipe-model lateral routing for one step (see class comment). */
   route(dt: number): void {
     const w = this.world;
+    this.syncDepth();
     this.prevDepth.set(w.waterDepthM);
     const W = w.width;
     const H = w.height;
     const z = this.surface;
-    const d = w.waterDepthM;
+    const d = this.depth64;
     const F = w.waterFluxM3PerS;
     const sea = this.sea;
     const vx = this.vx;
@@ -449,7 +476,7 @@ export class WaterSim implements Stepper {
         const dOld = d[i];
         let dNew = dOld + ((inflow - (f0 + f1 + f2 + f3)) * dt) / A;
         if (dNew < 0) dNew = 0; // only float round-off can reach here
-        d[i] = dNew;
+        this.setDepth(i, dNew);
         const dm = 0.5 * (dOld + dNew);
         if (dm > 1e-3) {
           // Mean discharge through the cell (m³/s) → depth-averaged velocity.
@@ -476,7 +503,8 @@ export class WaterSim implements Stepper {
   /** Add (or with negative amount remove) water depth in a disc — rain/drain brush. Returns m³ moved. */
   addWaterDisc(cx: number, cy: number, radiusCells: number, depthM: number): number {
     const w = this.world;
-    const d = w.waterDepthM;
+    this.syncDepth();
+    const d = this.depth64;
     const A = this.cellArea;
     let moved = 0;
     const r = Math.ceil(radiusCells);
@@ -490,7 +518,7 @@ export class WaterSim implements Stepper {
         const delta = depthM * wgt;
         const next = Math.max(0, d[i] + delta);
         moved += (next - d[i]) * A;
-        d[i] = next;
+        this.setDepth(i, next);
       }
     }
     if (moved >= 0) this.ledger.toolIn += moved;
@@ -501,6 +529,7 @@ export class WaterSim implements Stepper {
 
   clearWater() {
     const v = this.surfaceVolume();
+    this.depth64.fill(0);
     this.world.waterDepthM.fill(0);
     this.world.waterFluxM3PerS.fill(0);
     this.vx.fill(0);

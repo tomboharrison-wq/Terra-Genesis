@@ -2,6 +2,7 @@ import { Color } from 'three';
 import type { WorldState } from '../engine/world';
 import { MATERIALS } from '../terrain/materials';
 import { DRY_M, FLOOD_THRESHOLD_M, WET_M } from '../sim/events/hazards';
+import { BIOME_COLOURS, BIOME_NAMES } from '../sim/vegetation/vegetationSim';
 
 /**
  * Scientific map overlays (spec F4): each one colours the terrain by a field the simulation really
@@ -28,6 +29,7 @@ export type OverlayId =
   | 'ice'
   | 'glacial'
   | 'plants'
+  | 'biomes'
   | 'ash'
   | 'change'
   | 'temperature'
@@ -49,6 +51,7 @@ export interface OverlaySource {
   surface: Float32Array;
   referenceSurface: Float32Array;
   climate: { temperatureC: Float32Array; rainFactor: Float32Array };
+  vegetation: { biome: Uint8Array };
   coast: { exposure: Float32Array };
   lastQuake: { shaking: Float32Array } | null;
   /** Depth record of the current / last event: deepest water (storm, surge) or shallowest (drought), and the water when it began. */
@@ -261,6 +264,7 @@ const logT = (v: number, lo: number, hi: number) => (v <= lo ? 0 : Math.log10(v 
 // Flow accumulation is shown in cells upstream on a log scale 1 … 10⁴ cells.
 const FLOW_MAX_CELLS = 1e4;
 const GROUNDWATER_HI = 10;
+const BIOME_LIN = BIOME_COLOURS.map((c) => new Color(c));
 // Ash depth log scale 1 cm … 1 m; ice 0 … 100 m.
 const ASH_LO = 0.01;
 const ASH_HI = 1;
@@ -523,6 +527,23 @@ export const OVERLAYS: OverlayDef[] = [
       labels: ['bare', '50%', '100%'],
     }),
     colour: (s, i, _d, out, o) => plantRamp(s.world.vegCover[i], out, o),
+  },
+  {
+    id: 'biomes',
+    label: 'Biomes',
+    group: 'Ice & life',
+    available: (s) => s.world.vegetation.enabled,
+    describe: (s, i) => BIOME_NAMES[s.vegetation.biome[i]],
+    legend: () => ({
+      kind: 'swatches',
+      items: BIOME_NAMES.slice(1).map((label, k) => ({ colour: `#${BIOME_COLOURS[k + 1].toString(16).padStart(6, '0')}`, label })),
+    }),
+    colour: (s, i, _d, out, o) => {
+      const c = BIOME_LIN[s.vegetation.biome[i]] ?? BIOME_LIN[0];
+      out[o] = c.r;
+      out[o + 1] = c.g;
+      out[o + 2] = c.b;
+    },
   },
   {
     id: 'ash',

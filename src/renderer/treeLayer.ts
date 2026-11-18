@@ -146,10 +146,13 @@ export class TreeLayer {
 
         // 1. Trees from simulated vegetation cover
         const cov = w.vegCover[i];
-        if (cov >= 0.15 && w.iceThicknessM[i] <= 0.5 && nc + nb < 2 * MAX_TREES) {
-          const n = Math.floor(cov * PER_CELL + hash(i, 7));
+        const biome = e.vegetation.biome[i];
+        const treesAllowed = biome === 1 || biome === 2 || biome === 4 || biome === 6 || biome === 9 || biome === 10;
+        if (treesAllowed && cov >= 0.15 && w.iceThicknessM[i] <= 0.5 && nc + nb < 2 * MAX_TREES) {
+          const density = biome === 1 || biome === 10 ? 1.35 : biome === 4 ? 0.42 : 1;
+          const n = Math.floor(cov * PER_CELL * density + hash(i, 7));
           const tWarm = c.seaLevelTempC + c.seasonalAmpC - lapse * Math.max(0, z[i] - w.seaLevelM);
-          const conifer = tWarm < 12;
+          const conifer = biome === 6;
           for (let k = 0; k < n; k++) {
             const mesh = conifer ? this.conifers : this.broadleaf;
             const idx = conifer ? nc : nb;
@@ -167,7 +170,8 @@ export class TreeLayer {
             m4.compose(pos, q, scl);
             mesh.setMatrixAt(idx, m4);
             const g = 0.76 + 0.34 * hash(i, 53 + k);
-            col.setHex(conifer ? 0x294827 : 0x3b682b).multiplyScalar(g);
+            const treeColour = biome === 1 ? 0x174d29 : biome === 4 ? 0x6d7133 : biome === 9 ? 0x3c6746 : biome === 10 ? 0x205746 : conifer ? 0x294827 : 0x3b682b;
+            col.setHex(treeColour).multiplyScalar(g);
             mesh.setColorAt(idx, col);
             if (conifer) nc++;
             else nb++;

@@ -1,5 +1,81 @@
 # Changelog
 
+## M18-C01 compact labels and scientific honesty
+
+- Added compact wrapped Sandbox labels, kept larger Classroom labels, and added a map-label visibility toggle.
+- Shortened live meander and estuary labels so they no longer cover the landscape.
+- Corrected the reliability panel: isostasy is not implemented, CPU water state is not advertised as Float64, and travelling tsunami waves are distinguished from level-rise surges.
+- Added semantic reliability tests so unsupported capabilities cannot be reintroduced as marketing text.
+
+## M18-C02 compensated long-run water precision
+
+- Added a Float64 CPU-authoritative surface-water mirror while retaining Float32 world, save and GPU compatibility.
+- Sub-Float32 rainfall, melt, source, baseflow and routing changes now accumulate rather than disappearing in deep water.
+- Added a 10,000-step deep closed-lake precision test with ledger closure below 1e-10.
+
+## M18-C03 world-coupled detailed shoreline
+
+- The one-line sandy shoreline model can now sample the sandiest real coast and evolve it for ten years.
+- Modelled erosion and deposition are transferred into authoritative loose-sediment thickness, never bedrock.
+- Deposits are scaled to sand actually removed, so the real world sediment volume closes exactly.
+- The terrain change is visible, saved and undoable.
+
+## M18-C04 interactive 3D waterfall
+
+- Replaced the flat waterfall cross-section with an orbitable Three.js solid model.
+- The resistant cap projects beyond the undercut soft-rock face, creating a real visible overhang.
+- Collapse blocks, plunge-pool depth and separated gorge walls are derived from the tested retreat state.
+- Kept the classroom labels and added direct orbit and zoom controls.
+
+## M18-C05 advanced landform sculpting
+
+- Added one Landform tool with ridge, valley, plateau, depression, graded slope, channel and embankment profiles.
+- Every profile edits authoritative bedrock and sediment, refreshes exposed geology, renders immediately and is undoable.
+- Added compass orientation, slope-angle control, minimum and maximum elevation masks, and exposed-geology masks.
+- Pressure-sensitive pens now vary the strength of every brush stroke.
+
+## M18-C06 distinct physical biomes
+
+- Added explicit tropical rainforest, temperate forest, grassland, savanna, desert, boreal forest, tundra, alpine, wetland and mangrove/coastal classes.
+- Classification uses local temperature, precipitation, elevation, ice, surface water, groundwater and coastal position.
+- Each biome changes equilibrium plant cover, terrain colour, tree density, tree form and tree colour.
+- Added a categorical Biomes overlay, inspector biome names and a dominant-biome climate readout.
+
+## M18-C07 classroom before and after view
+
+- Added a full-width, north-up split view for any selected checkpoint and the current world.
+- Both panels are rendered from exact authoritative world cells with the same natural map colouring.
+- The view reports lowered and raised volume, changed area, maximum drop and maximum rise.
+- The checkpoint comparison panel opens the view directly for classroom display.
+
+## M18-C08 camera exploration modes
+
+- Added a ground-following Explore on foot camera with WASD and arrow-key movement.
+- Added automatic low flyover and high cinematic orbit presentation paths.
+- Added Focus selected point for the latest measurement pin or current inspected cell.
+- Existing orbit, fit, top-down and oblique views remain available and stop automatic paths cleanly.
+
+## M18-C09 audio and classroom mute
+
+- Added an opt-in procedural wind soundscape and quiet presentation chord without external audio files.
+- Added interaction and event effects for sculpting, water and large landscape events.
+- Added separate master, effects and music/ambience controls.
+- Sound stays off until activated by the user and can mute automatically in Classroom mode.
+
+## M18-C10 extended exports and lesson sharing
+
+- Added a full-resolution coloured GLB terrain mesh in real metre units.
+- Added a ten-second WebM recorder for the live 3D view and automatic camera paths.
+- Added a north-up 16-bit WorldPainter height map with Minecraft Java 1.18+ Y limits and sea level settings.
+- Added copyable links for all seven deterministic teacher lesson presets; opening a link rebuilds the fixed seed and starting processes.
+
+## M18-C11 final validation and browser repairs
+
+- Restored the exact measured gorge text expected by the guided waterfall classroom flow.
+- Hardened animated SVG paths so transition frames cannot emit invalid non-finite coordinates.
+- Kept mature boreal forest cover dense enough for tested post-eruption recovery on ash while fresh lava remains bare.
+- Completed full unit, type, build, GPU and focused real-browser validation of the new feature set and exports.
+
 ## M16 — Visual realism, coupled geomorphology, save/load speedup & Cloudflare/GitHub deployment
 
 - **3D Terrain, Water & Atmosphere Rendering**:

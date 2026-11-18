@@ -181,6 +181,8 @@ function OverlayMenu() {
   const id = useUi((s) => s.terrainOverlay);
   const cloudsOn = useUi((s) => s.cloudsOn);
   const contoursOn = useUi((s) => s.contoursOn);
+  const labels = useUi((s) => s.lessonLabels);
+  const mapLabelsVisible = useUi((s) => s.mapLabelsVisible);
   const sim = useUi((s) => s.sim);
   const set = useUi((s) => s.set);
   const available = OVERLAYS.filter((o) => o.available(engine));
@@ -204,6 +206,16 @@ function OverlayMenu() {
       >
         ☁ Clouds
       </button>
+      {labels.length > 0 && (
+        <button
+          className={mapLabelsVisible ? 'active-toggle' : ''}
+          onClick={() => set({ mapLabelsVisible: !mapLabelsVisible })}
+          aria-pressed={mapLabelsVisible}
+          title="Show or hide measured labels pinned to the landscape"
+        >
+          Labels
+        </button>
+      )}
       <select
         className="overlay-select"
         value={id}

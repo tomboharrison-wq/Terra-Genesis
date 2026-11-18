@@ -1,5 +1,7 @@
-import { waterfallGeometry, WATERFALL_DEFAULTS, type Pt as WPt } from '../local/waterfall/model';
+import { useEffect, useRef } from 'react';
+import { waterfallAt } from '../local/waterfall/model';
 import { bendSection, CHANNEL_WIDTH_M, meanderAt, type Pt as MPt } from '../local/meander/model';
+import { createWaterfallScene } from './waterfallScene';
 
 /** Guided river models for Education Mode (spec G1 mode 2: controlled demonstrations, labelled as such). */
 
@@ -40,76 +42,45 @@ function Label({
 
 /** Waterfall long profile after `years`; `labels` toggles annotations, `answer` reveals hidden ones. */
 export function WaterfallView({ years, labels }: { years: number; labels: boolean }) {
-  const g = waterfallGeometry(years, WATERFALL_DEFAULTS, -120, 60);
-  const s = g.state;
-  const p = WATERFALL_DEFAULTS;
-  // Fit x −120 … 60 m across the view; heights drawn ×3 (z −18 … 24 m) for legibility.
-  const X = (x: number) => 40 + ((x + 120) / 180) * (W - 80);
-  const sx = (W - 80) / 180;
-  const Z = (z: number) => H - 60 - (z + 18) * ((H - 140) / 42);
-  const poly = (pts: WPt[]) => pts.map((q) => `${X(q.x).toFixed(1)},${Z(q.z).toFixed(1)}`).join(' ');
-  const line = (pts: WPt[]) => pts.map((q, k) => `${k ? 'L' : 'M'}${X(q.x).toFixed(1)},${Z(q.z).toFixed(1)}`).join('');
+  const host = useRef<HTMLDivElement>(null);
+  const yearsRef = useRef(years);
+  const redraw = useRef<() => void>(() => {});
+  yearsRef.current = years;
+  const s = waterfallAt(years);
+  useEffect(() => {
+    const view = createWaterfallScene(host.current!, () => yearsRef.current);
+    redraw.current = view.rebuild;
+    view.rebuild();
+    let raf = 0;
+    const frame = () => {
+      view.render();
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(raf);
+      view.dispose();
+    };
+  }, []);
+  useEffect(() => redraw.current(), [years]);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="guided-svg" role="img" aria-label={`Waterfall cross-section after ${Math.round(years)} years`}>
-      <rect x={0} y={0} width={W} height={H} fill="#cfe0ec" />
-      {/* Gorge walls behind the river: the old plateau surface either side of the stretch the fall has cut back through. */}
-      {g.gorge && <rect x={X(g.gorge.x0)} y={Z(p.heightM)} width={X(g.gorge.x1) - X(g.gorge.x0)} height={Z(0) - Z(p.heightM)} fill="#9c8f7d" opacity={0.55} />}
-      <polygon points={poly(g.soft)} fill="#b9a17e" stroke="#5a4632" strokeWidth={1.5} />
-      <polygon points={poly(g.hard)} fill="#6b6560" stroke="#2e2a27" strokeWidth={2} />
-      {s.blocks.map((b, k) => (
-        <rect
-          key={k}
-          x={X(b.x) - (b.size * sx) / 2}
-          y={Z(0) - b.size * sx * 1.1}
-          width={b.size * sx}
-          height={b.size * sx * 1.1}
-          fill="#5d5853"
-          stroke="#2e2a27"
-          transform={`rotate(${((k * 23) % 40) - 20} ${X(b.x)} ${Z(0)})`}
-        />
-      ))}
-      <path d={line(g.waterUp)} stroke="#2a78d6" strokeWidth={6} fill="none" />
-      <path d={line(g.curtain)} stroke="#6da7ec" strokeWidth={9} fill="none" opacity={0.85} />
-      <path d={line(g.waterDown)} stroke="#2a78d6" strokeWidth={6} fill="none" />
+    <div className="waterfall-3d" role="img" aria-label={`Interactive 3D waterfall after ${Math.round(years)} years`}>
+      <div ref={host} className="waterfall-3d-host" />
       {labels && (
-        <g>
-          <Label x={X(-95)} y={Z(p.heightM) - 30} text="Hard (resistant) rock" anchor="start" />
-          <Label x={X(-95)} y={Z(4)} text="Soft (less resistant) rock" anchor="start" colour="#ffb4e5" />
-          {s.overhangM > 1.5 && <Label x={X(s.lipX - s.overhangM / 2)} y={Z(p.heightM - p.capThicknessM) + 28} text={`Overhang ${s.overhangM.toFixed(1)} m`} />}
-          {s.overhangM > 1.5 && <Label x={X(s.lipX - s.overhangM) - 10} y={Z(p.heightM * 0.45)} text="Undercutting" anchor="end" colour="#ff912a" />}
-          <Label x={X(g.pool.x) + 40} y={Z(-s.poolDepthM) + 26} text={`Plunge pool ${s.poolDepthM.toFixed(0)} m deep`} anchor="start" colour="#2a78d6" />
-          {s.blocks.length > 0 && <Label x={X(s.blocks[s.blocks.length - 1].x) + 30} y={Z(0) - 36} text="Collapsed rock" anchor="start" colour="#ed3f23" />}
-          {g.gorge && (
-            <>
-              <path
-                d={`M${X(g.gorge.x0)},${Z(p.heightM) - 12}h${X(g.gorge.x1) - X(g.gorge.x0)}`}
-                stroke="#ffe627"
-                strokeWidth={3}
-                markerEnd="url(#arr)"
-                markerStart="url(#arr)"
-              />
-              <Label x={(X(g.gorge.x0) + X(g.gorge.x1)) / 2} y={Z(p.heightM) - 22} text={`Gorge ${s.retreatM.toFixed(0)} m long`} />
-            </>
-          )}
-          <path d={`M${X(-110)},${Z(p.heightM) + 30}h60`} stroke="#2a78d6" strokeWidth={3} markerEnd="url(#arrB)" />
-          <text x={X(-110)} y={Z(p.heightM) + 50} className="guided-small">
-            river flow
-          </text>
-        </g>
+        <div className="waterfall-legend">
+          <span><i className="hard" />resistant cap rock</span>
+          <span><i className="soft" />less resistant rock</span>
+          <span><i className="water" />hydraulic action and abrasion</span>
+          {s.overhangM > 1.5 && <span>undercut {s.overhangM.toFixed(1)} m</span>}
+          {s.blocks.length > 0 && <span>collapsed cap-rock blocks</span>}
+          <span>plunge pool {s.poolDepthM.toFixed(1)} m deep</span>
+          <span>Gorge {Math.round(s.retreatM)} m long</span>
+        </div>
       )}
-      <defs>
-        <marker id="arr" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-          <path d="M0,0L10,5L0,10z" fill="#ffe627" />
-        </marker>
-        <marker id="arrB" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0L10,5L0,10z" fill="#2a78d6" />
-        </marker>
-      </defs>
-      <text x={W - 20} y={H - 16} textAnchor="end" className="guided-small dark">
-        {Math.round(years)} years (illustrative) · {s.collapses} collapse
-        {s.collapses === 1 ? '' : 's'} · retreated {s.retreatM.toFixed(0)} m · heights ×{((H - 140) / 42 / sx).toFixed(1)}
-      </text>
-    </svg>
+      <div className="waterfall-status">
+        {Math.round(years)} years, {s.collapses} collapse{s.collapses === 1 ? '' : 's'} • drag to orbit • wheel to zoom
+      </div>
+    </div>
   );
 }
 

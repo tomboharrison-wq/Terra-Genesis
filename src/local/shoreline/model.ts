@@ -120,6 +120,19 @@ export class ShorelineModel {
     this.traceShore();
   }
 
+  /** Replace the teaching preset with a sampled real-world coastline (fill fraction 0 to 1). */
+  loadFill(fill: ArrayLike<number>) {
+    if (fill.length !== this.f.length) throw new Error(`Expected ${this.f.length} shoreline cells`);
+    this.rnd = mulberry32(this.p.seed);
+    for (let i = 0; i < this.f.length; i++) this.f[i] = Math.min(1, Math.max(0, fill[i]));
+    this.day = 0;
+    this.suppliedM3 = 0;
+    this.exportedM3 = 0;
+    this.initialM3 = this.sandM3();
+    this.f0.set(this.f);
+    this.traceShore();
+  }
+
   sandM3(): number {
     let s = 0;
     for (let i = 0; i < this.f.length; i++) s += this.f[i];

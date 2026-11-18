@@ -90,10 +90,10 @@ describe('Step 2 & Step 5: Arbitrary-world meanders, estuaries, and Bradshaw riv
     expect(est!.widenFactor).toBeGreaterThan(2);
 
     const labels = arbitraryMeanderLabels(e.world, m, e.geoRivers?.lake);
-    expect(labels.some((l) => l.text.startsWith('River sinuosity:'))).toBe(true);
-    expect(labels.some((l) => l.text.includes('River cliff (outer bend)'))).toBe(true);
-    expect(labels.some((l) => l.text.includes('Slip-off slope / point bar (inner bend)'))).toBe(true);
-    expect(labels.some((l) => l.text.startsWith('Tidal estuary:'))).toBe(true);
+    expect(labels.some((l) => l.text.startsWith('Sinuosity '))).toBe(true);
+    expect(labels.some((l) => l.text.includes('river cliff'))).toBe(true);
+    expect(labels.some((l) => l.text.includes('point-bar deposition'))).toBe(true);
+    expect(labels.some((l) => l.text.startsWith('Estuary mouth'))).toBe(true);
   });
 
   it('analyzeRiverCourses connects the physical model to upper, middle, and lower course Bradshaw metrics', () => {

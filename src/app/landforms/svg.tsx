@@ -54,10 +54,14 @@ export const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 export type P = [number, number];
 
 /** Polyline / polygon path through points. */
-export const poly = (pts: P[], close = false) => pts.map((p, k) => `${k ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join('') + (close ? 'Z' : '');
+export const poly = (pts: P[], close = false) => {
+  const finite = pts.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  return finite.map((p, k) => `${k ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join('') + (close && finite.length ? 'Z' : '');
+};
 
 /** Smooth path through points (Catmull–Rom → cubic Bézier). */
 export function smooth(pts: P[], close = false): string {
+  pts = pts.filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
   if (pts.length < 3) return poly(pts, close);
   const n = pts.length;
   const at = (k: number) => (close ? pts[(k + n) % n] : pts[Math.min(n - 1, Math.max(0, k))]);

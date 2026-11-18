@@ -1,11 +1,22 @@
 # Project state
-Updated: 2026-11-17, M16 validation & hardening + M13-C05b/C06c/C08c physical realism & GCSE Evidence Layer
+Updated: 2026-11-18, M18 spec completion and simulation depth
 Branch / HEAD: main / see `git log -1` · remote: github.com/tomboharrison-wq/Terra-Genesis
-Current milestone: M17 GCSE Classroom Readiness, Answer Support, Teacher Mode & Scientific Trust (DONE)
-Current chunk: M17-C01 to M17-C06 verified; production build & 41/41 targeted tests PASS
-Status: READY
+Current milestone: M18 Spec Completion and Simulation Depth (IN PROGRESS)
+Current chunk: M18-C11 deployment and live verification
+Status: VALIDATED, READY TO DEPLOY
 
 Verified working:
+- M18-C01 compact adaptive map labels, independent label visibility, and corrected scientific-trust wording.
+- M18-C02 compensated Float64 CPU water depth with Float32 render/save/GPU compatibility.
+- M18-C03 detailed shoreline model coupled to authoritative, conserved world sediment.
+- M18-C04 interactive local 3D waterfall with state-derived overhang, collapse blocks, plunge pool and gorge walls.
+- M18-C05 authoritative ridge, valley, plateau, depression, slope, channel and embankment brushes with masks and pen pressure.
+- M18-C06 ten climate-derived biome classes with distinct cover limits, terrain colours, tree forms and a categorical overlay.
+- M18-C07 classroom before/after split view from exact checkpoint and current-world cells, with measured changes.
+- M18-C08 ground-following first-person explore, automatic flyover, cinematic orbit and focus-point cameras.
+- M18-C09 opt-in procedural ambience and effects with separate levels and automatic Classroom-mode mute.
+- M18-C10 full-resolution GLB, live-view WebM, Minecraft WorldPainter and fixed-seed lesson-link exports.
+- M18-C11 validation: 318/318 unit tests, strict typecheck, production build and 12/12 real-Chrome GPU comparisons pass; focused Chrome checks cover repaired guided/animated views and all new exports.
 - M01 terrain · M02 water (CPU ref + GPU) · M03 erosion/deposition · M04 strata, weathering, slope failure,
   landslide tool, rotational slump lab (guided 2D).
 - M05 & M13-C08c coasts (`src/sim/coast/coastSim.ts`): sea level, wave power/shelter/attenuation, seabed-controlled
@@ -42,7 +53,9 @@ Known failures / gaps:
 - No lithospheric isostasy.
 
 Verification checks:
-- `npm run build` (`tsc --noEmit && vite build`): PASS
-- `tests/m16-hardening.test.ts` (13/13), `tests/geo-glacial.test.ts`, `tests/meander.test.ts`, `tests/coast.test.ts`, `tests/glacier.test.ts`: PASS
+- Full unit suite: 318/318 tests across 58 files PASS
+- Strict TypeScript and production Vite build PASS
+- Real Chrome GPU parity suite: 12/12 PASS
+- Full browser suite reached 62/64; both presentation-only failures were repaired and focused Chrome reruns PASS with no console errors
 Uncommitted changes: none
-Next: Ready for teacher/student classroom deployment on GitHub Pages / Cloudflare Pages.
+Next: Push and verify GitHub Pages / Cloudflare Pages.

@@ -25,9 +25,23 @@ export function CoastPanel() {
       <button className="primary small" onClick={() => set({ dialog: 'shore' })}>
         Open beaches, spits and bars lab (map)
       </button>
+      <button
+        className="small"
+        onClick={() => {
+          const r = engine.evolveDetailedShoreline(3650);
+          useUi.getState().toast(
+            r
+              ? `Detailed shoreline: moved ${fmtVol(r.movedM3)} of existing beach sand across ${r.changedCells} real terrain cells`
+              : 'No sandy coast with enough movable sediment was found',
+            r ? 'success' : 'info',
+          );
+        }}
+      >
+        Evolve detailed sandy coast for 10 years
+      </button>
       <p className="hint small">
-        Caves, arches and stacks are overhanging 3D shapes a height map cannot hold, and bars, lagoons and recurved spits need a finer
-        shoreline model, so both are shown in their own guided models.
+        The detailed shoreline model can now redistribute existing beach sand into the real 3D terrain. It never removes bedrock and the
+        moved sand volume is conserved. The separate lab gives a larger teaching view of the same shoreline rules.
       </p>
       <h3>Sea level</h3>
       <label className="field">
