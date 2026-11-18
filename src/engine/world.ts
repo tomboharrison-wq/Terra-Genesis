@@ -6,7 +6,7 @@ import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacier
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
 
-export const WORLD_FORMAT_VERSION = 12;
+export const WORLD_FORMAT_VERSION = 13;
 
 /** Bedrock layers per cell: STRATA_LAYERS lithologies separated by STRATA_LAYERS − 1 boundaries. */
 export const STRATA_LAYERS = 4;
@@ -115,6 +115,10 @@ export interface WorldMeta {
   glacialErosionM?: number[];
   /** A meandering lowland river (sim/geology/meander.ts MeanderState; plain data, saved with the world). */
   meander?: import('../sim/geology/meander').MeanderState;
+  /** Main-world solid headland. Bedrock columns are its top envelope, not its rock volume. */
+  solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
+  /** Detailed longitudinal waterfall rock domain; top envelope stored in bedrock columns. */
+  solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
 }
 
 /**
@@ -272,6 +276,18 @@ export function worldExtentM(w: WorldState): { x: number; y: number } {
 /** Structural and numerical sanity check. Returns list of problems (empty = valid). */
 export function validateWorld(w: WorldState): string[] {
   const errs: string[] = [];
+  const h = w.meta.solidHeadland, f = w.meta.solidWaterfall;
+  if (h && f) errs.push('world cannot own two overlapping solid domains');
+  if (h || f) {
+    const s = (h ?? f)!;
+    const count = h ? 48 * 40 * 30 : 96 * 40;
+    if (w.width !== (h ? 49 : 97) || w.height !== 41 || w.cellSizeM !== 1) errs.push('solid domain grid mismatch');
+    if (s.solid.length !== count || s.damage.length !== count) errs.push('solid domain field size mismatch');
+    if (!s.solid.every((v) => v === 0 || v === 1) || !s.damage.every((v) => Number.isFinite(v) && v >= 0)) errs.push('invalid solid or damage field');
+    if (!Number.isInteger(s.step) || s.step < 0 || !Number.isFinite(s.remainderYears) || s.remainderYears < -1e-8 || s.remainderYears >= (h ? 10 : 1)) errs.push('invalid solid model clock');
+    if (h && (!h.history.length || Object.values(h.params).some((v) => !Number.isFinite(v)))) errs.push('invalid headland parameters or history');
+    if (f && [f.dischargeM3PerS, f.maxSpanM, f.weakErosionMYr, f.hardFactor].some((v) => !Number.isFinite(v) || v < 0)) errs.push('invalid waterfall parameters');
+  }
   const n = w.width * w.height;
   if (w.bedrockElevationM.length !== n) errs.push('bedrock length mismatch');
   if (w.looseSedimentThicknessM.length !== n) errs.push('sediment length mismatch');

@@ -16,6 +16,8 @@ import { getScene } from './runtime';
 import { Icon } from './icons';
 import type { LandformKind } from '../tools/brush';
 import { enableAudio, playSfx } from './audio';
+import { SolidHeadlandPanel } from './SolidHeadlandPanel';
+import { SolidWaterfallPanel } from './SolidWaterfallPanel';
 
 const LANDFORMS: { id: LandformKind; label: string }[] = [
   { id: 'ridge', label: 'Ridge' },
@@ -52,6 +54,8 @@ function fmtM(m: number) {
 
 export function ToolPanel() {
   const s = useUi();
+  if (s.world?.presetId === 'solid-waterfall') return <SolidWaterfallPanel />;
+  if (s.world?.presetId === 'solid-headland') return <SolidHeadlandPanel />;
   const t = toolById(s.tool);
   const world = s.world;
   if (!s.panelOpen) {

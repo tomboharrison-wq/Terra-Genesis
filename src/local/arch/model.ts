@@ -186,6 +186,15 @@ export class ArchModel {
     return this.solid[idx(x, y, z)] === 1;
   }
 
+  /** Recompute rock resistance after a live material or joint edit, preserving solid and damage. */
+  refreshErodibility(): void {
+    const p = this.p;
+    for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
+      const joint = Math.abs(y - p.jointY) <= 1 && x >= p.headX0 && x < p.headX1;
+      this.erod[idx(x, y, z)] = p.rockFactor * (joint ? p.jointFactor : 1) * (0.75 + 0.5 * hash(x, y, z, p.seed));
+    }
+  }
+
   /** Wave energy in empty voxels of the wave and spray bands (BFS from the open sea). */
   private waveField() {
     const p = this.p;

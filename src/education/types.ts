@@ -38,6 +38,10 @@ export interface LessonStage {
   /** Labels attached to real locations in the current world. */
   labels?(ctx: StageContext): LessonLabel[];
   camera?: 'oblique' | 'top';
+  /** Close view of a measured feature in the actual world. */
+  focus?(ctx: StageContext): { xM: number; yM: number; distanceM: number };
+  /** Measured terrain transect, also drawn in the main world. */
+  profile?(ctx: StageContext): { ax: number; ay: number; bx: number; by: number };
   overlay?: OverlayId;
   /** A question to think about before revealing labels marked `answer`. */
   predict?: string;

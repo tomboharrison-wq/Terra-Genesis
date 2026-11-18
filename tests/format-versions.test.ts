@@ -18,6 +18,7 @@ const ADDED: Record<number, { fields: string[]; header: (keyof FileHeader)[] }> 
   10: { fields: ['lavaDepthM', 'lavaTempC', 'lavaKind'], header: ['lava'] },
   11: { fields: ['tephraM'], header: [] },
   12: { fields: ['groundwaterDepthM'], header: [] },
+  13: { fields: [], header: [] }, // Optional solid domains live in the existing metadata header.
 };
 
 /** Rewrite a current file as version `v` would have written it (only the fields and sections it knew). */
@@ -30,7 +31,7 @@ function downgrade(bytes: Uint8Array, v: number): Uint8Array {
     ADDED[k].header.forEach((h) => keepH.add(h));
   }
   const h: Record<string, unknown> = { ...header, formatVersion: v };
-    for (let k = v + 1; k <= 12; k++) for (const s of ADDED[k].header) if (!keepH.has(s)) delete h[s];
+  for (let k = v + 1; k <= WORLD_FORMAT_VERSION; k++) for (const s of ADDED[k].header) if (!keepH.has(s)) delete h[s];
   const align4 = (n: number) => (n + 3) & ~3;
   const parts: { f: FileHeader['fields'][number]; data: Uint8Array }[] = [];
   let off = 0;
@@ -51,14 +52,14 @@ function downgrade(bytes: Uint8Array, v: number): Uint8Array {
 }
 
 describe('M11-C04 saving: every older format version still loads', () => {
-  it('v1 … v12 files decode to valid, runnable worlds with migrated defaults', () => {
-    expect(WORLD_FORMAT_VERSION).toBe(12);
+  it('v1 … v13 files decode to valid, runnable worlds with migrated defaults', () => {
+    expect(WORLD_FORMAT_VERSION).toBe(13);
     const w = generateWorld(defaultOptions('river-basin', 7, 64));
     w.water.rainMPerS = 1e-6;
     w.waterDepthM.fill(0.2);
     w.snowSweM.fill(0.01);
     const bytes = encodeWorld(w);
-    for (let v = 1; v <= 12; v++) {
+    for (let v = 1; v <= WORLD_FORMAT_VERSION; v++) {
       const back = decodeWorld(downgrade(bytes, v)).world;
       expect(validateWorld(back), `v${v}`).toEqual([]);
       expect(Array.from(back.bedrockElevationM)).toEqual(Array.from(w.bedrockElevationM));

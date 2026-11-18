@@ -12,6 +12,7 @@ import { FoldSection } from './FoldLab';
 import { foldGeometry } from '../local/folds/model';
 import { foldStage } from '../education/lessons/tectonics';
 import { STAGE_ORDER } from '../local/arch/model';
+import { ProfilePanel } from './ProfilePanel';
 
 const MODULES: Record<LessonModule, string> = {
   rivers: 'Rivers',
@@ -108,6 +109,7 @@ export function LessonPanel() {
         </button>
       </div>
       <p className="stage-text">{ed.level === 'ks3' ? st.ks3 : st.gcse}</p>
+      {st.profile && <ProfilePanel />}
       {st.predict && !ed.answer && <p className="predict">Predict: {st.predict}</p>}
       <div className="row wrap presentation" aria-label="Presentation">
         <button className="small" onClick={() => upd({ big: !ed.big })} aria-pressed={!!ed.big} title="Larger text for projectors">

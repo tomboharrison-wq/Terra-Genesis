@@ -5,10 +5,11 @@ import { ToolIcon } from './icons';
 export function ToolRail() {
   const tool = useUi((s) => s.tool);
   const set = useUi((s) => s.set);
+  const solid = useUi((s) => s.world?.presetId.startsWith('solid-'));
   const group = (g: 'terrain' | 'water' | 'coast' | 'earth' | 'measure' | 'events', label: string) => (
     <>
       <div className="rail-group-label">{label}</div>
-      {TOOLS.filter((t) => t.group === g).map((t) => (
+      {TOOLS.filter((t) => t.group === g && (!solid || t.id === 'navigate' || t.id === 'coast')).map((t) => (
         <button
           key={t.id}
           className={`rail-btn ${tool === t.id ? 'active' : ''}`}

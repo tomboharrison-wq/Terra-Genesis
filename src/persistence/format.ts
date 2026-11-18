@@ -4,7 +4,7 @@ import { defaultGlacierParams, type GlacierParams } from '../sim/glacier/glacier
 import { defaultVegetationParams, type VegetationParams } from '../sim/vegetation/vegetationSim';
 import { defaultLavaParams, type LavaParams } from '../sim/lava/lavaSim';
 import { defaultTectonicsParams, type TectonicsParams } from '../sim/tectonics/plates';
-import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
+import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, validateWorld, defaultErosionParams, defaultWaterParams, type ErosionParams, type WaterParams, type WorldMeta, type WorldState } from '../engine/world';
 
 /**
  * Terra Genesis world file (.tgw), format version 1:
@@ -18,6 +18,7 @@ import { WORLD_FORMAT_VERSION, STRATA_BOUNDS, STRATA_LAYERS, setUniformStrata, d
  * v4 adds strataBoundsM / strataMaterial. Older files migrate to single-layer columns.
  * v11 adds tephraM (ash share of loose sediment). Older files migrate without ash.
  * v12 adds groundwaterDepthM and groundwater parameters. Older files migrate with a disabled aquifer.
+ * v13 permits saved main-world solid headland/waterfall domains in meta; ordinary worlds have none.
  * v10 adds lavaDepthM, lavaTempC, lavaKind and header.lava. Older files migrate without lava.
  * v9 adds plateId and header.tectonics. Older files migrate with one plate and tectonics off.
  * v8 adds vegCover and header.vegetation. Older files migrate bare.
@@ -203,6 +204,10 @@ export function decodeWorld(bytes: Uint8Array): { world: WorldState; extras?: Re
     world.tephraM.length !== n
   )
     throw new Error('Field size mismatch');
+  if (world.meta.solidHeadland || world.meta.solidWaterfall) {
+    const errors = validateWorld(world);
+    if (errors.length) throw new Error(`Invalid solid landscape: ${errors.join('; ')}`);
+  }
   return { world, extras: h.extras };
 }
 

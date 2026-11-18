@@ -1,5 +1,17 @@
 # Test results (latest first)
 
+## 2026-11-18 - M19 live landforms
+
+- Full unit suite: 327 tests across 61 files PASS (`npm test -- --maxWorkers=2`). An earlier concurrent run passed all assertions but hit a Vitest worker-reporting timeout; the bounded-worker rerun completed without errors.
+- Strict TypeScript and production build PASS in a clean snapshot excluding user duplicate files ending ` 2.*`. The untouched duplicate `src/main 2.tsx` prevents an in-place build.
+- Real Chrome GPU parity: 12/12 PASS. Ordinary water, sediment, snow, climate, vegetation and hazard solvers retain parity.
+- Numerical solid tests: real through-opening topology, all coastal stages, measured voxel loss, forcing sensitivity, real waterfall void/pool/cap failure/retreat, zero discharge, and exact save/split-run/replay continuation PASS.
+- Levee test: actual bank sediment rises above the floodplain; supply, retained sediment and export close the budget PASS.
+- Chrome main-scene checks: one renderer, five measured coastal stages, exact Previous/Next rock state, waves-off worker pause, waterfall erosion/collapse, zero-discharge worker pause, raised levee cells and no browser errors PASS.
+- Screenshots reviewed for coastal arch, waterfall/gorge, and measured levee cross-section. Hidden block faces removed to eliminate visual seams.
+- Solid save validation rejects inconsistent field size and invalid process parameters; v1 to v13 migration acceptance PASS.
+- No claim of real-device GPU frame rate, resolved turbulent flow or arbitrary-world solid patches.
+
 ## 2026-11-18 - M18-C11 full validation
 
 - Full unit suite: 318 tests across 58 files PASS after repairing one boreal ash-recovery threshold.

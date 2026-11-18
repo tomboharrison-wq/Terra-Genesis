@@ -16,9 +16,10 @@ const fmtVol = (v: number) => (v >= 1e9 ? `${(v / 1e9).toFixed(2)} km³` : v >= 
 /** Water time (hours, the hydraulic solver) or geological time (years, the landscape evolution model). */
 export function TimeModeSwitch() {
   const mode = useUi((s) => s.geo.mode);
+  const solid = useUi((s) => s.world?.presetId.startsWith('solid-'));
   return (
     <div className="seg time-mode" role="group" aria-label="Time scale">
-      <button className={mode ? '' : 'active'} onClick={() => setGeoMode(false)} title="Water time: rain, rivers, floods and erosion hour by hour (the water simulation)">
+      <button disabled={solid} className={mode ? '' : 'active'} onClick={() => setGeoMode(false)} title="Water time: rain, rivers, floods and erosion hour by hour (the water simulation)">
         Water time
       </button>
       <button
@@ -35,6 +36,7 @@ export function TimeModeSwitch() {
 /** Time bar controls in geological time: play, step, speed, year, replay timeline and model settings. */
 export function GeoBar() {
   const geo = useUi((s) => s.geo);
+  const solid = useUi((s) => s.world?.presetId.startsWith('solid-'));
   const [open, setOpen] = useState(false);
   const slow = geo.playing && geo.achieved > 0 && geo.achieved < geo.yearsPerSec * 0.8;
   const shownYears = geo.viewing !== null ? geo.frames[geo.viewing] : geo.years;
@@ -52,7 +54,7 @@ export function GeoBar() {
         <Icon name="step" />
       </button>
       <select value={geo.yearsPerSec} onChange={(e) => setGeoSpeed(+e.target.value)} title="Requested geological time per real second" aria-label="Geological speed">
-        {GEO_SPEEDS.map((s) => (
+        {(solid ? [5, 10, 20, 50, 100, 200].map((v) => ({ v, label: `${v} process years / s` })) : GEO_SPEEDS).map((s) => (
           <option key={s.v} value={s.v}>
             {s.label}
           </option>
@@ -79,10 +81,10 @@ export function GeoBar() {
           />
         </label>
       )}
-      <button className={open ? 'active-toggle' : ''} onClick={() => setOpen(!open)} aria-expanded={open} title="Geological time settings and what the model includes">
+      <button disabled={solid} className={open ? 'active-toggle' : ''} onClick={() => setOpen(!open)} aria-expanded={open} title="Geological time settings and what the model includes">
         Settings
       </button>
-      {open && <GeoSettings onClose={() => setOpen(false)} />}
+      {open && !solid && <GeoSettings onClose={() => setOpen(false)} />}
     </>
   );
 }

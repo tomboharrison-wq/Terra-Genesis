@@ -119,7 +119,7 @@ export function Viewport() {
     let pressure = 1;
     let hoverTimer = 0;
 
-    const toolAllowed = (e?: { altKey: boolean }) => !spaceHeld && !(e?.altKey ?? false) && ringRadius() !== null;
+    const toolAllowed = (e?: { altKey: boolean }) => !engine.world.meta.solidHeadland && !engine.world.meta.solidWaterfall && !spaceHeld && !(e?.altKey ?? false) && ringRadius() !== null;
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || !toolAllowed(e)) return;

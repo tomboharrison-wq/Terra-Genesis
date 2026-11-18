@@ -33,6 +33,8 @@ export interface GeoJob {
   debris: Float32Array;
   moraine: Float32Array;
   glacialErosion: Float32Array;
+  solidHeadland?: import('../coast/solidHeadland').SolidHeadland;
+  solidWaterfall?: import('../river/solidWaterfall').SolidWaterfall;
 }
 
 let w: WorldState | null = null;
@@ -63,6 +65,8 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
   w.climate = j.climate;
   w.glacier = j.glacier;
   w.coast = j.coast;
+  w.meta.solidHeadland = j.solidHeadland;
+  w.meta.solidWaterfall = j.solidWaterfall;
   w.iceThicknessM.set(j.ice);
   w.iceDebrisM.set(j.debris);
   computeSurface(w, surface!);
@@ -84,6 +88,8 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
     debris: w.iceDebrisM.slice(),
     moraine: j.moraine,
     glacialErosion: j.glacialErosion,
+    solidHeadland: w.meta.solidHeadland,
+    solidWaterfall: w.meta.solidWaterfall,
   };
   (self as unknown as { postMessage(m: unknown, transfer: Transferable[]): void }).postMessage(out, [
     out.bed.buffer,

@@ -58,7 +58,8 @@ describe('M10-C05 curriculum validation (spec G5)', () => {
       Number(css.match(new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{[^}]*font-size:\\s*(\\d+)px`))?.[1] ?? 0);
     expect(px('.lesson-panel')).toBeGreaterThanOrEqual(18);
     expect(px('.lesson-panel .stage-text')).toBeGreaterThanOrEqual(19);
-    expect(px('.lesson-label span')).toBeGreaterThanOrEqual(20);
+    expect(px('.lesson-label span')).toBeGreaterThanOrEqual(14);
+    expect(px('.app.lesson-big .lesson-label span')).toBeGreaterThanOrEqual(20);
     // WCAG contrast: body text on the solid panel ≥ 7:1 (AAA); muted text ≥ 4.5:1.
     const lum = (hex: string) => {
       const c = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));

@@ -11,6 +11,7 @@ import { teacherSetupLink } from './teacherSetupRunner';
 export function ExportDialog() {
   const set = useUi((s) => s.set);
   const overlay = useUi((s) => s.terrainOverlay);
+  const solid = useUi((s) => s.world?.presetId.startsWith('solid-'));
   const [busy, setBusy] = useState(false);
   const [setupId, setSetupId] = useState(TEACHER_SETUPS[0].id);
   const close = () => set({ dialog: null });
@@ -74,7 +75,7 @@ export function ExportDialog() {
   return (
     <Dialog title="Export" onClose={close}>
       <ul className="export-list">
-        {items.map((it) => (
+        {items.filter((it) => !solid || ['project', 'view', 'video'].includes(it.id)).map((it) => (
           <li key={it.id}>
             <div>
               <b>{it.title}</b>

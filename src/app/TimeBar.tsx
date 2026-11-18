@@ -49,6 +49,7 @@ export function TimeBar() {
   const view = useUi((s) => s.waterView);
   const set = useUi((s) => s.set);
   const geoMode = useUi((s) => s.geo.mode);
+  const solid = useUi((s) => s.world?.presetId.startsWith('solid-'));
   if (!sim) return null;
   const slow = sim.playing && sim.achievedSpeed < sim.speed * 0.8;
   if (geoMode)
@@ -57,7 +58,7 @@ export function TimeBar() {
         <TimeModeSwitch />
         <GeoBar />
         <span className="sep" />
-        <OverlayMenu />
+        {!solid && <OverlayMenu />}
       </div>
     );
   return (

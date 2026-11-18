@@ -1,5 +1,20 @@
 # Changelog
 
+## M19-C02 - live waterfall, gorge and levee experiments
+- Added a longitudinal solid-rock waterfall in the main scene: exposed-face erosion, plunge-pool scour, cap failure and upstream retreat.
+- Added discharge-driven river water and a falling jet following gravity over the current lip, plus supported-span and rock-resistance controls.
+- Persisted solid waterfall state through workers, saves, checkpoints and geological replay. Disabled heightfield-only actions in solid worlds.
+- Added a live levee lesson with actual bank deposition, a measured transect and conserved sediment supply.
+- Linked Landforms to the live lessons; retained guided models as separate teaching tools. Solid faces no longer show hidden-block seams.
+- Limits: dedicated fixed-width waterfall section, illustrative process rates, exported collapse debris; one-class levee deposition with a fixed river.
+
+## M19-C01 - live solid headland in the main world
+- Reused numerical solid-rock erosion inside TerrainScene, geological workers, saves and replay.
+- Wave climate, sea level, joint weakness and supported span change rock erosion and collapse.
+- Added live-headland lesson, linked from Landform Show. Compact labels leave the landform visible.
+- Removed false cave/arch detection from cumulative heightfield wave damage. Solid-world tools offer implemented controls only.
+- Scope: dedicated one-metre headland world; illustrative timing; debris exported and ledgered; ordinary worlds retain heightfield physics.
+
 ## M18-C01 compact labels and scientific honesty
 
 - Added compact wrapped Sandbox labels, kept larger Classroom labels, and added a map-label visibility toggle.

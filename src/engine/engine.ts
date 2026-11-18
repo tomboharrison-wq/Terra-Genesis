@@ -43,6 +43,8 @@ export interface GeoResult {
   debris: Float32Array;
   moraine?: Float32Array;
   glacialErosion?: Float32Array;
+  solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
+  solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
 }
 
 /** Longest single geological step (years): longer requests are split. */
@@ -287,6 +289,8 @@ export class Engine {
     if (r.moraine) this.saveMetaField('moraineM', r.moraine);
     if (r.glacialErosion) this.saveMetaField('glacialErosionM', r.glacialErosion);
     if (r.meander) this.geoMeander = r.meander;
+    if (r.solidHeadland) w.meta.solidHeadland = r.solidHeadland;
+    if (r.solidWaterfall) w.meta.solidWaterfall = r.solidWaterfall;
     this.afterGeologic(r.stats, r.area, r.lake);
   }
 
@@ -324,13 +328,15 @@ export class Engine {
   }
 
   /** Put the terrain back to a recorded geological frame (record and replay). */
-  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null; ice?: Float32Array; debris?: Float32Array }): void {
+  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null; ice?: Float32Array; debris?: Float32Array; solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland; solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall }): void {
     this.beginGeologic();
     const w = this.world;
     w.bedrockElevationM.set(f.bed);
     w.looseSedimentThicknessM.set(f.soil);
     w.materialId.set(f.material);
     w.meta.geologicYears = f.years;
+    w.meta.solidHeadland = f.solidHeadland ? structuredClone(f.solidHeadland) : undefined;
+    w.meta.solidWaterfall = f.solidWaterfall ? structuredClone(f.solidWaterfall) : undefined;
     this.geoMeander = f.meander ? cloneMeander(f.meander) : null;
     if (f.ice) w.iceThicknessM.set(f.ice);
     if (f.debris) w.iceDebrisM.set(f.debris);
@@ -451,6 +457,7 @@ export class Engine {
 
   /** Advance simulation by one real frame. Returns simulated seconds advanced. */
   tick(realDt: number): number {
+    if (this.world.meta.solidHeadland || this.world.meta.solidWaterfall) return 0; // Solid domains run through geological time.
     this.flushGround();
     const done = this.clock.tick(this.stepper, realDt);
     this.climateClock += realDt;
@@ -480,6 +487,7 @@ export class Engine {
 
   /** Advance exactly `seconds` of simulated time (Step button / tests), ignoring budget. */
   advance(seconds: number): number {
+    if (this.world.meta.solidHeadland || this.world.meta.solidWaterfall) return 0;
     this.flushGround();
     // Long advances run in segments so GPU accumulators are folded before float32 round-off grows.
     let done = 0;
@@ -797,6 +805,7 @@ export class Engine {
   }
 
   setPlaying(playing: boolean): void {
+    if (this.world.meta.solidHeadland || this.world.meta.solidWaterfall) playing = false;
     if (playing && this.geoRivers) {
       this.geoRivers = null; // water time again: real water replaces the drainage-derived rivers
       this.markRenderDirtyAll();

@@ -4,7 +4,7 @@ import type { LessonLabel, StageContext } from '../education/types';
 import { makeCheckpoint, type Checkpoint } from '../engine/checkpoints';
 import { cloneWorld } from '../engine/world';
 import { engine, getScene, newWorld, onWorldReplaced, replaceWorld, syncSim } from './runtime';
-import { runGeoYears, setGeoMode } from './geoRunner';
+import { runGeoYears, setGeoMode, setGeoSpeed } from './geoRunner';
 
 /**
  * Lesson player (spec G3/G4). Each stage's world state is kept (privately, not in the user's
@@ -31,6 +31,10 @@ export function startLesson(id: string): void {
   }
   engine.setPlaying(false);
   setGeoMode(!!lesson.geological);
+  if (engine.world.meta.solidHeadland || engine.world.meta.solidWaterfall) {
+    setGeoSpeed(engine.world.meta.solidWaterfall ? 10 : 100);
+    useUi.getState().set({ tool: 'navigate' });
+  }
   stageStates = [];
   useUi.getState().set({
     dialog: null,
@@ -65,6 +69,7 @@ export function goToStage(k: number): void {
     return;
   }
   const finish = () => {
+    if (lesson.geological) setGeoMode(true);
     if (lesson.geological && !engine.geoRivers) engine.showGeoRivers(); // rivers and lakes of this stage's landscape
     const labels: LessonLabel[] = stage.labels ? stage.labels(ctx()) : [];
     useUi.getState().set({
@@ -76,6 +81,7 @@ export function goToStage(k: number): void {
       },
       lessonLabels: labels,
       terrainOverlay: stage.overlay ?? 'none',
+      profile: stage.profile?.(ctx()) ?? null,
     });
     const scene = getScene();
     if (stage.camera === 'top') scene?.topDown(1.5);
@@ -83,6 +89,8 @@ export function goToStage(k: number): void {
       scene?.topDown(1.5); // centre the target on the map first
       scene?.oblique();
     }
+    const focus = stage.focus?.(ctx());
+    if (focus) scene?.focusPoint(focus.xM, focus.yM, focus.distanceM);
     syncSim();
   };
   engine.setPlaying(false);

@@ -79,15 +79,12 @@ export class CoastSim {
   coarseFraction = 1;
   /** Wave power reaching each coastal land cell at the last update (W/m), else 0. */
   exposure: Float32Array;
-  /** Cumulative wave energy (MJ/m) absorbed at jutting rocky headland tips, driving cave → arch → stack → stump progression. */
-  headlandDamage: Float32Array;
   private erod = new Float32Array(256);
   private sinceLast = 0;
 
   constructor(private world: WorldState, private surface: Float32Array) {
     const n = world.width * world.height;
     this.exposure = new Float32Array(n);
-    this.headlandDamage = new Float32Array(n);
     for (const m of MATERIALS) this.erod[m.id] = m.erodibility;
   }
 
@@ -305,12 +302,6 @@ export class CoastSim {
       const P = P0 * e;
       this.exposure[i] = P;
       if (P <= 0 || z[i] <= floor) continue;
-
-      // Track cumulative wave attack on jutting rocky headland tips (cave → arch → stack → stump)
-      const seaNb = 4 - this.landNeighbours(x, y);
-      if (seaNb >= 2 && this.erod[w.materialId[i]] <= 0.65 && b[i] > sl + 2) {
-        this.headlandDamage[i] += (P * speedup * dt) / 1e9; // GJ/m of cumulative headland wave attack
-      }
 
       // Preserve constructive sandy pocket-beach berms in sheltered bays (while still attacking cliffs behind them)
       const isSandyBerm = b[i] < sl && loose[i] > 0.3 && z[i] <= sl + 1.1 && e < 0.42;
@@ -635,41 +626,19 @@ export class CoastSim {
   }
 
   /**
-   * Map-scale headland features (cave → arch → stack → stump) measured from cumulative headland
-   * wave attack and isolated rocky pillars off retreated headlands.
+   * Only solid-rock topology can establish a cave or arch. Heightfield wave damage cannot.
    */
   findHeadlandFeatures(): { cell: number; xM: number; yM: number; stage: 'cave' | 'arch' | 'stack' | 'stump'; heightM: number }[] {
     const w = this.world;
-    const W = w.width;
-    const H = w.height;
-    const cs = w.cellSizeM;
-    const sl = w.seaLevelM;
-    const z = this.surface;
-    const out: { cell: number; xM: number; yM: number; stage: 'cave' | 'arch' | 'stack' | 'stump'; heightM: number }[] = [];
-
-    for (let y = 2; y < H - 2; y++) {
-      for (let x = 2; x < W - 2; x++) {
-        const i = y * W + x;
-        const dmg = this.headlandDamage[i];
-        if (dmg <= 0.05 && this.landNeighbours(x, y) > 0) continue;
-        const h = z[i] - sl;
-        const landNb = this.landNeighbours(x, y);
-        let stage: 'cave' | 'arch' | 'stack' | 'stump' | null = null;
-        if (landNb === 0 && h > 2.5 && this.erod[w.materialId[i]] <= 0.65) {
-          stage = 'stack';
-        } else if (landNb === 0 && h > -0.5 && h <= 2.5 && dmg > 0.1) {
-          stage = 'stump';
-        } else if (landNb <= 2 && h > 3 && dmg > 0.6) {
-          stage = 'arch';
-        } else if (landNb <= 2 && h > 3 && dmg > 0.15) {
-          stage = 'cave';
-        }
-        if (stage) {
-          if (out.some((f) => Math.hypot(f.xM - x * cs, f.yM - y * cs) < cs * 4)) continue;
-          out.push({ cell: i, xM: x * cs, yM: y * cs, stage, heightM: Math.max(0, h) });
-        }
-      }
-    }
-    return out;
+    const s = w.meta.solidHeadland;
+    if (!s) return [];
+    const stage = s.history[s.history.length - 1].stage;
+    if (stage === 'headland' || stage === 'gone') return [];
+    const x = Math.floor((s.params.headX0 + s.params.headX1) / 2);
+    const y = s.params.jointY;
+    let top = 0;
+    for (let z = 0; z < 30; z++) for (let yy = y; yy < s.params.headY; yy++)
+      for (let xx = s.params.headX0; xx < s.params.headX1; xx++) if (s.solid[(z * 40 + yy) * 48 + xx]) top = Math.max(top, z + 1);
+    return [{ cell: y * w.width + x, xM: x, yM: y, stage, heightM: Math.max(0, top - w.seaLevelM) }];
   }
 }

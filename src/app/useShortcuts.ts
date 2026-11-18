@@ -3,7 +3,7 @@ import { useUi } from '../state/uiStore';
 import { engine, getScene, saveToSlot, syncSim } from './runtime';
 import { TOOLS } from './tools';
 import { isTyping } from './Viewport';
-import { playGeo, stopGeo } from './geoRunner';
+import { playGeo, stepGeo, stopGeo } from './geoRunner';
 
 const PAN: Record<string, [number, number]> = {
   ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0],
@@ -34,7 +34,10 @@ export function useShortcuts() {
       }
       if (mod || e.altKey) return;
       const tool = TOOLS.find((t) => t.key === e.key || t.key === e.key.toUpperCase());
-      if (tool) return ui.set({ tool: tool.id });
+      if (tool) {
+        if ((engine.world.meta.solidHeadland || engine.world.meta.solidWaterfall) && tool.id !== 'navigate' && tool.id !== 'coast') return;
+        return ui.set({ tool: tool.id });
+      }
       const s = getScene();
       if (PAN[e.code]) {
         e.preventDefault();
@@ -64,6 +67,7 @@ export function useShortcuts() {
           return engine.setPlaying(!engine.clock.playing);
         }
         case '.':
+          if (ui.geo.mode) return stepGeo(ui.geo.yearsPerSec);
           if (!engine.clock.playing) {
             engine.advance(Math.min(engine.clock.speed, 3600));
             syncSim();

@@ -47,6 +47,9 @@ import { CloudLayer } from './cloudLayer';
 import { PLATE_COLOURS } from '../sim/tectonics/plates';
 import { BIOME_COLOURS } from '../sim/vegetation/vegetationSim';
 import { automaticCameraPose, type CameraMode } from './cameraPaths';
+import { SolidHeadlandLayer } from './solidHeadlandLayer';
+import { WaterfallFlowLayer } from './waterfallFlowLayer';
+import { waterfallMetrics } from '../sim/river/solidWaterfall';
 
 export type Quality = 'performance' | 'balanced' | 'high';
 /** Terrain colouring: natural, or surface change since the engine's reference snapshot. */
@@ -153,6 +156,8 @@ export class TerrainScene {
   private sunAzimuthDeg = 220;
   private sunElevationDeg = 38;
   private verticalExaggeration = 1;
+  private solidHeadland = new SolidHeadlandLayer();
+  private waterfallFlow = new WaterfallFlowLayer();
   private brushRing: Line;
   private brushVisible = false;
   private profileLine: Line;
@@ -389,6 +394,11 @@ export class TerrainScene {
     this.terrain.castShadow = true;
     this.terrain.receiveShadow = true;
     this.scene.add(this.terrain);
+    this.terrain.visible = !(w.meta.solidHeadland || w.meta.solidWaterfall);
+    if (!this.solidHeadland.group.parent) this.scene.add(this.solidHeadland.group);
+    this.solidHeadland.update(w.meta.solidHeadland, w.meta.solidWaterfall);
+    if (!this.waterfallFlow.group.parent) this.scene.add(this.waterfallFlow.group);
+    this.waterfallFlow.update(w.meta.solidWaterfall, 0);
     if (!this.plateArrows.parent) this.scene.add(this.plateArrows);
     if (!this.trees) {
       this.trees = new TreeLayer(this.engine);
@@ -410,10 +420,15 @@ export class TerrainScene {
     this.waterLayer = new WaterLayer(this.engine, this.renderer, geo.getIndex()!, this.pos.slice());
     this.waterLayer.setView(this.waterView);
     this.scene.add(this.waterLayer.mesh);
+    this.waterLayer.mesh.visible = !(w.meta.solidHeadland || w.meta.solidWaterfall);
 
-    this.baseM = Math.min(zmin, w.seaLevelM) - Math.max(20, this.reliefM * 0.12);
+    this.baseM = w.meta.solidHeadland || w.meta.solidWaterfall ? 0 : Math.min(zmin, w.seaLevelM) - Math.max(20, this.reliefM * 0.12);
     this.buildSea(ex, ey);
     this.buildSkirts();
+    if (w.meta.solidHeadland || w.meta.solidWaterfall) {
+      if (this.skirt) this.skirt.visible = false;
+      if (this.waterSkirt) this.waterSkirt.visible = false;
+    }
     this.configureLightsAndFog(ex, ey);
     this.engine.takeDirty();
     if (resetCamera) this.fitWorld(false);
@@ -447,7 +462,8 @@ export class TerrainScene {
 
   private updateHeightTexture() {
     const s = this.displayZ.length === this.engine.surface.length ? this.displayZ : this.engine.surface;
-    for (let i = 0; i < s.length; i++) this.heightHalf[i] = DataUtils.toHalfFloat(s[i]);
+    // A column envelope would incorrectly clip the sea out of a real cave or arch.
+    for (let i = 0; i < s.length; i++) this.heightHalf[i] = DataUtils.toHalfFloat(this.engine.world.meta.solidHeadland ? 3 : s[i]);
     if (this.heightTex) this.heightTex.needsUpdate = true;
   }
 
@@ -714,7 +730,7 @@ uniform float uLineW;`,
     const clamped = Math.max(1, Math.min(3, ve));
     if (Math.abs(clamped - this.verticalExaggeration) < 1e-3) return;
     this.verticalExaggeration = clamped;
-    for (const m of [this.terrain, this.skirt, this.waterSkirt, this.waterLayer?.mesh, this.trees?.group]) {
+    for (const m of [this.terrain, this.skirt, this.waterSkirt, this.waterLayer?.mesh, this.trees?.group, this.solidHeadland.group, this.waterfallFlow.group]) {
       if (m) m.scale.y = clamped;
     }
     if (this.sea) this.sea.position.y = this.engine.world.seaLevelM * clamped;
@@ -1032,6 +1048,7 @@ uniform float uLineW;`,
       };
     }
     if (dirty) {
+      this.solidHeadland.update(this.engine.world.meta.solidHeadland, this.engine.world.meta.solidWaterfall);
       this.treesStale = true;
       this.updateVertices(dirty, true);
       this.updateHeightTexture();
@@ -1075,6 +1092,7 @@ uniform float uLineW;`,
     this.strataUniforms.uTime.value = now / 1000;
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
     this.waterLayer?.update(now / 1000);
+    this.waterfallFlow.update(this.engine.world.meta.solidWaterfall, now / 1000);
     this.clouds?.update(dt);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
@@ -1320,12 +1338,12 @@ uniform float uLineW;`,
     this.controls.target.fromArray(p.target);
   }
 
-  focusPoint(xM: number, yM: number) {
+  focusPoint(xM: number, yM: number, distanceM?: number) {
     const w = this.engine.world;
     const x = Math.max(0, Math.min((w.width - 1) * w.cellSizeM, xM));
     const y = Math.max(0, Math.min((w.height - 1) * w.cellSizeM, yM));
     const z = this.engine.sampleSurface(x, y) * this.verticalExaggeration;
-    const distance = Math.max(w.cellSizeM * 8, this.worldSize() * 0.14);
+    const distance = Math.max(w.cellSizeM * 4, distanceM ?? Math.max(w.cellSizeM * 8, this.worldSize() * 0.14));
     this.cameraMode = 'orbit';
     this.controls.enabled = true;
     this.controls.target.set(x, z, -y);
@@ -1350,6 +1368,15 @@ uniform float uLineW;`,
     const t = this.controls.target.clone();
     const s = this.worldSize();
     this.camera.position.set(t.x, t.y + s * 0.35, t.z + s * 0.75);
+    if (this.engine.world.meta.solidHeadland) {
+      this.controls.target.set(24, 12, -22);
+      this.camera.position.set(85, 20, -24);
+    }
+    if (this.engine.world.meta.solidWaterfall) {
+      const f = waterfallMetrics(this.engine.world.meta.solidWaterfall);
+      this.controls.target.set(f.lip + 5, 20, -20);
+      this.camera.position.set(f.lip + 58, 44, -19);
+    }
     this.controls.update();
   }
 
@@ -1454,6 +1481,8 @@ uniform float uLineW;`,
     this.waterLayer?.dispose();
     this.trees?.dispose();
     this.clouds?.dispose();
+    this.solidHeadland.dispose();
+    this.waterfallFlow.dispose();
     this.resizeObs.disconnect();
     this.controls.dispose();
     this.terrain?.geometry.dispose();

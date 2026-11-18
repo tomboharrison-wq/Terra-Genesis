@@ -209,7 +209,7 @@ export const FORMATIONS: Formation[] = [
       'The base of the arch is eroded and the roof is weakened by weathering until it collapses.',
       'An isolated stack is left, which is undercut and collapses to a stump.',
     ],
-    lesson: 'cave-arch-stack',
+    lesson: 'live-headland',
   },
   {
     id: 'beaches',
@@ -455,8 +455,8 @@ export const FORMATIONS: Formation[] = [
       'The fallen rocks deepen the plunge pool by abrasion.',
       'Repeated collapse makes the waterfall retreat upstream, leaving a steep-sided gorge.',
     ],
-    lesson: 'waterfall',
-    modelLesson: 'waterfall-gorge-model',
+    lesson: 'live-waterfall',
+    modelLesson: 'live-waterfall',
   },
   {
     id: 'meanders-cliffs-bars',
@@ -608,7 +608,7 @@ export const FORMATIONS: Formation[] = [
       'The coarsest sediment is deposited first, next to the channel; finer silt is carried further.',
       'Repeated floods build natural levees beside the river and a flat flood plain of alluvium.',
     ],
-    modelLesson: 'meanders-floodplain-model',
+    modelLesson: 'live-levees',
   },
   // ---------------------------------------------------------------- glaciated uplands (1.12)
   {

@@ -30,6 +30,8 @@ export interface GeoFrame {
   meander: MeanderState | null;
   ice: Float32Array;
   debris: Float32Array;
+  solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
+  solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
 }
 
 let worker: Worker | null = null;
@@ -79,6 +81,8 @@ function record(force = false) {
     meander: engine.geoMeander ? cloneMeander(engine.geoMeander) : null,
     ice: w.iceThicknessM.slice(),
     debris: w.iceDebrisM.slice(),
+    solidHeadland: w.meta.solidHeadland ? structuredClone(w.meta.solidHeadland) : undefined,
+    solidWaterfall: w.meta.solidWaterfall ? structuredClone(w.meta.solidWaterfall) : undefined,
   });
   lastFrameYears = y;
   if (frames.length > MAX_FRAMES) {
@@ -147,6 +151,8 @@ function send(years: number, done?: () => void) {
     debris: w.iceDebrisM.slice(),
     moraine: engine.moraineField().slice(),
     glacialErosion: engine.glacialErosionField().slice(),
+    solidHeadland: w.meta.solidHeadland ? structuredClone(w.meta.solidHeadland) : undefined,
+    solidWaterfall: w.meta.solidWaterfall ? structuredClone(w.meta.solidWaterfall) : undefined,
   };
   inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w, done };
   setGeo({ busy: true });
@@ -178,7 +184,7 @@ export function runGeoYears(years: number): Promise<void> {
   if (ui().geo.playing) stopGeo();
   engine.beginGeologic();
   if (frames.length === 0) record(true);
-  const chunk = Math.max(10000, years / 6); // fewer, larger jobs: less overhead, still seen changing
+  const chunk = engine.world.meta.solidWaterfall ? Math.min(5, years) : engine.world.meta.solidHeadland ? Math.min(100, years) : Math.max(10000, years / 6);
   return new Promise((resolve) => {
     let left = years;
     const next = () => {
@@ -270,7 +276,10 @@ onWorldReplaced(() => {
   stopGeo();
   inFlight = null;
   clearFrames();
-  setGeo({ mode: false, years: engine.geologicYears });
+  setGeo({ mode: !!(engine.world.meta.solidHeadland || engine.world.meta.solidWaterfall), years: engine.geologicYears });
+  if (engine.world.meta.solidWaterfall) setGeoSpeed(10);
+  else if (engine.world.meta.solidHeadland) setGeoSpeed(100);
+  else if (ui().geo.yearsPerSec < 1000) setGeoSpeed(1000);
 });
 
 // Pressing Play in water time ends geological running.

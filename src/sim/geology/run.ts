@@ -5,6 +5,8 @@ import type { CoastSim } from '../coast/coastSim';
 import type { ClimateField } from '../climate/climate';
 import { YEAR_S } from '../climate/climate';
 import { computeSurface } from '../../engine/world';
+import { advanceHeadland } from '../coast/solidHeadland';
+import { advanceWaterfall } from '../river/solidWaterfall';
 
 /** Glaciers in geological time: the engine's (or the worker's) glacier model with its climate field and surface cache. */
 export interface GlacialGeo {
@@ -65,6 +67,20 @@ export function runGeologic(
   glacial: GlacialGeo | null = null,
   coastal: CoastalGeo | null = null,
 ): GeoStepStats {
+  if (geo.w.meta.solidWaterfall) {
+    const tot = emptyGeoStats();
+    tot.erodedRock = advanceWaterfall(geo.w, years);
+    tot.exported = tot.erodedRock;
+    tot.years = years;
+    return tot;
+  }
+  if (geo.w.meta.solidHeadland) {
+    const tot = emptyGeoStats();
+    tot.coastEroded = advanceHeadland(geo.w, years);
+    tot.exported = tot.coastEroded;
+    tot.years = years;
+    return tot;
+  }
   if (glacial && glacial.sim.params.enabled && geo.w.climate.enabled) {
     return runGlacial(geo, years, p, maxStepYears, glacial, coastal && geo.w.coast.wavesOn ? coastal : null);
   }

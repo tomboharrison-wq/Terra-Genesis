@@ -2,6 +2,10 @@
 
 | ID | Outcome | Status |
 |---|---|---|
+| M19-C01 | Solid main-world headland: real cave, arch, stack and stump topology | DONE, dedicated world |
+| M19-C02 | Solid waterfall retreat/gorge and measured sediment-built levees | DONE, dedicated experiments |
+| M19-C03 | Regression validation, publish and verify public versions | IN PROGRESS |
+| M19-next | Couple detailed solid patches into arbitrary landscapes, with debris transport and resolved local flow | FUTURE |
 | M14-C01 | Water ledger drift reconciliation and transactional GPU sync boundaries | DONE |
 | M14-C02 | Persistent groundwater/aquifer storage, recharge, Darcy exchange and baseflow | DONE |
 | M14-C03 | Groundwater diagnostics, overlay and authoritative UI controls | DONE |
