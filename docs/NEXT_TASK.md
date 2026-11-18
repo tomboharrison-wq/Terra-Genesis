@@ -1,3 +1,3 @@
 # One next executable task
 
-M19-C03: finish release validation and publish the live solid headland, solid waterfall and measured levee lessons. Preserve the dedicated solid domains and ordinary heightfield solvers. Verify the public Worker and GitHub Pages against the released commit before declaring deployment complete.
+M19 is complete and published. Await the next requested chunk. The next substantial simulation candidate is safely coupling a detailed solid patch into an ordinary landscape, with explicit water/sediment exchange. Do not claim this already works or replace the existing solvers. Preserve the dedicated headland, waterfall and measured levee experiments.

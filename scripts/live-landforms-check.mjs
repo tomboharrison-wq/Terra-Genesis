@@ -3,6 +3,11 @@ import { mkdirSync } from 'node:fs';
 
 const base = process.argv[2] ?? 'http://127.0.0.1:4173/';
 const out = process.argv[3] ?? '/tmp/terra-live-landforms';
+const lessonUrl = (id, stage = 1) => {
+  const u = new URL(base);
+  u.search = new URLSearchParams({ lesson: id, stage: String(stage), fresh: '', check: String(Date.now()) }).toString();
+  return u.toString();
+};
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -12,8 +17,9 @@ page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (e) => { if (e.type() === 'error') errors.push(e.text()); });
 const check = (name, ok) => { if (!ok) throw Error(name); console.log(`PASS ${name}`); };
 try {
-  await page.goto(`${base}?lesson=live-headland&stage=1&fresh`);
+  await page.goto(lessonUrl('live-headland'));
   await page.waitForFunction(() => window.__terraGenesis?.ui().education?.busy === false);
+  console.log(`VERSION ${await page.evaluate(() => window.__terraGenesis.version)}`);
   await page.waitForTimeout(1000);
   check('rock is in the main world, with one renderer', await page.locator('canvas').count() === 1);
   const stage = () => page.evaluate(() => window.__terraGenesis.engine.world.meta.solidHeadland.history.at(-1).stage);
@@ -40,7 +46,7 @@ try {
   await page.getByRole('button', { name: 'Step', exact: true }).click();
   await page.waitForFunction(() => !window.__terraGenesis.ui().geo.busy);
   check('waves off pauses solid erosion in the worker', before === await page.evaluate(() => window.__terraGenesis.engine.world.meta.solidHeadland.step));
-  await page.goto(`${base}?lesson=live-waterfall&stage=1&fresh`);
+  await page.goto(lessonUrl('live-waterfall'));
   await page.waitForFunction(() => window.__terraGenesis?.ui().education?.busy === false);
   check('waterfall uses the main world renderer', await page.locator('canvas').count() === 1);
   for (let k = 0; k < 4; k++) {
@@ -63,7 +69,7 @@ try {
   await page.getByRole('button', { name: 'Step', exact: true }).click();
   await page.waitForFunction((y) => window.__terraGenesis.engine.geologicYears > y && !window.__terraGenesis.ui().geo.busy, year);
   check('zero discharge stops numerical erosion', volume === await page.evaluate(() => window.__terraGenesis.engine.world.meta.solidWaterfall.exportedM3));
-  await page.goto(`${base}?lesson=live-levees&stage=3&fresh`);
+  await page.goto(lessonUrl('live-levees', 3));
   await page.waitForFunction(() => { const e = window.__terraGenesis?.ui().education; return e?.stage === 2 && !e.busy; }, null, { timeout: 60000 });
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${out}/levees.png` });

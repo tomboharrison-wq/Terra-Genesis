@@ -1,5 +1,10 @@
 # Changelog
 
+## M19-C03 - validation and release
+- Published runtime source 786e505 to GitHub, GitHub Pages, Cloudflare Pages and the existing Cloudflare Worker.
+- Verified 327 unit tests, strict build, 12 GPU comparisons and focused public Chrome landform/worker checks.
+- Confirmed normal terrain tools and heightfield physics return when leaving a solid world. Preserved unrelated user files.
+
 ## M19-C02 - live waterfall, gorge and levee experiments
 - Added a longitudinal solid-rock waterfall in the main scene: exposed-face erosion, plunge-pool scour, cap failure and upstream retreat.
 - Added discharge-driven river water and a falling jet following gravity over the current lip, plus supported-span and rock-resistance controls.

@@ -2,6 +2,8 @@
 
 ## 2026-11-18 - M19 live landforms
 
+- Public release 786e505: GitHub Pages action 44362269845 completed successfully; GitHub Pages and Cloudflare Pages bundles contain the released version. Existing Worker deployed as a04f37d1-156b-4b28-9a9f-a7bff387a184, with the same runtime source.
+- Full focused Chrome check against the public Worker PASS, including actual coastal stages, waterfall erosion/collapse, zero forcing, levees, return to an ordinary island with terrain tools, and no browser errors. Fresh query values avoid stale intermediary HTML caches.
 - Full unit suite: 327 tests across 61 files PASS (`npm test -- --maxWorkers=2`). An earlier concurrent run passed all assertions but hit a Vitest worker-reporting timeout; the bounded-worker rerun completed without errors.
 - Strict TypeScript and production build PASS in a clean snapshot excluding user duplicate files ending ` 2.*`. The untouched duplicate `src/main 2.tsx` prevents an in-place build.
 - Real Chrome GPU parity: 12/12 PASS. Ordinary water, sediment, snow, climate, vegetation and hazard solvers retain parity.
