@@ -11,7 +11,8 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 5. Commit and push to `dev`. Merge to `main` only when the user wants the live site updated: a push to `main` deploys to the Cloudflare Worker (see "Deploying").
 
 ## Deploying — always the Cloudflare Worker
-- The live site is the Cloudflare **Worker `terra-genesis`** (static assets; `wrangler.jsonc`). Cloudflare Workers Builds deploys it from GitHub `main`: a push to `main` is a deploy. Dashboard settings: build command `npm run build`, deploy command `npx wrangler deploy` (`wrangler.jsonc` also builds `dist/` itself).
+- The live site is the Cloudflare **Worker `terra-genesis`** (static assets; `wrangler.jsonc`). Cloudflare Workers Builds is meant to deploy it from GitHub `main`: a push to `main` is a deploy. Intended dashboard settings: build command `npm run build`, deploy command `npx wrangler deploy` (`wrangler.jsonc` also builds `dist/` itself).
+- STATUS 2026-11-19: `Workers Builds: terra-genesis` has failed on every commit since it was connected (79b9604, 17 Nov), including with `wrangler.jsonc` present; the cause is in the Worker's dashboard build settings or logs, not found yet (log needed from the user). A separate Cloudflare Pages project passes on every commit; it is not the target.
 - Every deploy goes to that Worker. Do not deploy to Cloudflare Pages (`deploy:pages`), Netlify, GitHub Pages or any other host unless the user asks.
 - After pushing `main`, check the commit's `Workers Builds: terra-genesis` check run (`gh api repos/tomboharrison-wq/terra-genesis/commits/<sha>/check-runs`) and report its real result. The build log is only in the Cloudflare dashboard (Worker → Builds); ask the user for it if the check fails.
 
