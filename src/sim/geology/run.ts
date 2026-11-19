@@ -7,6 +7,7 @@ import { YEAR_S } from '../climate/climate';
 import { computeSurface } from '../../engine/world';
 import { advanceHeadland } from '../coast/solidHeadland';
 import { advanceWaterfall } from '../river/solidWaterfall';
+import { stepEmbeddedHeadland, stepEmbeddedWaterfall } from './coupledPatches';
 
 /** Glaciers in geological time: the engine's (or the worker's) glacier model with its climate field and surface cache. */
 export interface GlacialGeo {
@@ -81,11 +82,26 @@ export function runGeologic(
     tot.years = years;
     return tot;
   }
+  const stepEmbedded = (st: GeoStepStats) => {
+    if (geo.w.meta.embeddedWaterfall) {
+      const wfYears = years <= 500 ? years : Math.min(45, Math.max(2, years * 0.0025));
+      const rem = stepEmbeddedWaterfall(geo.w, wfYears);
+      st.erodedRock += rem;
+      st.exported += rem;
+    }
+    if (geo.w.meta.embeddedHeadland && geo.w.coast.wavesOn) {
+      const hdYears = years <= 2000 ? years : Math.min(240, Math.max(10, years * 0.06));
+      const rem = stepEmbeddedHeadland(geo.w, hdYears);
+      st.coastEroded += rem;
+      st.exported += rem;
+    }
+    return st;
+  };
   if (glacial && glacial.sim.params.enabled && geo.w.climate.enabled) {
-    return runGlacial(geo, years, p, maxStepYears, glacial, coastal && geo.w.coast.wavesOn ? coastal : null);
+    return stepEmbedded(runGlacial(geo, years, p, maxStepYears, glacial, coastal && geo.w.coast.wavesOn ? coastal : null));
   }
-  if (coastal && geo.w.coast.wavesOn) return runCoastal(geo, years, p, maxStepYears, coastal, meander);
-  if (!meander) return geo.run(years, p, maxStepYears);
+  if (coastal && geo.w.coast.wavesOn) return stepEmbedded(runCoastal(geo, years, p, maxStepYears, coastal, meander));
+  if (!meander) return stepEmbedded(geo.run(years, p, maxStepYears));
   const w = geo.w;
   const tot = emptyGeoStats();
   const fixed = new Uint8Array(w.width * w.height);
@@ -119,7 +135,7 @@ export function runGeologic(
     left -= dt;
   }
   tot.years = years;
-  return tot;
+  return stepEmbedded(tot);
 }
 
 /** The sea cell nearest the river's last centreline node (within 5 cells), or −1. */

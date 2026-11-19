@@ -159,6 +159,45 @@ function GeoSettings({ onClose }: { onClose: () => void }) {
           <small>Migrate the main lowland river sideways (Howard &amp; Knutson 1984), cutting oxbow lakes, building levees and widening into an estuary at the sea.</small>
         </span>
       </label>
+      <label className="field check">
+        <input
+          type="checkbox"
+          checked={!!engine.world.meta.embeddedWaterfall}
+          onChange={(e) => {
+            if (e.target.checked) {
+              const pWf = engine.enableEmbeddedWaterfall();
+              if (!pWf) useUi.getState().toast('No trunk river found on this world for a 3D waterfall', 'info');
+            } else {
+              engine.world.meta.embeddedWaterfall = undefined;
+            }
+            bump((n) => n + 1);
+          }}
+        />
+        <span>
+          <b>Coupled 3D waterfall, overhang &amp; plunge pool</b>
+          <small>Embed a 1 m voxel waterfall domain at the river’s steepest knickpoint so undercutting, caprock collapse, plunge pool scour and a falling water jet evolve live on the 3D terrain.</small>
+        </span>
+      </label>
+      <label className="field check">
+        <input
+          type="checkbox"
+          checked={!!engine.world.meta.embeddedHeadland}
+          onChange={(e) => {
+            if (e.target.checked) {
+              const pHd = engine.enableEmbeddedHeadland();
+              if (!pHd) useUi.getState().toast('No coastline found on this world for a 3D headland', 'info');
+              else engine.world.coast.wavesOn = true;
+            } else {
+              engine.world.meta.embeddedHeadland = undefined;
+            }
+            bump((n) => n + 1);
+          }}
+        />
+        <span>
+          <b>Coupled 3D headland (cave → arch → stack → stump)</b>
+          <small>Embed a 1 m voxel headland on the most exposed coastal promontory so wave attack carves a sea cave, through-arch, isolated stack and stump live on the 3D coast.</small>
+        </span>
+      </label>
       <dl className="geo-ledger">
         <dt>River erosion of rock</dt>
         <dd>{fmtVol(t.erodedRock)}</dd>

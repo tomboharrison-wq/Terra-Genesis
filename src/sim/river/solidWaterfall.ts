@@ -110,8 +110,7 @@ function step(s: SolidWaterfall): void {
   s.step++;
 }
 
-export function advanceWaterfall(w: WorldState, years: number): number {
-  const s = w.meta.solidWaterfall;
+export function advanceWaterfallState(s: SolidWaterfall, years: number): number {
   if (!s || !Number.isFinite(years) || years <= 0) return 0;
   const before = s.exportedM3;
   s.remainderYears += years;
@@ -121,8 +120,15 @@ export function advanceWaterfall(w: WorldState, years: number): number {
   const b = waterfallRock(s);
   s.solid = Array.from(b.solid);
   s.damage = Array.from(b.damage);
-  projectWaterfall(w);
   return s.exportedM3 - before;
+}
+
+export function advanceWaterfall(w: WorldState, years: number): number {
+  const s = w.meta.solidWaterfall;
+  if (!s || !Number.isFinite(years) || years <= 0) return 0;
+  const removed = advanceWaterfallState(s, years);
+  projectWaterfall(w);
+  return removed;
 }
 
 export function buildLiveWaterfallWorld(): WorldState {

@@ -50,18 +50,22 @@ export function projectHeadland(w: WorldState): void {
 }
 
 /** Fixed numerical steps: splitting requests or saving midway cannot change the rock sequence. */
-export function advanceHeadland(w: WorldState, years: number): number {
-  const s = w.meta.solidHeadland;
-  if (!s || !Number.isFinite(years) || years <= 0 || !w.coast.wavesOn) return 0;
+export function advanceHeadlandState(
+  s: SolidHeadland,
+  coast: WorldState['coast'],
+  seaLevelM: number,
+  years: number,
+): number {
+  if (!s || !Number.isFinite(years) || years <= 0 || !coast.wavesOn) return 0;
   const m = headlandModel(s);
-  const p = archParamsFor('chalk', w.coast.waveHeightM, w.coast.wavePeriodS, s.params.jointFactor, s.params.seed);
+  const p = archParamsFor('chalk', coast.waveHeightM, coast.wavePeriodS, s.params.jointFactor, s.params.seed);
   m.p = { ...s.params };
   m.refreshErodibility();
   // Keep saved geometry/strength parameters; wave climate and sea level are live world controls.
-  const direction = 0.15 + 0.85 * Math.max(0, Math.cos(w.coast.waveFromDeg * Math.PI / 180));
-  m.p.waveRate = w.coast.waveHeightM > 0 ? p.waveRate * direction : 0;
+  const direction = 0.15 + 0.85 * Math.max(0, Math.cos((coast.waveFromDeg * Math.PI) / 180));
+  m.p.waveRate = coast.waveHeightM > 0 ? p.waveRate * direction : 0;
   m.p.surgeTop = p.surgeTop;
-  m.p.seaLevel = Math.max(BED_Z, Math.min(NZ - 2, Math.floor(w.seaLevelM)));
+  m.p.seaLevel = Math.max(BED_Z, Math.min(NZ - 2, Math.floor(seaLevelM)));
   const count = m.count();
   s.remainderYears += years;
   const steps = Math.floor((s.remainderYears + 1e-9) / HEADLAND_STEP_YEARS);
@@ -76,6 +80,13 @@ export function advanceHeadland(w: WorldState, years: number): number {
   s.erodedVoxels = m.erodedVoxels;
   s.collapsedVoxels = m.collapsedVoxels;
   s.history = structuredClone(m.stageHistory);
+  return removed;
+}
+
+export function advanceHeadland(w: WorldState, years: number): number {
+  const s = w.meta.solidHeadland;
+  if (!s || !Number.isFinite(years) || years <= 0 || !w.coast.wavesOn) return 0;
+  const removed = advanceHeadlandState(s, w.coast, w.seaLevelM, years);
   projectHeadland(w);
   return removed;
 }

@@ -210,6 +210,7 @@ export const FORMATIONS: Formation[] = [
       'An isolated stack is left, which is undercut and collapses to a stump.',
     ],
     lesson: 'live-headland',
+    modelLesson: 'live-headland',
   },
   {
     id: 'beaches',
@@ -259,6 +260,7 @@ export const FORMATIONS: Formation[] = [
       'Deposition happens in sheltered, low-energy places such as bays.',
       'Shingle is thrown to the top by storm waves (storm ridge, berms); finer sand is left lower down.',
     ],
+    modelLesson: 'headlands-bays-model',
   },
   {
     id: 'spits',
@@ -310,6 +312,7 @@ export const FORMATIONS: Formation[] = [
       'Behind the spit, sheltered water allows mud to settle and a saltmarsh to form; the river current stops the spit crossing the estuary.',
     ],
     lesson: 'spit',
+    modelLesson: 'headlands-bays-model',
   },
   {
     id: 'bars',
@@ -354,6 +357,7 @@ export const FORMATIONS: Formation[] = [
       'The water behind is trapped as a lagoon, which slowly fills with sediment.',
     ],
     lesson: 'bar-lagoon',
+    modelLesson: 'headlands-bays-model',
   },
   // ---------------------------------------------------------------- rivers (1.8)
   {
@@ -399,6 +403,7 @@ export const FORMATIONS: Formation[] = [
       'Spurs of land project alternately from each side and interlock.',
     ],
     lesson: 'v-valley-spurs',
+    modelLesson: 'v-valley-spurs',
   },
   {
     id: 'waterfalls-gorges',
@@ -769,6 +774,7 @@ export const FORMATIONS: Formation[] = [
       'On the down-ice (lee) side, meltwater refreezes and plucking removes blocks.',
       'The result is a roche moutonnée: smooth and gentle up-ice, steep and jagged down-ice.',
     ],
+    modelLesson: 'glaciated-upland-model',
   },
   {
     id: 'moraines',
@@ -862,6 +868,7 @@ export const FORMATIONS: Formation[] = [
       'The crag protects the rock on its lee side, where till is also deposited.',
       'A steep crag with a gently sloping tail pointing down-ice is left.',
     ],
+    modelLesson: 'glaciated-upland-model',
   },
   {
     id: 'drumlins',
@@ -905,6 +912,7 @@ export const FORMATIONS: Formation[] = [
       'The moving ice moulds the till into a streamlined mound.',
       'A drumlin has a steep, blunt up-ice end and a gentle, tapered down-ice end, showing the direction of ice flow.',
     ],
+    modelLesson: 'glaciated-upland-model',
   },
 ];
 

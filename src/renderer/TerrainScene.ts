@@ -157,6 +157,7 @@ export class TerrainScene {
   private sunElevationDeg = 38;
   private verticalExaggeration = 1;
   private solidHeadland = new SolidHeadlandLayer();
+  private embeddedWaterfallMesh = new SolidHeadlandLayer();
   private waterfallFlow = new WaterfallFlowLayer();
   private brushRing: Line;
   private brushVisible = false;
@@ -396,9 +397,9 @@ export class TerrainScene {
     this.scene.add(this.terrain);
     this.terrain.visible = !(w.meta.solidHeadland || w.meta.solidWaterfall);
     if (!this.solidHeadland.group.parent) this.scene.add(this.solidHeadland.group);
-    this.solidHeadland.update(w.meta.solidHeadland, w.meta.solidWaterfall);
+    if (!this.embeddedWaterfallMesh.group.parent) this.scene.add(this.embeddedWaterfallMesh.group);
     if (!this.waterfallFlow.group.parent) this.scene.add(this.waterfallFlow.group);
-    this.waterfallFlow.update(w.meta.solidWaterfall, 0);
+    this.updateSolidDomains(0);
     if (!this.plateArrows.parent) this.scene.add(this.plateArrows);
     if (!this.trees) {
       this.trees = new TreeLayer(this.engine);
@@ -432,6 +433,51 @@ export class TerrainScene {
     this.configureLightsAndFog(ex, ey);
     this.engine.takeDirty();
     if (resetCamera) this.fitWorld(false);
+  }
+
+  /** M20-C01: Update dedicated 1 m solid domains OR coupled 3D solid patches embedded on an ordinary heightfield world. */
+  private updateSolidDomains(time: number) {
+    const w = this.engine.world;
+    const ve = this.verticalExaggeration;
+    if (w.meta.solidHeadland || w.meta.solidWaterfall) {
+      this.solidHeadland.group.position.set(0, 0, 0);
+      this.solidHeadland.group.scale.set(1, ve, 1);
+      this.solidHeadland.group.rotation.set(0, 0, 0);
+      this.solidHeadland.update(w.meta.solidHeadland, w.meta.solidWaterfall);
+      this.waterfallFlow.group.position.set(0, 0, 0);
+      this.waterfallFlow.group.scale.set(1, ve, 1);
+      this.waterfallFlow.group.rotation.set(0, 0, 0);
+      this.waterfallFlow.update(w.meta.solidWaterfall, time);
+      this.embeddedWaterfallMesh.update(undefined, undefined);
+      return;
+    }
+
+    if (w.meta.embeddedHeadland) {
+      const p = w.meta.embeddedHeadland;
+      const s = p.scaleM;
+      this.solidHeadland.group.position.set(p.xM - 24 * s, p.zBaseM * ve, -(p.yM - 20 * s));
+      this.solidHeadland.group.scale.set(s, s * ve, s);
+      this.solidHeadland.group.rotation.set(0, 0, 0);
+      this.solidHeadland.update(p.headland, undefined);
+    } else {
+      this.solidHeadland.update(undefined, undefined);
+    }
+
+    if (w.meta.embeddedWaterfall) {
+      const p = w.meta.embeddedWaterfall;
+      const s = p.scaleM;
+      this.embeddedWaterfallMesh.group.position.set(p.xM - 47 * s, p.zBaseM * ve, -(p.yM - 20 * s));
+      this.embeddedWaterfallMesh.group.scale.set(s, s * ve, s);
+      this.embeddedWaterfallMesh.group.rotation.set(0, 0, 0);
+      this.embeddedWaterfallMesh.update(undefined, p.waterfall);
+      this.waterfallFlow.group.position.copy(this.embeddedWaterfallMesh.group.position);
+      this.waterfallFlow.group.scale.copy(this.embeddedWaterfallMesh.group.scale);
+      this.waterfallFlow.group.rotation.copy(this.embeddedWaterfallMesh.group.rotation);
+      this.waterfallFlow.update(p.waterfall, time);
+    } else {
+      this.embeddedWaterfallMesh.update(undefined, undefined);
+      this.waterfallFlow.update(undefined, time);
+    }
   }
 
   private buildSea(ex: number, ey: number) {
@@ -1048,7 +1094,7 @@ uniform float uLineW;`,
       };
     }
     if (dirty) {
-      this.solidHeadland.update(this.engine.world.meta.solidHeadland, this.engine.world.meta.solidWaterfall);
+      this.updateSolidDomains(now / 1000);
       this.treesStale = true;
       this.updateVertices(dirty, true);
       this.updateHeightTexture();
@@ -1092,7 +1138,7 @@ uniform float uLineW;`,
     this.strataUniforms.uTime.value = now / 1000;
     if (this.sea) this.sea.material.uniforms.uTime.value = now / 1000;
     this.waterLayer?.update(now / 1000);
-    this.waterfallFlow.update(this.engine.world.meta.solidWaterfall, now / 1000);
+    this.updateSolidDomains(now / 1000);
     this.clouds?.update(dt);
     const t0 = performance.now();
     this.renderer.render(this.scene, this.camera);
@@ -1482,6 +1528,7 @@ uniform float uLineW;`,
     this.trees?.dispose();
     this.clouds?.dispose();
     this.solidHeadland.dispose();
+    this.embeddedWaterfallMesh.dispose();
     this.waterfallFlow.dispose();
     this.resizeObs.disconnect();
     this.controls.dispose();

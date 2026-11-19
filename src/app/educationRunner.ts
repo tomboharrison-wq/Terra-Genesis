@@ -13,6 +13,56 @@ import { runGeoYears, setGeoMode, setGeoSpeed } from './geoRunner';
  */
 let stageStates: Checkpoint[] = [];
 let switching = false;
+let autoPlayTimer: ReturnType<typeof setTimeout> | null = null;
+let autoPlaying = false;
+
+export function isLessonAutoPlaying(): boolean {
+  return autoPlaying;
+}
+
+export function stopLessonAutoPlay(): void {
+  autoPlaying = false;
+  if (autoPlayTimer) {
+    clearTimeout(autoPlayTimer);
+    autoPlayTimer = null;
+  }
+}
+
+export function startLessonLive(id: string): void {
+  stopLessonAutoPlay();
+  startLesson(id);
+  setLessonAutoPlay(true);
+}
+
+export function setLessonAutoPlay(on: boolean): void {
+  if (!on) {
+    stopLessonAutoPlay();
+    return;
+  }
+  autoPlaying = true;
+  const tick = () => {
+    if (!autoPlaying) return;
+    const ed = useUi.getState().education;
+    const lesson = ed && lessonById(ed.lessonId);
+    if (!ed || !lesson) {
+      stopLessonAutoPlay();
+      return;
+    }
+    if (ed.busy) {
+      autoPlayTimer = setTimeout(tick, 180);
+      return;
+    }
+    if (ed.stage < lesson.stages.length - 1) {
+      goToStage(ed.stage + 1);
+      autoPlayTimer = setTimeout(tick, 2200);
+    } else {
+      stopLessonAutoPlay();
+    }
+  };
+  // Advance from Stage 0 immediately (after 350 ms) so the user watches the landform form live right away
+  const ed0 = useUi.getState().education;
+  autoPlayTimer = setTimeout(tick, ed0?.stage === 0 ? 400 : 1800);
+}
 
 const ctx = (): StageContext => ({
   engine,
@@ -144,6 +194,7 @@ export function lessonLink(): string {
 }
 
 export function resetLesson(): void {
+  stopLessonAutoPlay();
   const ed = useUi.getState().education;
   if (!ed || !stageStates[0]) return;
   stageStates.length = 1;
@@ -151,6 +202,7 @@ export function resetLesson(): void {
 }
 
 export function exitLesson(): void {
+  stopLessonAutoPlay();
   stageStates = [];
   useUi.getState().set({ education: null, lessonLabels: [] });
 }

@@ -15,6 +15,7 @@ import { ChallengeHud, ChallengesDialog } from './ChallengesDialog';
 import { GuidedStage, LessonLabels, LessonPanel, LessonsDialog } from './EducationMode';
 import { Toasts } from './Toasts';
 import { TimeBar } from './TimeBar';
+import { LiveLandformHud } from './LiveLandformHud';
 import { SlumpLab } from './SlumpLab';
 import { ArchLab } from './ArchLab';
 import { ShorelineLab } from './ShorelineLab';
@@ -79,6 +80,7 @@ export function App() {
       <TopBar />
       <ToolRail />
       <ToolPanel />
+      <LiveLandformHud />
       <TimeBar />
       <StatusBar />
       <Toasts />

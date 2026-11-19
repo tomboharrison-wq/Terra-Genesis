@@ -2,9 +2,13 @@ import { useMemo, useState } from 'react';
 import { Dialog } from './Dialog';
 import { PRESETS, presetById, type GenerateOptions, type PresetId } from '../terrain/generate';
 import { randomSeed } from '../utils/rng';
-import { CLASSROOM_SIZE, newWorld } from './runtime';
+import { CLASSROOM_SIZE, engine, getScene, newWorld, replaceWorld, syncSim } from './runtime';
 import { useUi } from '../state/uiStore';
 import { Icon } from './icons';
+import { buildLiveWaterfallWorld } from '../sim/river/solidWaterfall';
+import { buildLiveHeadlandWorld } from '../sim/coast/solidHeadland';
+import { buildLiveLeveeWorld } from '../education/lessons/liveLevees';
+import { playGeo, setGeoMode, setGeoSpeed } from './geoRunner';
 
 const SIZES = [
   { v: 128, label: '128² (fast)' },
@@ -52,6 +56,114 @@ export function NewWorldDialog() {
 
   return (
     <Dialog title="New world" onClose={close} wide>
+      <div style={{ marginBottom: 12, background: 'rgba(255, 230, 39, 0.08)', border: '1px solid rgba(255, 230, 39, 0.3)', borderRadius: 8, padding: 10 }}>
+        <div style={{ fontWeight: 700, color: 'var(--scouts-yellow)', marginBottom: 6, fontSize: 13 }}>
+          🎬 Live 3D GCSE Landform Showcases — Click to Launch &amp; Watch Form Live on the 3D Model
+        </div>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          <button
+            className="small"
+            onClick={() => {
+              replaceWorld(buildLiveWaterfallWorld());
+              setGeoMode(true);
+              setGeoSpeed(10);
+              playGeo();
+              close();
+            }}
+            title="1 m solid rock waterfall: watch the falling river jet scour a plunge pool, undercut the soft shale overhang, collapse the hard caprock, and retreat into a gorge"
+          >
+            🌊 Live 3D Waterfall, Overhang &amp; Gorge
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              replaceWorld(buildLiveHeadlandWorld());
+              setGeoMode(true);
+              setGeoSpeed(100);
+              playGeo();
+              close();
+            }}
+            title="1 m solid chalk headland: watch waves attack the rock joint to carve a sea cave, break through a 3D arch, collapse the roof into a stack, and leave a stump"
+          >
+            🪨 Live 3D Cave → Arch → Stack → Stump
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              replaceWorld(buildLiveLeveeWorld());
+              setGeoMode(true);
+              setGeoSpeed(20);
+              playGeo();
+              close();
+            }}
+            title="4 m floodplain reach: watch repeated overbank flood deposition build real raised natural levees on both banks"
+          >
+            🛡 Live 3D Floodplain &amp; Natural Levees
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              newWorld({ ...presetById('river-basin').defaults, presetId: 'river-basin', seed: 1700, size }, false);
+              setGeoMode(true);
+              const pWf = engine.enableEmbeddedWaterfall();
+              setGeoSpeed(10000);
+              playGeo();
+              if (pWf) setTimeout(() => getScene()?.focusPoint(pWf.xM, pWf.yM, Math.max(260, 110 * pWf.scaleM)), 120);
+              close();
+            }}
+            title="Full upland river basin with coupled 3D waterfall, vertical erosion carving a V-shaped valley, and interlocking spurs"
+          >
+            ⛰ Live 3D V-Valley, Spurs &amp; Coupled Waterfall
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              newWorld({ ...presetById('river-delta').defaults, presetId: 'river-delta', seed: 1701, size }, false);
+              setGeoMode(true);
+              engine.enableLowlandMeander();
+              engine.enableEmbeddedWaterfall();
+              setGeoSpeed(1000);
+              playGeo();
+              syncSim();
+              close();
+            }}
+            title="Full river-to-sea floodplain: watch meanders migrate, river cliffs & point bars form, necks cut off into oxbow lakes, and the mouth widen into a tidal estuary"
+          >
+            🔄 Live 3D Meanders, Oxbow Lakes &amp; Estuary
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              newWorld({ ...presetById('coastal-headland').defaults, presetId: 'coastal-headland', seed: 1704, size, waves: true }, false);
+              engine.world.coast.wavesOn = true;
+              setGeoMode(true);
+              const pHd = engine.enableEmbeddedHeadland();
+              setGeoSpeed(1000);
+              playGeo();
+              if (pHd) setTimeout(() => getScene()?.focusPoint(pHd.xM, pHd.yM, Math.max(240, 100 * pHd.scaleM)), 120);
+              close();
+            }}
+            title="Full discordant coast with coupled 3D headland arch/stack, differential bay retreat, wave-cut platforms, and bay beaches"
+          >
+            🏖 Live 3D Headlands, Bays, Beaches &amp; Arch
+          </button>
+          <button
+            className="small"
+            onClick={() => {
+              newWorld({ ...presetById('alpine-glaciers').defaults, presetId: 'alpine-glaciers', seed: 1705, size }, false);
+              engine.setClimateParams({ enabled: true, seaLevelTempC: -1 });
+              engine.setGlacierParams({ enabled: true, slidingCoupling: 3, aspectBalance: 0.35, maxErosionMmYr: 10 });
+              setGeoMode(true);
+              setGeoSpeed(10000);
+              playGeo();
+              close();
+            }}
+            title="Full glaciated mountain range: watch glaciers fill the valleys and carve corries, arêtes, pyramidal peaks, U-shaped troughs, hanging valleys, and moraines"
+          >
+            🏔 Live 3D Glaciers: Corries, Arêtes &amp; U-Troughs
+          </button>
+        </div>
+      </div>
       <div className="preset-grid">
         {PRESETS.map((p) => (
           <button key={p.id} className={`preset ${presetId === p.id ? 'active' : ''}`} onClick={() => pick(p.id)}>

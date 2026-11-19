@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useUi } from '../state/uiStore';
 import { ACTIVE, FORMATIONS, formationById, GLOSSARY, TIMESCALES, TOPICS, yearsAt, type Formation } from '../education/landforms/content';
 import { SCENES } from './landforms/scenes';
-import { startLesson } from './educationRunner';
+import { startLesson, startLessonLive } from './educationRunner';
 import { Icon } from './icons';
 
 /**
@@ -223,11 +223,12 @@ export function LandformShow() {
           )}
           {f.modelLesson && (
             <button
+              style={{ background: 'var(--scouts-yellow)', color: '#1b2a12', fontWeight: 700 }}
               onClick={() => {
                 close();
-                startLesson(f.modelLesson!);
+                startLessonLive(f.modelLesson!);
               }}
-              title="Watch this landform form over geological time in the landscape model (real simulated erosion, labels measured on the landscape)"
+              title="Watch this landform form live over geological time in the 3D landscape model (real simulated erosion, labels measured on the landscape)"
             >
               Watch it form (landscape model)
             </button>

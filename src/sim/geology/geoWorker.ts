@@ -35,6 +35,8 @@ export interface GeoJob {
   glacialErosion: Float32Array;
   solidHeadland?: import('../coast/solidHeadland').SolidHeadland;
   solidWaterfall?: import('../river/solidWaterfall').SolidWaterfall;
+  embeddedWaterfall?: import('./coupledPatches').EmbeddedWaterfallPatch;
+  embeddedHeadland?: import('./coupledPatches').EmbeddedHeadlandPatch;
 }
 
 let w: WorldState | null = null;
@@ -67,6 +69,8 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
   w.coast = j.coast;
   w.meta.solidHeadland = j.solidHeadland;
   w.meta.solidWaterfall = j.solidWaterfall;
+  w.meta.embeddedWaterfall = j.embeddedWaterfall;
+  w.meta.embeddedHeadland = j.embeddedHeadland;
   w.iceThicknessM.set(j.ice);
   w.iceDebrisM.set(j.debris);
   computeSurface(w, surface!);
@@ -90,6 +94,8 @@ self.onmessage = (e: MessageEvent<GeoJob>) => {
     glacialErosion: j.glacialErosion,
     solidHeadland: w.meta.solidHeadland,
     solidWaterfall: w.meta.solidWaterfall,
+    embeddedWaterfall: w.meta.embeddedWaterfall,
+    embeddedHeadland: w.meta.embeddedHeadland,
   };
   (self as unknown as { postMessage(m: unknown, transfer: Transferable[]): void }).postMessage(out, [
     out.bed.buffer,

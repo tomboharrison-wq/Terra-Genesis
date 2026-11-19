@@ -2,8 +2,8 @@
 Updated: 2026-11-18, M19 live landscape landforms
 Branch: codex/m19-live-landforms. Remote: github.com/tomboharrison-wq/Terra-Genesis.
 GitHub main verified at c7dce87 before starting M19.
-Current milestone: M19 real main-world landforms (COMPLETE).
-Current chunk: C03 release verified. Runtime source: 786e505.
+Current milestone: M20 Coupled 3D Solid Voxel Patches, Universal Live Landform HUD & Continuous 3D Formation (COMPLETE).
+Current chunk: M20-C01 to M20-C04 verified and built.
 
 M19-C01:
 - New live-headland lesson runs numerical solid rock in the main TerrainScene, without a second canvas or staged meshes.

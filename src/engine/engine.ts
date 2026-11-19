@@ -29,6 +29,14 @@ import { MM_PER_H, type ErosionParams, type WaterParams, type WaterSource } from
 import { LandscapeEvolution, addGeoStats, defaultGeoParams, emptyGeoStats, type GeoParams, type GeoStepStats } from '../sim/geology/landscapeEvolution';
 import { carve, cloneMeander, detectLowlandMeander, type MeanderState } from '../sim/geology/meander';
 import { runGeologic } from '../sim/geology/run';
+import {
+  attachEmbeddedHeadland,
+  attachEmbeddedWaterfall,
+  stepEmbeddedHeadland,
+  stepEmbeddedWaterfall,
+  type EmbeddedHeadlandPatch,
+  type EmbeddedWaterfallPatch,
+} from '../sim/geology/coupledPatches';
 
 /** Result of geological time computed elsewhere (a Web Worker) for applyGeologic. */
 export interface GeoResult {
@@ -45,6 +53,8 @@ export interface GeoResult {
   glacialErosion?: Float32Array;
   solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
   solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
+  embeddedWaterfall?: EmbeddedWaterfallPatch;
+  embeddedHeadland?: EmbeddedHeadlandPatch;
 }
 
 /** Longest single geological step (years): longer requests are split. */
@@ -291,6 +301,8 @@ export class Engine {
     if (r.meander) this.geoMeander = r.meander;
     if (r.solidHeadland) w.meta.solidHeadland = r.solidHeadland;
     if (r.solidWaterfall) w.meta.solidWaterfall = r.solidWaterfall;
+    if (r.embeddedWaterfall) w.meta.embeddedWaterfall = r.embeddedWaterfall;
+    if (r.embeddedHeadland) w.meta.embeddedHeadland = r.embeddedHeadland;
     this.afterGeologic(r.stats, r.area, r.lake);
   }
 
@@ -313,6 +325,26 @@ export class Engine {
     return true;
   }
 
+  /** M20-C01: Attach a coupled 3D solid voxel waterfall & plunge pool patch onto the main river of this world. */
+  enableEmbeddedWaterfall(targetCell?: number): EmbeddedWaterfallPatch | null {
+    const p = attachEmbeddedWaterfall(this.world, targetCell);
+    if (p) {
+      this.markRenderDirtyAll();
+      this.emit({ type: 'water-params-changed' });
+    }
+    return p;
+  }
+
+  /** M20-C01: Attach a coupled 3D solid voxel headland (cave → arch → stack → stump) onto the coastline of this world. */
+  enableEmbeddedHeadland(targetCell?: number): EmbeddedHeadlandPatch | null {
+    const p = attachEmbeddedHeadland(this.world, targetCell);
+    if (p) {
+      this.markRenderDirtyAll();
+      this.emit({ type: 'water-params-changed' });
+    }
+    return p;
+  }
+
   private channelMask(): Uint8Array | null {
     if (!this.geoMeander) return null;
     const c = new Uint8Array(this.world.width * this.world.height);
@@ -328,7 +360,19 @@ export class Engine {
   }
 
   /** Put the terrain back to a recorded geological frame (record and replay). */
-  restoreGeoFrame(f: { years: number; bed: Float32Array; soil: Float32Array; material: Uint8Array; meander: MeanderState | null; ice?: Float32Array; debris?: Float32Array; solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland; solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall }): void {
+  restoreGeoFrame(f: {
+    years: number;
+    bed: Float32Array;
+    soil: Float32Array;
+    material: Uint8Array;
+    meander: MeanderState | null;
+    ice?: Float32Array;
+    debris?: Float32Array;
+    solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
+    solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
+    embeddedWaterfall?: EmbeddedWaterfallPatch;
+    embeddedHeadland?: EmbeddedHeadlandPatch;
+  }): void {
     this.beginGeologic();
     const w = this.world;
     w.bedrockElevationM.set(f.bed);
@@ -337,6 +381,8 @@ export class Engine {
     w.meta.geologicYears = f.years;
     w.meta.solidHeadland = f.solidHeadland ? structuredClone(f.solidHeadland) : undefined;
     w.meta.solidWaterfall = f.solidWaterfall ? structuredClone(f.solidWaterfall) : undefined;
+    w.meta.embeddedWaterfall = f.embeddedWaterfall ? structuredClone(f.embeddedWaterfall) : undefined;
+    w.meta.embeddedHeadland = f.embeddedHeadland ? structuredClone(f.embeddedHeadland) : undefined;
     this.geoMeander = f.meander ? cloneMeander(f.meander) : null;
     if (f.ice) w.iceThicknessM.set(f.ice);
     if (f.debris) w.iceDebrisM.set(f.debris);
@@ -516,10 +562,27 @@ export class Engine {
 
   /** Run coastal processes when their cadence is due (pull GPU state, update, push back). */
   private coastHook(simSeconds: number) {
-    if (!this.coast.accumulate(simSeconds)) return;
+    let solidChanged = false;
+    if (this.world.meta.embeddedWaterfall && this.world.erosion.enabled) {
+      const rem = stepEmbeddedWaterfall(this.world, Math.max(0.5, (simSeconds * this.world.erosion.speedup) / 86400));
+      if (rem > 0) solidChanged = true;
+    }
+    if (this.world.meta.embeddedHeadland && this.world.coast.wavesOn) {
+      const rem = stepEmbeddedHeadland(this.world, Math.max(2, (simSeconds * Math.max(10, this.world.erosion.speedup)) / 8640));
+      if (rem > 0) solidChanged = true;
+    }
+    if (!this.coast.accumulate(simSeconds)) {
+      if (solidChanged) {
+        computeSurface(this.world, this.surface);
+        this.groundDirty = true;
+        this.markRenderDirtyAll();
+      }
+      return;
+    }
     if (this.gpu) this.gpu.syncToCpu();
     const changed = this.coast.update(this.world.erosion.speedup);
-    if (changed > 0) {
+    if (changed > 0 || solidChanged) {
+      computeSurface(this.world, this.surface);
       this.water.refreshSea();
       this.groundDirty = true;
       this.markRenderDirtyAll();

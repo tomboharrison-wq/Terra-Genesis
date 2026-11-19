@@ -449,6 +449,23 @@ export class GlacierSim {
             }
           }
         }
+        // M20-C03: Lateral valley-wall plucking & spur truncation — widens V-shaped river valleys into U-shaped glacial troughs
+        if (p.slidingCoupling && p.slidingCoupling > 0) {
+          const x = i % W;
+          const y = (i / W) | 0;
+          if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+            const zi = z[i];
+            let maxTroughDrop = 0;
+            for (const nb of [i - 1, i + 1, i - W, i + W]) {
+              if (ice[nb] > 45 && zi > z[nb] + 3) {
+                maxTroughDrop = Math.max(maxTroughDrop, zi - z[nb]);
+              }
+            }
+            if (maxTroughDrop > 0) {
+              law *= 1 + Math.min(0.42, maxTroughDrop / (cs * 1.1));
+            }
+          }
+        }
         // Optional cap at the measured range for temperate valley glaciers (~1–10 mm/yr, Hallet et al. 1996).
         const cap = p.maxErosionMmYr ? (p.maxErosionMmYr / 1000) * (sub / YEAR_S) : Infinity;
         const e = Math.min(law, cap) * this.erosionFactor;

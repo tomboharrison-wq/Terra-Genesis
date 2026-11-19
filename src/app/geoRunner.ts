@@ -1,7 +1,8 @@
 import { GEO_MAX_STEP_YEARS, type GeoResult } from '../engine/engine';
 import type { GeoJob } from '../sim/geology/geoWorker';
 import { cloneMeander, type MeanderState } from '../sim/geology/meander';
-import { arbitraryMeanderLabels } from '../education/geoFeatures';
+import { detectLiveLandforms } from '../education/liveDetector';
+import { lessonById } from '../education/lessons';
 import { useUi } from '../state/uiStore';
 import { engine, onWorldReplaced, syncSim } from './runtime';
 
@@ -32,6 +33,8 @@ export interface GeoFrame {
   debris: Float32Array;
   solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
   solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
+  embeddedWaterfall?: import('../sim/geology/coupledPatches').EmbeddedWaterfallPatch;
+  embeddedHeadland?: import('../sim/geology/coupledPatches').EmbeddedHeadlandPatch;
 }
 
 let worker: Worker | null = null;
@@ -47,9 +50,26 @@ const setGeo = (p: Partial<ReturnType<typeof ui>['geo']>) => ui().set({ geo: { .
 
 function publish() {
   setGeo({ years: engine.geologicYears, achieved, frames: frames.map((f) => f.years) });
-  // When meandering is active outside a scripted lesson, keep live measured meander & estuary labels updated on the map
-  if (!ui().education && ui().geo.mode && engine.geoMeander) {
-    ui().set({ lessonLabels: arbitraryMeanderLabels(engine.world, engine.geoMeander, engine.geoRivers?.lake) });
+  // M20-C02: Keep all live measured GCSE landform & process labels updated on the 3D terrain
+  const ed = ui().education;
+  if (ed) {
+    const lesson = lessonById(ed.lessonId);
+    const stage = lesson?.stages[ed.stage];
+    if (stage?.labels) {
+      try {
+        const labels = stage.labels({
+          engine,
+          setLabels: (l) => ui().set({ lessonLabels: l }),
+          geo: () => {},
+        });
+        ui().set({ lessonLabels: labels });
+      } catch {
+        // ignore mid-step label evaluation if stage data not yet ready
+      }
+    }
+  } else if (ui().mapLabelsVisible) {
+    const live = detectLiveLandforms(engine);
+    ui().set({ lessonLabels: live.map((it) => ({ text: it.text, xM: it.xM, yM: it.yM })) });
   }
   syncSim();
 }
@@ -83,6 +103,8 @@ function record(force = false) {
     debris: w.iceDebrisM.slice(),
     solidHeadland: w.meta.solidHeadland ? structuredClone(w.meta.solidHeadland) : undefined,
     solidWaterfall: w.meta.solidWaterfall ? structuredClone(w.meta.solidWaterfall) : undefined,
+    embeddedWaterfall: w.meta.embeddedWaterfall ? structuredClone(w.meta.embeddedWaterfall) : undefined,
+    embeddedHeadland: w.meta.embeddedHeadland ? structuredClone(w.meta.embeddedHeadland) : undefined,
   });
   lastFrameYears = y;
   if (frames.length > MAX_FRAMES) {
@@ -153,6 +175,8 @@ function send(years: number, done?: () => void) {
     glacialErosion: engine.glacialErosionField().slice(),
     solidHeadland: w.meta.solidHeadland ? structuredClone(w.meta.solidHeadland) : undefined,
     solidWaterfall: w.meta.solidWaterfall ? structuredClone(w.meta.solidWaterfall) : undefined,
+    embeddedWaterfall: w.meta.embeddedWaterfall ? structuredClone(w.meta.embeddedWaterfall) : undefined,
+    embeddedHeadland: w.meta.embeddedHeadland ? structuredClone(w.meta.embeddedHeadland) : undefined,
   };
   inFlight = { id: job.id, rev: engine.editRevision, t0: performance.now(), years, world: w, done };
   setGeo({ busy: true });

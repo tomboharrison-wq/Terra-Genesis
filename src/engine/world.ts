@@ -119,6 +119,10 @@ export interface WorldMeta {
   solidHeadland?: import('../sim/coast/solidHeadland').SolidHeadland;
   /** Detailed longitudinal waterfall rock domain; top envelope stored in bedrock columns. */
   solidWaterfall?: import('../sim/river/solidWaterfall').SolidWaterfall;
+  /** M20-C01: Coupled 3D solid waterfall patch embedded inside an ordinary heightfield landscape. */
+  embeddedWaterfall?: import('../sim/geology/coupledPatches').EmbeddedWaterfallPatch;
+  /** M20-C01: Coupled 3D solid headland (cave/arch/stack/stump) patch embedded inside an ordinary coastal landscape. */
+  embeddedHeadland?: import('../sim/geology/coupledPatches').EmbeddedHeadlandPatch;
 }
 
 /**

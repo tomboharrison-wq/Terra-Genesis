@@ -3,7 +3,7 @@ import { useUi } from '../state/uiStore';
 import { Dialog } from './Dialog';
 import { LESSONS, lessonById } from '../education/lessons';
 import type { LessonModule } from '../education/types';
-import { exitLesson, goToStage, lessonLink, resetLesson, startLesson } from './educationRunner';
+import { exitLesson, goToStage, isLessonAutoPlaying, lessonLink, resetLesson, setLessonAutoPlay, startLesson, startLessonLive } from './educationRunner';
 import { getScene } from './runtime';
 import { MeanderView, WaterfallView } from './GuidedRiver';
 import { ArchLessonView, ShorelineLessonView } from './CoastalLessons';
@@ -42,9 +42,21 @@ export function LessonsDialog() {
                   <b>{l.title}</b> <span className={`mode-badge ${l.kind}`}>{l.kind === 'emergent' ? 'Simulation' : 'Guided model'}</span>
                   <p className="small">{l.objective}</p>
                 </div>
-                <button className="primary" onClick={() => startLesson(l.id)}>
-                  Start
-                </button>
+                <div className="row" style={{ gap: 6 }}>
+                  {l.kind === 'emergent' && (
+                    <button
+                      className="small"
+                      style={{ background: 'var(--scouts-green)', color: '#0b1912', fontWeight: 700 }}
+                      onClick={() => startLessonLive(l.id)}
+                      title="Open this lesson and immediately watch the landform evolve live through all stages on the 3D model"
+                    >
+                      🎬 Watch Live
+                    </button>
+                  )}
+                  <button className="primary" onClick={() => startLesson(l.id)}>
+                    Start
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
@@ -156,6 +168,23 @@ export function LessonPanel() {
           {ed.busy ? 'Running…' : 'Next ▶'}
         </button>
       </div>
+      {lesson.kind === 'emergent' && !last && (
+        <div style={{ marginTop: 6 }}>
+          <button
+            className="small"
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              background: isLessonAutoPlaying() ? 'var(--scouts-orange)' : 'var(--scouts-green)',
+              color: '#0b1912',
+              fontWeight: 700,
+            }}
+            onClick={() => setLessonAutoPlay(!isLessonAutoPlaying())}
+          >
+            {isLessonAutoPlaying() ? '❚❚ Pause Live Auto-Play' : '🎬 Watch Live Formation (Auto-Play All Stages)'}
+          </button>
+        </div>
+      )}
       {last && lesson.exam && (
         <div className="exam">
           <button className="small" onClick={() => setExam(!exam)}>
