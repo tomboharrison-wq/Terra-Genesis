@@ -9,12 +9,18 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 3. `npm test` (fast) to confirm green start.
 4. Continue the active chunk in NEXT_TASK. Do not restart or re-architect.
 
+## Deploying — always the Cloudflare Worker
+- The live site is the Cloudflare **Worker `terra-genesis`** (static assets; `wrangler.jsonc`). Cloudflare Workers Builds is meant to deploy it from GitHub `main`: a push to `main` is a deploy. Intended dashboard settings: build command `npm run build`, deploy command `npx wrangler deploy` (`wrangler.jsonc` also builds `dist/` itself).
+- STATUS 2026-11-19: `Workers Builds: terra-genesis` has failed on every commit since it was connected (79b9604, 17 Nov), including with `wrangler.jsonc` present; the cause is in the Worker's dashboard build settings or logs, not found yet (log needed from the user). A separate Cloudflare Pages project passes on every commit; it is not the target.
+- Every deploy goes to that Worker. Do not deploy to Cloudflare Pages (`deploy:pages`), Netlify, GitHub Pages or any other host unless the user asks.
+- After pushing `main`, check the commit's `Workers Builds: terra-genesis` check run (`gh api repos/tomboharrison-wq/terra-genesis/commits/<sha>/check-runs`) and report its real result. The build log is only in the Cloudflare dashboard (Worker → Builds); ask the user for it if the check fails.
+
 ## Commands
 - `npm install` — once (lockfile committed)
 - `npm run dev` — dev server (http://localhost:5173)
 - `npm run typecheck` — `tsc --noEmit`, strict
 - `npm test` — Vitest numerical/unit tests in `tests/`
-- `npm run build` — typecheck + production build to `dist/` (Netlify publish dir)
+- `npm run build` — typecheck + production build to `dist/` (the Worker's assets directory)
 - `npm run preview` — serve built `dist/`
 - `npm run e2e` — headless Chromium e2e + screenshots to tests/screenshots (needs `npm run preview` on :4173)
 - `npm run gpu-check` — CPU-vs-GPU water solver comparison in headless Chromium (needs preview)
