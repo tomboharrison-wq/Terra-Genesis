@@ -8,14 +8,19 @@ Full requirements: `docs/MASTER_SPEC.md` (reference only — do NOT reread whole
 2. `git status --short && git log --oneline -5`.
 3. `npm test` (fast) to confirm green start.
 4. Continue the active chunk in NEXT_TASK. Do not restart or re-architect.
-5. Commit and push to `dev` (no deploy). Merge to `main` only when the user wants the live site updated: each `main` push uses a Netlify deploy from a monthly allowance.
+5. Commit and push to `dev`. Merge to `main` only when the user wants the live site updated: a push to `main` deploys to the Cloudflare Worker (see "Deploying").
+
+## Deploying — always the Cloudflare Worker
+- The live site is the Cloudflare **Worker `terra-genesis`** (static assets; `wrangler.jsonc`). Cloudflare Workers Builds deploys it from GitHub `main`: a push to `main` is a deploy. Dashboard settings: build command `npm run build`, deploy command `npx wrangler deploy` (`wrangler.jsonc` also builds `dist/` itself).
+- Every deploy goes to that Worker. Do not deploy to Cloudflare Pages (`deploy:pages`), Netlify, GitHub Pages or any other host unless the user asks.
+- After pushing `main`, check the commit's `Workers Builds: terra-genesis` check run (`gh api repos/tomboharrison-wq/terra-genesis/commits/<sha>/check-runs`) and report its real result. The build log is only in the Cloudflare dashboard (Worker → Builds); ask the user for it if the check fails.
 
 ## Commands
 - `npm install` — once (lockfile committed)
 - `npm run dev` — dev server (http://localhost:5173)
 - `npm run typecheck` — `tsc --noEmit`, strict
 - `npm test` — Vitest numerical/unit tests in `tests/`
-- `npm run build` — typecheck + production build to `dist/` (Netlify publish dir)
+- `npm run build` — typecheck + production build to `dist/` (the Worker's assets directory)
 - `npm run preview` — serve built `dist/`
 - `npm run e2e` — headless Chromium e2e + screenshots to tests/screenshots (needs `npm run preview` on :4173)
 - `npm run record-lessons` — re-record geological lesson runs (public/lesson-runs) after ANY model/lesson change; tests fail until you do
