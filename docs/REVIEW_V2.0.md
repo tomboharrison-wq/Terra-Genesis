@@ -130,4 +130,5 @@ Suggested order, each checked with side-by-side screenshots against a reference 
 - Offline support for unreliable school Wi-Fi is a good idea (once the recording check above is added).
 
 ## Browser test suite result
-(added when the run finishes)
+Partial: the first 11 checks passed, none failed (the suite is very slow in software-rendered Chromium; the
+final count will be added here when it finishes).
