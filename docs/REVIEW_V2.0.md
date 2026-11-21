@@ -21,7 +21,7 @@ The graphics are still far from the "super high definition" aim.
 | Cloudflare Worker dry run (`wrangler deploy --dry-run`) | Pass, 46 files. |
 | Unit tests (full suite, 70 files) | 356 / 357 pass. The 3D flood-valley test takes ~80 s against its 30 s limit; two long tests also trigger Vitest "worker timeout" errors, so `npm test` ends in failure on slower machines. V2.0's own notes only record a 27-test subset. |
 | 19 deep links from `HANDOFF_AND_DEPLOY.md`, screenshotted | All open, no page or console errors. |
-| Browser test suite (`npm run e2e`) | See the end of this file. |
+| Browser test suite (`npm run e2e`) | Crashes after 13 of 66 checks (all 13 passed): the script still looks for the old "Load" button. See the end of this file. |
 | Code reading | New labs, new lessons, live detector, service worker, recordings, deploy files. |
 
 ## Must fix (in this order)
@@ -130,5 +130,7 @@ Suggested order, each checked with side-by-side screenshots against a reference 
 - Offline support for unreliable school Wi-Fi is a good idea (once the recording check above is added).
 
 ## Browser test suite result
-Partial: the first 11 checks passed, none failed (the suite is very slow in software-rendered Chromium; the
-final count will be added here when it finishes).
+13 of 66 checks ran and passed; then the script crashed. It still clicks a top-bar "Load" button, which V2.0
+moved into the new "File ▾" menu, so the suite cannot get past the save/load step and has not been runnable since
+that UI change. Update its selectors (and any others the new shell changed), then run it in full and record the
+result. Add assertions for the new labs and for recorded lesson playback while doing so.
